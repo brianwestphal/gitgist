@@ -3,6 +3,7 @@ import { readCommits, readWorkingChanges, resolveCommitRange } from './git.js';
 import {
   buildTemplatePrompt,
   buildUserPrompt,
+  cleanModelOutput,
   COMMIT_SYSTEM_PROMPT,
   SYSTEM_PROMPT,
   TEMPLATE_SYSTEM_PROMPT,
@@ -89,7 +90,7 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
       model: options.model,
       maxTokens: options.maxTokens,
     });
-    body = generated.trim();
+    body = cleanModelOutput(generated, format);
   } else if (options.template !== undefined) {
     if (options.ai === false) {
       throw new Error('--template requires AI; remove --no-ai.');
@@ -102,7 +103,7 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
       model: options.model,
       maxTokens: options.maxTokens,
     });
-    body = generated.trim();
+    body = cleanModelOutput(generated, format);
   } else if (options.ai === false) {
     const pieces: string[] = [];
     if (haveCommits) pieces.push(renderMarkdown(buildChangelog(range, commits)).trimEnd());
@@ -116,7 +117,7 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
       model: options.model,
       maxTokens: options.maxTokens,
     });
-    body = generated.trim();
+    body = cleanModelOutput(generated, format);
   }
 
   // A commit message has no Markdown title; only notes get the `--title` heading.

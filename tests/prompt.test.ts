@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseCommit, type RawCommit } from '../src/parse.js';
 import {
   buildUserPrompt,
+  cleanModelOutput,
   COMMIT_SYSTEM_PROMPT,
   commitsToMaterial,
   stripCodeFences,
@@ -95,5 +96,50 @@ describe('COMMIT_SYSTEM_PROMPT', () => {
     expect(COMMIT_SYSTEM_PROMPT).toContain('Conventional Commits');
     expect(COMMIT_SYSTEM_PROMPT).toContain('type(scope): description');
     expect(COMMIT_SYSTEM_PROMPT).toContain('BREAKING CHANGE');
+  });
+});
+
+describe('cleanModelOutput (notes / template)', () => {
+  it('strips a conversational preamble before the first heading', () => {
+    // The exact wrapper observed from `claude -p` during GG-8 testing.
+    const raw =
+      "My apologies — I don't need to ask anything. Here are the release notes:\n\n## Features\n- Added a flag";
+    expect(cleanModelOutput(raw, 'notes')).toBe('## Features\n- Added a flag');
+  });
+
+  it('strips a trailing conversational postamble after the last bullet', () => {
+    const raw = '## Features\n- Added a flag\n\nHope that helps! Let me know if you want changes.';
+    expect(cleanModelOutput(raw, 'notes')).toBe('## Features\n- Added a flag');
+  });
+
+  it('leaves already-clean notes unchanged', () => {
+    const clean = '## Features\n- a\n\n## Bug Fixes\n- b';
+    expect(cleanModelOutput(clean, 'notes')).toBe(clean);
+  });
+
+  it('preserves blank lines and bullets between sections', () => {
+    const md = '## Features\n- a\n\n## Bug Fixes\n- b\n- c';
+    expect(cleanModelOutput(`Here you go:\n\n${md}`, 'notes')).toBe(md);
+  });
+
+  it('leaves the _No changes_ sentinel (no heading) untouched', () => {
+    expect(cleanModelOutput('_No user-facing changes._', 'notes')).toBe('_No user-facing changes._');
+  });
+});
+
+describe('cleanModelOutput (commit)', () => {
+  it('strips a preamble before the commit subject', () => {
+    const raw = "Here's a commit message for you:\n\nfeat: add a flag\n\n- details";
+    expect(cleanModelOutput(raw, 'commit')).toBe('feat: add a flag\n\n- details');
+  });
+
+  it('leaves an already-clean commit message unchanged', () => {
+    const clean = 'fix(api): handle empty body\n\n- guard against null';
+    expect(cleanModelOutput(clean, 'commit')).toBe(clean);
+  });
+
+  it('does not strip on markdown rules (a commit has no heading)', () => {
+    const clean = 'feat!: drop Node 18';
+    expect(cleanModelOutput(clean, 'commit')).toBe(clean);
   });
 });

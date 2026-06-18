@@ -13,7 +13,7 @@ src/
   types.ts            # shared types
   git.ts              # readCommits, latestTag, resolveCommitRange, readWorkingChanges
   parse.ts            # parseCommit (Conventional Commits)
-  prompt.ts           # SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT, buildUserPrompt, commitsToMaterial, stripCodeFences, workingChangesToMaterial
+  prompt.ts           # SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, buildUserPrompt, commitsToMaterial, stripCodeFences, cleanModelOutput, workingChangesToMaterial
   changelog.ts        # buildChangelog, renderMarkdown, renderWorkingChanges, DEFAULT_GROUPS  (--no-ai path)
   template.ts         # loadTemplate, parseTemplate (--template)
   releaseNotes.ts     # generateReleaseNotes (orchestrator)

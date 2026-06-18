@@ -31,6 +31,7 @@ gaps noted), **Deferred** (planned, tracked by a ticket).
 | NFR-4 | Strict TypeScript, ESM, lint-clean | **Shipped** | `strictTypeChecked`; `.js` import extensions. |
 | NFR-5 | Pure logic unit-tested; I/O layer integration-tested | **Shipped** | Vitest; temp-repo integration test (GG-10). |
 | NFR-6 | Surface AI output truncation | **Partial** | API provider warns on `stop_reason === 'max_tokens'` (GG-12); `--max-tokens` exposed. |
+| NFR-7 | Clean AI output | **Shipped** | `cleanModelOutput` (`prompt.ts`) strips conversational preamble/postamble the agentic `claude-cli` provider can add (GG-18); format-aware, no-op on clean output. |
 
 ## Open items
 

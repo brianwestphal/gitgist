@@ -1,5 +1,5 @@
 import type { Template } from './template.js';
-import type { Commit, WorkingChanges } from './types.js';
+import type { Commit, OutputFormat, WorkingChanges } from './types.js';
 
 /**
  * System prompt instructing the model to turn commits into grouped,
@@ -73,6 +73,49 @@ export function stripCodeFences(text: string): string {
   const fence = /^```[^\n]*\n([\s\S]*?)\n?```$/;
   const match = fence.exec(trimmed);
   return (match ? match[1] : trimmed).trim();
+}
+
+/** A Markdown heading line (`#` … `######` followed by a space). */
+const HEADING_RE = /^#{1,6}\s/;
+/** A "real content" line: heading, bullet, block quote, or table row. */
+const CONTENT_RE = /^(?:#{1,6}\s|[-*+]\s|>\s|\|)/;
+/** A Conventional Commit subject line. */
+const COMMIT_SUBJECT_RE = /^[a-z]+(?:\([^)]+\))?!?:\s/i;
+
+/**
+ * Remove conversational preamble/postamble that an agentic CLI provider
+ * (`claude -p`) can wrap around the requested output, despite the system
+ * prompt. The cleanup is format-aware and conservative — it never strips when
+ * it can't find the expected anchor, so on already-clean output (e.g. the
+ * Anthropic API provider, or the `_No changes_` sentinel) it is a no-op.
+ *
+ * - `notes` / templated output starts with a Markdown heading: drop anything
+ *   before the first heading, and any trailing lines after the last
+ *   heading/bullet/quote/table line.
+ * - `commit` output starts with a `type(scope): subject` line: drop anything
+ *   before it. (The body is free-form, so the tail is left untouched.)
+ *
+ * @param text - The raw (fence-stripped) model output.
+ * @param format - The expected output shape.
+ * @returns The cleaned text.
+ */
+export function cleanModelOutput(text: string, format: OutputFormat): string {
+  const trimmed = text.trim();
+  if (trimmed === '') return trimmed;
+  const lines = trimmed.split('\n');
+
+  if (format === 'commit') {
+    const subject = lines.findIndex((line) => COMMIT_SUBJECT_RE.test(line.trim()));
+    if (subject <= 0) return trimmed; // not found, or already first — leave as-is
+    return lines.slice(subject).join('\n').trim();
+  }
+
+  const firstHeading = lines.findIndex((line) => HEADING_RE.test(line));
+  if (firstHeading === -1) return trimmed; // no heading (e.g. a sentinel) — leave as-is
+
+  let end = lines.length - 1;
+  while (end > firstHeading && !CONTENT_RE.test(lines[end].trimStart())) end--;
+  return lines.slice(firstHeading, end + 1).join('\n').trim();
 }
 
 /**

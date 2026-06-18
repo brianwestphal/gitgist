@@ -22,6 +22,7 @@ export { parseCommit, type RawCommit } from './parse.js';
 export {
   buildTemplatePrompt,
   buildUserPrompt,
+  cleanModelOutput,
   COMMIT_SYSTEM_PROMPT,
   commitsToMaterial,
   stripCodeFences,
