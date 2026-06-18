@@ -1,6 +1,6 @@
 {
   "name": "gitgist",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Generate release notes and changelogs from a range of git commits (e.g. from a previous tag to HEAD).",
   "type": "module",
   "license": "MIT",
