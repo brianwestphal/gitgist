@@ -35,6 +35,13 @@ export const anthropicApiProvider: AIProvider = {
 
     const message = await stream.finalMessage();
 
+    if (message.stop_reason === 'max_tokens') {
+      process.stderr.write(
+        'gitgist: warning: release notes may be truncated (hit max_tokens). ' +
+          'Raise --max-tokens or narrow the commit range.\n',
+      );
+    }
+
     let text = '';
     for (const block of message.content) {
       if (block.type === 'text') text += block.text;

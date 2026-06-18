@@ -7,13 +7,18 @@ import type { Commit, ReadCommitsOptions } from './types.js';
 const execFileAsync = promisify(execFile);
 
 /**
- * Field and record separators for the `git log` pretty format. Both are control
- * characters that will not appear in commit text, so we can split safely.
+ * Field separator for the `git log` pretty format — a control character that is
+ * vanishingly unlikely to appear in commit text. Records are separated by NUL
+ * via `git log -z` (a byte git guarantees cannot appear in its data), so even a
+ * commit body containing this field separator can't corrupt record boundaries,
+ * and we defensively rejoin any extra split fields back into the body.
  */
 const FIELD_SEP = '';
-const RECORD_SEP = '';
 
-const PRETTY_FORMAT = ['%H', '%an', '%aI', '%s', '%b'].join(FIELD_SEP) + RECORD_SEP;
+/** Number of leading fixed fields before the free-form body (`%b`). */
+const FIXED_FIELDS = 4;
+
+const PRETTY_FORMAT = ['%H', '%an', '%aI', '%s', '%b'].join(FIELD_SEP);
 
 /**
  * Read and parse all commits in a git range.
@@ -25,18 +30,24 @@ const PRETTY_FORMAT = ['%H', '%an', '%aI', '%s', '%b'].join(FIELD_SEP) + RECORD_
 export async function readCommits(range: string, options: ReadCommitsOptions = {}): Promise<Commit[]> {
   const cwd = options.cwd ?? process.cwd();
 
+  // `-z` separates commits with NUL — robust against any character (including
+  // the field separator and newlines) appearing inside a commit message.
   const { stdout } = await execFileAsync(
     'git',
-    ['log', `--pretty=format:${PRETTY_FORMAT}`, range],
+    ['log', '-z', `--pretty=format:${PRETTY_FORMAT}`, range],
     { cwd, maxBuffer: 64 * 1024 * 1024 },
   );
 
   return stdout
-    .split(RECORD_SEP)
+    .split('\0')
     .map((record) => record.trim())
     .filter((record) => record.length > 0)
     .map((record) => {
-      const [hash, author, date, subject, body = ''] = record.split(FIELD_SEP);
+      const fields = record.split(FIELD_SEP);
+      const [hash, author, date, subject] = fields;
+      // Rejoin any trailing fields so a body that itself contains FIELD_SEP is
+      // preserved rather than truncated.
+      const body = fields.slice(FIXED_FIELDS).join(FIELD_SEP);
       const raw: RawCommit = { hash, author, date, subject, body: body.trim() };
       return parseCommit(raw);
     });

@@ -10,6 +10,8 @@ export interface GenerateRequest {
   model?: string;
   /** Optional max output tokens (provider-specific). */
   maxTokens?: number;
+  /** Optional wall-clock timeout in ms (CLI providers; default 120000). */
+  timeoutMs?: number;
 }
 
 /**

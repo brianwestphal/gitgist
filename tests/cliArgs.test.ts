@@ -39,6 +39,18 @@ describe('parseArgs', () => {
     expect(parseArgs(['--provider', 'claude-cli']).provider).toBe('claude-cli');
   });
 
+  it('parses a valid --max-tokens', () => {
+    expect(parseArgs(['--max-tokens', '8000']).maxTokens).toBe(8000);
+  });
+
+  it('rejects a non-numeric --max-tokens', () => {
+    expect(() => parseArgs(['--max-tokens', 'lots'])).toThrow(/Invalid --max-tokens/);
+  });
+
+  it('rejects a non-positive --max-tokens', () => {
+    expect(() => parseArgs(['--max-tokens', '0'])).toThrow(/Invalid --max-tokens/);
+  });
+
   it('rejects an invalid --provider', () => {
     expect(() => parseArgs(['--provider', 'bogus'])).toThrow(/Invalid --provider/);
   });

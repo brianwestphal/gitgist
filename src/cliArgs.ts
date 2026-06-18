@@ -9,6 +9,7 @@ export interface CliArgs {
   cwd?: string;
   provider: ProviderName;
   model?: string;
+  maxTokens?: number;
   ai: boolean;
   help: boolean;
 }
@@ -29,6 +30,7 @@ Options:
                           using AI (works offline, no API key needed).
   --provider <name>       AI backend: auto | anthropic-api | claude-cli (default: auto).
   --model <id>            Model id for the anthropic-api provider (default: claude-opus-4-8).
+  --max-tokens <n>        Max output tokens for the anthropic-api provider (default: 16000).
   --title <text>          Render <text> as a top-level heading above the notes.
   --cwd <path>            Run against the git repository at <path> (default: cwd).
   -h, --help              Show this help.
@@ -48,6 +50,14 @@ function parseProvider(value: string | undefined): ProviderName {
   throw new Error(
     `Invalid --provider: ${value ?? '(missing)'} (expected auto, anthropic-api, or claude-cli)`,
   );
+}
+
+function parseMaxTokens(value: string | undefined): number {
+  const n = Number(value);
+  if (value === undefined || !Number.isInteger(n) || n <= 0) {
+    throw new Error(`Invalid --max-tokens: ${value ?? '(missing)'} (expected a positive integer)`);
+  }
+  return n;
 }
 
 /**
@@ -82,6 +92,9 @@ export function parseArgs(argv: string[]): CliArgs {
         break;
       case '--model':
         args.model = argv[++i];
+        break;
+      case '--max-tokens':
+        args.maxTokens = parseMaxTokens(argv[++i]);
         break;
       case '--provider':
         args.provider = parseProvider(argv[++i]);

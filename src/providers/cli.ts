@@ -6,6 +6,12 @@ import type { AIProvider, GenerateRequest } from './types.js';
 
 const execFileAsync = promisify(execFile);
 
+/** Default wall-clock timeout for a single CLI generation. */
+const DEFAULT_TIMEOUT_MS = 120_000;
+
+/** How many trailing stderr lines to include in a failure message. */
+const STDERR_TAIL_LINES = 5;
+
 /**
  * Describes a CLI-backed AI provider — a locally installed coding/agent CLI
  * (Claude, Codex, Gemini, Cursor, …) invoked in a one-shot headless mode.
@@ -28,8 +34,20 @@ export interface CliProviderSpec {
    * - `arg` — appended as the final positional argument.
    */
   input?: 'stdin' | 'arg';
+  /** Default wall-clock timeout in ms for a generation (default: 120000). */
+  timeoutMs?: number;
   /** Short hint shown when the CLI runs but returns nothing (e.g. not signed in). */
   hint?: string;
+}
+
+/** Keep only the last few non-empty lines of stderr for an error message. */
+function stderrTail(stderr: string): string {
+  const lines = stderr
+    .trim()
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  return lines.slice(-STDERR_TAIL_LINES).join('\n');
 }
 
 /**
@@ -37,7 +55,8 @@ export interface CliProviderSpec {
  *
  * This is the no-API-key path, and the reusable shape every CLI-capable
  * provider should adopt. The combined system + user prompt is delivered to the
- * CLI, and a wrapping Markdown code fence (if any) is stripped from its output.
+ * CLI, a wrapping Markdown code fence (if any) is stripped from its output, the
+ * run is bounded by a timeout, and stderr is surfaced on failure.
  *
  * @param spec - The CLI invocation details.
  * @returns A provider backed by that CLI.
@@ -61,30 +80,66 @@ export function createCliProvider(spec: CliProviderSpec): AIProvider {
     generate(request: GenerateRequest): Promise<string> {
       const fullPrompt = `${request.system}\n\n${request.prompt}`;
       const args = input === 'arg' ? [...spec.runArgs, fullPrompt] : spec.runArgs;
+      const timeoutMs = request.timeoutMs ?? spec.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
       return new Promise<string>((resolve, reject) => {
-        const child = spawn(spec.command, args, { stdio: ['pipe', 'pipe', 'ignore'] });
+        const child = spawn(spec.command, args, { stdio: ['pipe', 'pipe', 'pipe'] });
 
         let out = '';
+        let err = '';
+        let settled = false;
+
+        const timer = setTimeout(() => {
+          child.kill('SIGKILL');
+          finish(() => {
+            reject(new Error(`${spec.command} timed out after ${String(timeoutMs)}ms`));
+          });
+        }, timeoutMs);
+
+        function finish(action: () => void): void {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          action();
+        }
+
         child.stdout.setEncoding('utf8');
         child.stdout.on('data', (chunk: string) => {
           out += chunk;
         });
-        child.on('error', reject);
+        child.stderr.setEncoding('utf8');
+        child.stderr.on('data', (chunk: string) => {
+          err += chunk;
+        });
+
+        // Swallow EPIPE if the child exits before we finish writing stdin; the
+        // real cause surfaces via the exit code in the 'close' handler.
+        child.stdin.on('error', () => undefined);
+        child.on('error', (error) => {
+          finish(() => {
+            reject(error);
+          });
+        });
         child.on('close', (code) => {
-          if (code !== 0) {
-            reject(
-              new Error(`${spec.command} exited with code ${code === null ? 'null' : String(code)}`),
-            );
-            return;
-          }
-          const text = stripCodeFences(out);
-          if (text === '') {
-            const hint = spec.hint !== undefined ? ` (${spec.hint})` : '';
-            reject(new Error(`${spec.command} returned no output${hint}`));
-            return;
-          }
-          resolve(text);
+          finish(() => {
+            if (code !== 0) {
+              const tail = stderrTail(err);
+              const detail = tail === '' ? '' : `: ${tail}`;
+              reject(
+                new Error(
+                  `${spec.command} exited with code ${code === null ? 'null' : String(code)}${detail}`,
+                ),
+              );
+              return;
+            }
+            const text = stripCodeFences(out);
+            if (text === '') {
+              const hint = spec.hint !== undefined ? ` (${spec.hint})` : '';
+              reject(new Error(`${spec.command} returned no output${hint}`));
+              return;
+            }
+            resolve(text);
+          });
         });
 
         if (input === 'stdin') {

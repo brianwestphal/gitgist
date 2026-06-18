@@ -18,6 +18,7 @@ async function main(): Promise<void> {
     ai: args.ai,
     provider: args.provider,
     model: args.model,
+    maxTokens: args.maxTokens,
     title: args.title,
   });
 

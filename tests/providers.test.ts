@@ -30,6 +30,42 @@ describe('createCliProvider', () => {
     expect(provider.name).toBe('nope-cli');
     expect(await provider.isAvailable()).toBe(false);
   });
+
+  it('generate() pipes the prompt and returns the CLI output', async () => {
+    // A node stub that echoes whatever it reads on stdin.
+    const provider = createCliProvider({
+      name: 'echo-cli',
+      command: process.execPath,
+      runArgs: ['-e', 'process.stdin.on("data", (d) => process.stdout.write(d))'],
+    });
+    const out = await provider.generate({ system: 'SYS', prompt: 'PROMPT' });
+    expect(out).toContain('SYS');
+    expect(out).toContain('PROMPT');
+  });
+
+  it('generate() surfaces stderr on a non-zero exit', async () => {
+    const provider = createCliProvider({
+      name: 'fail-cli',
+      command: process.execPath,
+      runArgs: ['-e', 'process.stderr.write("auth failed: bad token"); process.exit(1)'],
+      input: 'arg',
+    });
+    await expect(provider.generate({ system: '', prompt: '' })).rejects.toThrow(
+      /exited with code 1: auth failed: bad token/,
+    );
+  });
+
+  it('generate() rejects after the timeout', async () => {
+    const provider = createCliProvider({
+      name: 'hang-cli',
+      command: process.execPath,
+      runArgs: ['-e', 'setInterval(() => undefined, 1000)'],
+      input: 'arg',
+    });
+    await expect(
+      provider.generate({ system: '', prompt: '', timeoutMs: 200 }),
+    ).rejects.toThrow(/timed out after 200ms/);
+  });
 });
 
 describe('anthropicApiProvider.isAvailable', () => {

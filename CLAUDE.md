@@ -74,4 +74,18 @@ npm run build     # tsup → dist/ (index + cli, with .d.ts)
 Keep AI/process/git calls thin and test the pure logic directly: `parse.ts`,
 `changelog.ts`, `prompt.ts`, `cliArgs.ts`, `resolveCommitRange` (the
 `from`-provided cases avoid spawning git), and provider availability/selection
-(toggle `ANTHROPIC_API_KEY`). Don't hit the real AI in unit tests.
+(toggle `ANTHROPIC_API_KEY`). The git + orchestration layer is covered by
+`tests/integration.test.ts`, which builds a throwaway temp repo and exercises
+`readCommits` / `resolveCommitRange` / `generateReleaseNotes({ ai: false })`
+offline. CLI providers are tested against a small `node -e` stub command. Don't
+hit the real AI in unit tests.
+
+## Documentation
+
+- [docs/1-overview.md](docs/1-overview.md) — what gitgist is and its principles.
+- [docs/2-architecture.md](docs/2-architecture.md) — module layout and data flow.
+- [docs/3-requirements.md](docs/3-requirements.md) — FR/NFR requirements with status.
+- [docs/ai/code-summary.md](docs/ai/code-summary.md) — AI-oriented code map.
+- [docs/ai/requirements-summary.md](docs/ai/requirements-summary.md) — AI-oriented requirements digest.
+
+Keep `docs/ai/*` and the requirement status markers in sync when code changes.
