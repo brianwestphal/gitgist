@@ -1,11 +1,11 @@
-import type { Commit } from './types.js';
+import type { Commit, WorkingChanges } from './types.js';
 
 /**
  * System prompt instructing the model to turn commits into grouped,
  * user-facing release notes. The sections are intentionally not fixed — the
  * model picks whatever headings best fit the actual changes.
  */
-export const SYSTEM_PROMPT = `You are a release-notes generator. You are given the git commits between two points in a repository's history. Write concise, user-facing release notes in Markdown.
+export const SYSTEM_PROMPT = `You are a release-notes generator. You are given git commits and/or uncommitted changes (diffs) from a repository. Write concise, user-facing release notes in Markdown that summarize what changed.
 
 Rules:
 - Output ONLY Markdown — no preamble, no explanation, no closing remarks, and do not wrap the whole thing in a code fence.
@@ -66,4 +66,14 @@ export function buildUserPrompt(range: string, commits: Commit[]): string {
   const count = commits.length;
   const noun = count === 1 ? 'commit' : 'commits';
   return `Here ${count === 1 ? 'is' : 'are'} the ${String(count)} ${noun} in \`${range}\`:\n\n${commitsToMaterial(commits)}`;
+}
+
+/**
+ * Build the prompt fragment describing uncommitted (working-tree) changes.
+ *
+ * @param working - The working changes gathered by `readWorkingChanges`.
+ * @returns A labeled block of the diff material.
+ */
+export function workingChangesToMaterial(working: WorkingChanges): string {
+  return `Uncommitted changes (not yet committed) — summarize what they do for the reader:\n\n${working.diff}`;
 }

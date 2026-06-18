@@ -13,9 +13,10 @@ Conventional Commits fallback is available offline.
 
 The pipeline: resolve a range → read commits → generate notes.
 
-- `src/git.ts` — `readCommits(range)` shells out to `git log` (control-char
-  pretty format); `latestTag()` / `resolveCommitRange(from, to)` turn a
-  `from`/`to` pair into a range (defaults: latest tag → `HEAD`).
+- `src/git.ts` — `readCommits(range)` shells out to `git log` (NUL-delimited
+  records); `latestTag()` / `resolveCommitRange(from, to)` turn a `from`/`to`
+  pair into a range (defaults: latest tag → `HEAD`); `readWorkingChanges()`
+  gathers staged/unstaged/untracked diffs for the `--staged`/`--working` flags.
 - `src/parse.ts` — `parseCommit(raw)` parses Conventional Commit subjects.
 - `src/prompt.ts` — `SYSTEM_PROMPT`, `buildUserPrompt()`, `commitsToMaterial()`,
   `stripCodeFences()`: turn commits into the model prompt and clean its output.

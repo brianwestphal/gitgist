@@ -2,9 +2,15 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 import { parseCommit, type RawCommit } from './parse.js';
-import type { Commit, ReadCommitsOptions } from './types.js';
+import type { Commit, ReadCommitsOptions, WorkingChangeOptions, WorkingChanges } from './types.js';
 
 const execFileAsync = promisify(execFile);
+
+/** Generous output cap for git invocations (diffs can be large). */
+const GIT_MAX_BUFFER = 64 * 1024 * 1024;
+
+/** Per-section diff cap (chars) so a huge diff can't blow up the prompt. */
+const MAX_DIFF_CHARS = 8000;
 
 /**
  * Field separator for the `git log` pretty format — a control character that is
@@ -89,4 +95,92 @@ export async function resolveCommitRange(
   const target = to ?? 'HEAD';
   const base = from ?? (await latestTag(cwd));
   return base === null ? target : `${base}..${target}`;
+}
+
+/** NUL-separated file list from a git command (empties filtered). */
+async function gitNames(args: string[], cwd: string): Promise<string[]> {
+  const { stdout } = await execFileAsync('git', args, { cwd, maxBuffer: GIT_MAX_BUFFER });
+  return stdout.split('\0').filter((name) => name.length > 0);
+}
+
+/** Trim a diff to a sane length so a huge change can't dominate the prompt. */
+function capDiff(diff: string): string {
+  const trimmed = diff.trim();
+  return trimmed.length > MAX_DIFF_CHARS
+    ? `${trimmed.slice(0, MAX_DIFF_CHARS)}\n… (diff truncated)`
+    : trimmed;
+}
+
+/** Diff of a single untracked file against /dev/null (shows it as all-added). */
+async function untrackedDiff(path: string, cwd: string): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync(
+      'git',
+      ['diff', '--no-color', '--no-index', '--', '/dev/null', path],
+      { cwd, maxBuffer: GIT_MAX_BUFFER },
+    );
+    return stdout;
+  } catch (err: unknown) {
+    // `git diff --no-index` exits 1 whenever the files differ — which is always
+    // for a new file — and the diff itself is on stdout of the rejected call.
+    if (typeof err === 'object' && err !== null && 'stdout' in err) {
+      const { stdout } = err as { stdout?: unknown };
+      if (typeof stdout === 'string') return stdout;
+    }
+    return `new file: ${path}`;
+  }
+}
+
+/**
+ * Read uncommitted changes from the working tree, for summarizing pending work
+ * (e.g. to draft a commit message) or to fold into release notes alongside the
+ * committed history.
+ *
+ * @param options - Which categories (staged / unstaged / untracked) to gather.
+ * @returns The changed file paths per category plus formatted diff material.
+ */
+export async function readWorkingChanges(options: WorkingChangeOptions = {}): Promise<WorkingChanges> {
+  const cwd = options.cwd ?? process.cwd();
+  const staged: string[] = [];
+  const unstaged: string[] = [];
+  const untracked: string[] = [];
+  const sections: string[] = [];
+
+  if (options.staged === true) {
+    staged.push(...(await gitNames(['diff', '--staged', '--name-only', '-z'], cwd)));
+    const { stdout } = await execFileAsync('git', ['diff', '--staged', '--no-color'], {
+      cwd,
+      maxBuffer: GIT_MAX_BUFFER,
+    });
+    const diff = capDiff(stdout);
+    if (diff !== '') sections.push(`### Staged changes\n${diff}`);
+  }
+
+  if (options.unstaged === true) {
+    unstaged.push(...(await gitNames(['diff', '--name-only', '-z'], cwd)));
+    const { stdout } = await execFileAsync('git', ['diff', '--no-color'], {
+      cwd,
+      maxBuffer: GIT_MAX_BUFFER,
+    });
+    const diff = capDiff(stdout);
+    if (diff !== '') sections.push(`### Unstaged changes\n${diff}`);
+  }
+
+  if (options.untracked === true) {
+    untracked.push(...(await gitNames(['ls-files', '--others', '--exclude-standard', '-z'], cwd)));
+    const parts: string[] = [];
+    for (const path of untracked) {
+      parts.push(await untrackedDiff(path, cwd));
+    }
+    const diff = capDiff(parts.join('\n'));
+    if (diff !== '') sections.push(`### New (untracked) files\n${diff}`);
+  }
+
+  return {
+    staged,
+    unstaged,
+    untracked,
+    diff: sections.join('\n\n'),
+    isEmpty: staged.length === 0 && unstaged.length === 0 && untracked.length === 0,
+  };
 }

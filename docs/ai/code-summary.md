@@ -11,10 +11,10 @@ src/
   cliArgs.ts          # parseArgs() + USAGE
   index.ts            # public API surface + generateChangelog()
   types.ts            # shared types
-  git.ts              # readCommits, latestTag, resolveCommitRange
+  git.ts              # readCommits, latestTag, resolveCommitRange, readWorkingChanges
   parse.ts            # parseCommit (Conventional Commits)
-  prompt.ts           # SYSTEM_PROMPT, buildUserPrompt, commitsToMaterial, stripCodeFences
-  changelog.ts        # buildChangelog, renderMarkdown, DEFAULT_GROUPS  (--no-ai path)
+  prompt.ts           # SYSTEM_PROMPT, buildUserPrompt, commitsToMaterial, stripCodeFences, workingChangesToMaterial
+  changelog.ts        # buildChangelog, renderMarkdown, renderWorkingChanges, DEFAULT_GROUPS  (--no-ai path)
   releaseNotes.ts     # generateReleaseNotes (orchestrator)
   providers/
     types.ts          # AIProvider, GenerateRequest
@@ -27,9 +27,10 @@ tests/                # parse, changelog, prompt, cliArgs, git, providers, integ
 
 ## Public API (`src/index.ts`)
 
-- `generateReleaseNotes(options)` — main entry (AI or `ai:false` offline).
+- `generateReleaseNotes(options)` — main entry (AI or `ai:false` offline; commits and/or working-tree changes).
 - `generateChangelog(range, options)` — deterministic-only convenience wrapper.
 - Commits/range: `readCommits`, `latestTag`, `resolveCommitRange`, `parseCommit`.
+- Working tree: `readWorkingChanges`, `renderWorkingChanges`, `workingChangesToMaterial`.
 - Changelog: `buildChangelog`, `renderMarkdown`, `DEFAULT_GROUPS`.
 - Prompt: `SYSTEM_PROMPT`, `buildUserPrompt`, `commitsToMaterial`, `stripCodeFences`.
 - Providers: `resolveProvider`, `PROVIDERS`, `AUTO_ORDER`, `createCliProvider`,
@@ -46,6 +47,7 @@ tests/                # parse, changelog, prompt, cliArgs, git, providers, integ
 | add an AI provider | `providers/` — `createCliProvider` for CLIs, register in `index.ts` (`PROVIDERS` + `AUTO_ORDER`) |
 | change how the git range is resolved | `git.ts` (`resolveCommitRange`, `latestTag`) |
 | change how commits are read/parsed | `git.ts` (`readCommits`), `parse.ts` |
+| change how uncommitted changes are read | `git.ts` (`readWorkingChanges`); orchestration in `releaseNotes.ts` |
 | change deterministic (`--no-ai`) grouping | `changelog.ts` |
 | add/change a CLI flag | `cliArgs.ts` (+ wire in `cli.ts`, `releaseNotes.ts`) |
 | change provider selection order | `providers/index.ts` (`AUTO_ORDER`) |

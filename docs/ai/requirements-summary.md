@@ -13,8 +13,9 @@ Keep status markers in sync with the implementation.
 - **FR-6 Anthropic API provider** — Shipped. `providers/anthropicApi.ts`.
 - **FR-7 CLI-first auto-selection** — Shipped. `providers/index.ts`.
 - **FR-8 Offline `--no-ai` fallback** — Shipped. `changelog.ts`.
-- **FR-9 CLI flags** — Shipped. `cliArgs.ts` (`--no-ai/--provider/--model/--max-tokens/--title/--cwd/--help`).
+- **FR-9 CLI flags** — Shipped. `cliArgs.ts` (`--no-ai/--provider/--model/--max-tokens/--title/--cwd/--help` + working-tree flags).
 - **FR-10 More providers** — Deferred. GG-3 (Apple FM), GG-4 (Ollama/local), GG-5 (Codex), GG-6 (Gemini), GG-7 (Cursor).
+- **FR-11 Uncommitted working-tree changes** — Shipped. `git.ts:readWorkingChanges` + `--staged`/`--cached`/`--unstaged`/`--untracked`/`--working`; standalone (no range) summarizes only pending changes (commit-message draft). Deterministic listing via `changelog.ts:renderWorkingChanges`.
 
 ## Non-functional
 

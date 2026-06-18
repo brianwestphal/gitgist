@@ -66,4 +66,32 @@ describe('parseArgs', () => {
   it('sets help for -h', () => {
     expect(parseArgs(['-h']).help).toBe(true);
   });
+
+  it('defaults the working-tree flags to false', () => {
+    const args = parseArgs([]);
+    expect(args.staged).toBe(false);
+    expect(args.unstaged).toBe(false);
+    expect(args.untracked).toBe(false);
+  });
+
+  it('parses --staged and its --cached alias', () => {
+    expect(parseArgs(['--staged']).staged).toBe(true);
+    expect(parseArgs(['--cached']).staged).toBe(true);
+  });
+
+  it('parses --unstaged and --untracked', () => {
+    const args = parseArgs(['--unstaged', '--untracked']);
+    expect(args.unstaged).toBe(true);
+    expect(args.untracked).toBe(true);
+    expect(args.staged).toBe(false);
+  });
+
+  it('--working / --uncommitted enable all three categories', () => {
+    for (const flag of ['--working', '--uncommitted']) {
+      const args = parseArgs([flag]);
+      expect(args.staged).toBe(true);
+      expect(args.unstaged).toBe(true);
+      expect(args.untracked).toBe(true);
+    }
+  });
 });

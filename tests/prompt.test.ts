@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseCommit, type RawCommit } from '../src/parse.js';
-import { buildUserPrompt, commitsToMaterial, stripCodeFences, SYSTEM_PROMPT } from '../src/prompt.js';
-import type { Commit } from '../src/types.js';
+import {
+  buildUserPrompt,
+  commitsToMaterial,
+  stripCodeFences,
+  SYSTEM_PROMPT,
+  workingChangesToMaterial,
+} from '../src/prompt.js';
+import type { Commit, WorkingChanges } from '../src/types.js';
 
 function commit(subject: string, body = '', hash = 'abcdef1234567890'): Commit {
   const raw: RawCommit = { hash, subject, body, author: 'A', date: '2026-01-01T00:00:00Z' };
@@ -60,9 +66,25 @@ describe('buildUserPrompt', () => {
   });
 });
 
+describe('workingChangesToMaterial', () => {
+  it('labels the diff as uncommitted changes', () => {
+    const working: WorkingChanges = {
+      staged: ['a.ts'],
+      unstaged: [],
+      untracked: [],
+      diff: '### Staged changes\ndiff --git a/a.ts b/a.ts',
+      isEmpty: false,
+    };
+    const material = workingChangesToMaterial(working);
+    expect(material).toContain('Uncommitted changes');
+    expect(material).toContain('### Staged changes');
+  });
+});
+
 describe('SYSTEM_PROMPT', () => {
-  it('instructs markdown-only, themed sections', () => {
+  it('instructs markdown-only, themed sections, and mentions diffs', () => {
     expect(SYSTEM_PROMPT).toContain('Markdown');
     expect(SYSTEM_PROMPT).toContain('##');
+    expect(SYSTEM_PROMPT).toContain('diff');
   });
 });

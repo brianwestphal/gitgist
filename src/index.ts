@@ -11,14 +11,20 @@ import { buildChangelog, renderMarkdown } from './changelog.js';
 import { readCommits } from './git.js';
 import type { ChangelogOptions, ReadCommitsOptions } from './types.js';
 
-export { buildChangelog, DEFAULT_GROUPS, renderMarkdown } from './changelog.js';
-export { latestTag, readCommits, resolveCommitRange } from './git.js';
+export {
+  buildChangelog,
+  DEFAULT_GROUPS,
+  renderMarkdown,
+  renderWorkingChanges,
+} from './changelog.js';
+export { latestTag, readCommits, readWorkingChanges, resolveCommitRange } from './git.js';
 export { parseCommit, type RawCommit } from './parse.js';
 export {
   buildUserPrompt,
   commitsToMaterial,
   stripCodeFences,
   SYSTEM_PROMPT,
+  workingChangesToMaterial,
 } from './prompt.js';
 export {
   type AIProvider,
@@ -40,6 +46,8 @@ export type {
   ProviderName,
   ReadCommitsOptions,
   ReleaseNotesOptions,
+  WorkingChangeOptions,
+  WorkingChanges,
 } from './types.js';
 
 /**

@@ -102,4 +102,36 @@ export interface ReleaseNotesOptions {
   maxTokens?: number;
   /** Heading text rendered as a top-level `#` heading above the notes. */
   title?: string;
+  /** Include staged (indexed) changes — `git diff --staged`. */
+  staged?: boolean;
+  /** Include unstaged changes to tracked files — `git diff`. */
+  unstaged?: boolean;
+  /** Include untracked (new) files. */
+  untracked?: boolean;
+}
+
+/** Which categories of uncommitted change to read. */
+export interface WorkingChangeOptions {
+  /** Repository directory (default: `process.cwd()`). */
+  cwd?: string;
+  /** Include staged (indexed) changes. */
+  staged?: boolean;
+  /** Include unstaged changes to tracked files. */
+  unstaged?: boolean;
+  /** Include untracked (new) files. */
+  untracked?: boolean;
+}
+
+/** Uncommitted changes in the working tree, gathered by `readWorkingChanges`. */
+export interface WorkingChanges {
+  /** Paths of staged (indexed) files. */
+  staged: string[];
+  /** Paths of tracked files with unstaged modifications. */
+  unstaged: string[];
+  /** Paths of untracked (new) files. */
+  untracked: string[];
+  /** Formatted diff material (per-category `###` sections) for the AI. */
+  diff: string;
+  /** True when no requested category has any change. */
+  isEmpty: boolean;
 }

@@ -1,4 +1,10 @@
-import type { Changelog, ChangelogOptions, ChangelogSection, Commit } from './types.js';
+import type {
+  Changelog,
+  ChangelogOptions,
+  ChangelogSection,
+  Commit,
+  WorkingChanges,
+} from './types.js';
 
 /**
  * Default Conventional Commit type → section title mapping, in display order.
@@ -106,4 +112,29 @@ export function renderMarkdown(changelog: Changelog, options: ChangelogOptions =
   }
 
   return lines.join('\n').trimEnd() + '\n';
+}
+
+/**
+ * Deterministically render uncommitted changes as an "Uncommitted changes"
+ * Markdown section listing the changed files per category — the `--no-ai`
+ * counterpart for working-tree changes (which have no commit metadata to group).
+ *
+ * @param working - The working changes gathered by `readWorkingChanges`.
+ * @returns Markdown, or an empty string when there are no changes.
+ */
+export function renderWorkingChanges(working: WorkingChanges): string {
+  if (working.isEmpty) return '';
+
+  const lines: string[] = ['## Uncommitted changes', ''];
+  const addGroup = (title: string, files: string[]): void => {
+    if (files.length === 0) return;
+    lines.push(`### ${title}`);
+    for (const file of files) lines.push(`- \`${file}\``);
+    lines.push('');
+  };
+  addGroup('Staged', working.staged);
+  addGroup('Unstaged', working.unstaged);
+  addGroup('Untracked', working.untracked);
+
+  return lines.join('\n').trimEnd();
 }

@@ -10,6 +10,9 @@ export interface CliArgs {
   provider: ProviderName;
   model?: string;
   maxTokens?: number;
+  staged: boolean;
+  unstaged: boolean;
+  untracked: boolean;
   ai: boolean;
   help: boolean;
 }
@@ -26,6 +29,10 @@ Arguments:
   range            A single git revision range, e.g. v2.0..HEAD.
 
 Options:
+  --staged, --cached      Include staged changes (git diff --staged).
+  --unstaged              Include unstaged changes to tracked files (git diff).
+  --untracked             Include untracked (new) files.
+  --working, --uncommitted  Include all uncommitted work (staged + unstaged + untracked).
   --no-ai                 Group commits by Conventional Commit type instead of
                           using AI (works offline, no API key needed).
   --provider <name>       AI backend: auto | anthropic-api | claude-cli (default: auto).
@@ -40,9 +47,18 @@ API keys:
   reuses your signed-in \`claude\` CLI and needs no key. With --provider auto,
   the API is used when ANTHROPIC_API_KEY is set, otherwise the CLI.
 
+Working-tree changes:
+  The --staged / --unstaged / --untracked / --working flags summarize
+  uncommitted work. Used with no range, gitgist summarizes only the pending
+  changes (handy for drafting a commit message); used with a range, they are
+  folded in alongside the commits.
+
 Examples:
   gitgist v2.0 HEAD
   gitgist v1.4.0..HEAD --title "v1.5.0"
+  gitgist --staged                       # summarize staged changes (commit msg)
+  gitgist --working                      # all uncommitted work
+  gitgist v1.4.0..HEAD --untracked       # commits plus new files
   gitgist --no-ai`;
 
 function parseProvider(value: string | undefined): ProviderName {
@@ -71,7 +87,14 @@ function parseMaxTokens(value: string | undefined): number {
  * @throws On unknown options, an invalid provider, or too many positionals.
  */
 export function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { provider: 'auto', ai: true, help: false };
+  const args: CliArgs = {
+    provider: 'auto',
+    ai: true,
+    help: false,
+    staged: false,
+    unstaged: false,
+    untracked: false,
+  };
   const positionals: string[] = [];
 
   for (let i = 0; i < argv.length; i++) {
@@ -80,6 +103,22 @@ export function parseArgs(argv: string[]): CliArgs {
       case '-h':
       case '--help':
         args.help = true;
+        break;
+      case '--staged':
+      case '--cached':
+        args.staged = true;
+        break;
+      case '--unstaged':
+        args.unstaged = true;
+        break;
+      case '--untracked':
+        args.untracked = true;
+        break;
+      case '--working':
+      case '--uncommitted':
+        args.staged = true;
+        args.unstaged = true;
+        args.untracked = true;
         break;
       case '--no-ai':
         args.ai = false;

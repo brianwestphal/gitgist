@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { readCommits, resolveCommitRange } from '../src/git.js';
+import { readCommits, readWorkingChanges, resolveCommitRange } from '../src/git.js';
 import { generateReleaseNotes } from '../src/releaseNotes.js';
 
 /** Run a git command in `cwd`, returning trimmed stdout. */
@@ -84,5 +84,84 @@ describe('git + orchestration integration', () => {
   it('generateReleaseNotes reports an empty range cleanly', async () => {
     const notes = await generateReleaseNotes({ range: 'HEAD..HEAD', ai: false, cwd: tagged });
     expect(notes.trim()).toBe('_No changes in `HEAD..HEAD`._');
+  });
+});
+
+describe('working-tree changes integration', () => {
+  let repo: string;
+
+  beforeAll(() => {
+    repo = initRepo();
+    // One committed file to modify, so we have a tracked-but-unstaged change.
+    writeFileSync(join(repo, 'tracked.txt'), 'original\n');
+    git(repo, 'add', 'tracked.txt');
+    commit(repo, 'feat: add tracked file');
+
+    // Staged: a brand-new file added to the index.
+    writeFileSync(join(repo, 'staged.txt'), 'staged content\n');
+    git(repo, 'add', 'staged.txt');
+
+    // Unstaged: modify the committed file without staging it.
+    writeFileSync(join(repo, 'tracked.txt'), 'modified\n');
+
+    // Untracked: a new file never added.
+    writeFileSync(join(repo, 'untracked.txt'), 'brand new\n');
+  });
+
+  afterAll(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
+
+  it('readWorkingChanges categorizes staged / unstaged / untracked', async () => {
+    const wc = await readWorkingChanges({
+      cwd: repo,
+      staged: true,
+      unstaged: true,
+      untracked: true,
+    });
+    expect(wc.isEmpty).toBe(false);
+    expect(wc.staged).toContain('staged.txt');
+    expect(wc.unstaged).toContain('tracked.txt');
+    expect(wc.untracked).toContain('untracked.txt');
+    expect(wc.diff).toContain('### Staged changes');
+    expect(wc.diff).toContain('### Unstaged changes');
+    expect(wc.diff).toContain('### New (untracked) files');
+    expect(wc.diff).toContain('staged content');
+  });
+
+  it('readWorkingChanges only reads requested categories', async () => {
+    const wc = await readWorkingChanges({ cwd: repo, staged: true });
+    expect(wc.staged).toContain('staged.txt');
+    expect(wc.unstaged).toEqual([]);
+    expect(wc.untracked).toEqual([]);
+  });
+
+  it('generateReleaseNotes (--no-ai) renders an Uncommitted changes section', async () => {
+    const notes = await generateReleaseNotes({
+      cwd: repo,
+      ai: false,
+      staged: true,
+      unstaged: true,
+      untracked: true,
+    });
+    expect(notes).toContain('## Uncommitted changes');
+    expect(notes).toContain('- `staged.txt`');
+    expect(notes).toContain('- `tracked.txt`');
+    expect(notes).toContain('- `untracked.txt`');
+    // No range was requested, so committed history must not appear.
+    expect(notes).not.toContain('add tracked file');
+  });
+
+  it('reports cleanly when requested categories are empty', async () => {
+    const clean = initRepo();
+    try {
+      writeFileSync(join(clean, 'a.txt'), 'x\n');
+      git(clean, 'add', 'a.txt');
+      commit(clean, 'feat: only commit');
+      const notes = await generateReleaseNotes({ cwd: clean, ai: false, staged: true });
+      expect(notes.trim()).toBe('_No uncommitted changes._');
+    } finally {
+      rmSync(clean, { recursive: true, force: true });
+    }
   });
 });

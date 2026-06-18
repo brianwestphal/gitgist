@@ -20,6 +20,9 @@ async function main(): Promise<void> {
     model: args.model,
     maxTokens: args.maxTokens,
     title: args.title,
+    staged: args.staged,
+    unstaged: args.unstaged,
+    untracked: args.untracked,
   });
 
   process.stdout.write(markdown);

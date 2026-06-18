@@ -18,6 +18,9 @@ grouped Markdown — written by Claude, with the internal noise stripped out.
 - **No API key required.** By default gitgist runs on your signed-in
   [`claude`](https://www.npmjs.com/package/@anthropic-ai/claude-code) CLI — zero
   config. Prefer the API? Set `ANTHROPIC_API_KEY`.
+- **Summarize uncommitted work too.** Point it at your staged/unstaged/untracked
+  changes (`--staged`, `--working`, …) to draft a commit message or preview notes
+  for work that isn't committed yet.
 - **Works offline too.** `--no-ai` groups by Conventional Commit type with no
   network, no key, and fully deterministic output.
 - **CLI _and_ library.** Use the `gitgist` bin, or call `generateReleaseNotes()`
@@ -58,19 +61,34 @@ gitgist v1.4.0..HEAD --title "v1.5.0"
 # No range given → from the latest tag (or full history) to HEAD
 gitgist
 
+# Summarize uncommitted work (no range) — e.g. to draft a commit message
+gitgist --staged          # just the staged diff
+gitgist --working         # staged + unstaged + untracked
+
+# Fold pending changes into a range's notes
+gitgist v1.4.0..HEAD --untracked
+
 # Offline, no AI — group by Conventional Commit type
 gitgist --no-ai
 ```
 
-| Flag                 | Description                                                          |
-| -------------------- | ------------------------------------------------------------------- |
-| `--no-ai`            | Group commits by Conventional Commit type instead (offline).        |
-| `--provider <name>`  | `auto` \| `anthropic-api` \| `claude-cli` (default: `auto`).         |
-| `--model <id>`       | Model for the `anthropic-api` provider (default: `claude-opus-4-8`). |
-| `--max-tokens <n>`   | Max output tokens for the `anthropic-api` provider (default: 16000). |
-| `--title <text>`     | Render `<text>` as a top-level heading above the notes.             |
-| `--cwd <path>`       | Run against the git repository at `<path>`.                         |
-| `-h, --help`         | Show help.                                                          |
+| Flag                       | Description                                                          |
+| -------------------------- | ------------------------------------------------------------------- |
+| `--staged`, `--cached`     | Include staged changes (`git diff --staged`).                       |
+| `--unstaged`               | Include unstaged changes to tracked files (`git diff`).             |
+| `--untracked`              | Include untracked (new) files.                                      |
+| `--working`, `--uncommitted` | Include all uncommitted work (staged + unstaged + untracked).      |
+| `--no-ai`                  | Group commits by Conventional Commit type instead (offline).        |
+| `--provider <name>`        | `auto` \| `anthropic-api` \| `claude-cli` (default: `auto`).         |
+| `--model <id>`             | Model for the `anthropic-api` provider (default: `claude-opus-4-8`). |
+| `--max-tokens <n>`         | Max output tokens for the `anthropic-api` provider (default: 16000). |
+| `--title <text>`           | Render `<text>` as a top-level heading above the notes.             |
+| `--cwd <path>`             | Run against the git repository at `<path>`.                         |
+| `-h, --help`               | Show help.                                                          |
+
+> **Working-tree flags** summarize uncommitted changes. With no range they
+> summarize only the pending changes (great for a commit message); with a range
+> they're folded in alongside the commits.
 
 ## AI providers & API keys
 
