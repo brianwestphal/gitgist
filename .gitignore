@@ -1,0 +1,18 @@
+node_modules
+dist
+coverage/
+.coverage-tmp/
+.DS_Store
+.hotsheet/
+.glassbox/
+.cursor/
+.claude/settings.local.json
+*.tsbuildinfo
+.claude
+.mcp.json
+
+# Scratch directories created by tests / manual runs
+tmp/
+
+# Release-script state
+.release-state.json

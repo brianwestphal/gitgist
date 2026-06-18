@@ -1,0 +1,64 @@
+{
+  "name": "gitgist",
+  "version": "0.0.0",
+  "description": "Generate release notes and changelogs from a range of git commits (e.g. from a previous tag to HEAD).",
+  "type": "module",
+  "license": "MIT",
+  "author": "Brian Westphal",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brianwestphal/gitgist.git"
+  },
+  "keywords": [
+    "git",
+    "changelog",
+    "release-notes",
+    "conventional-commits",
+    "release",
+    "semver",
+    "cli"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "gitgist": "dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/*.map"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "lint": "eslint src/ tests/",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist coverage node_modules/.cache",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.9.3",
+    "@vitest/coverage-v8": "^4.1.9",
+    "eslint": "^10.5.0",
+    "eslint-plugin-import-x": "^4.16.2",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
+    "eslint-plugin-tsdoc": "^0.5.2",
+    "tsup": "^8.5.1",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.61.1",
+    "vitest": "^4.1.9"
+  }
+}
