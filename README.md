@@ -181,6 +181,7 @@ npm run typecheck
 npm run build
 npm run demo      # re-capture the README demo SVGs (assets/demos/)
 npm run diagram   # re-capture the README flow diagram (assets/diagram.svg)
+npm run compare   # run the same changes through every available provider, side by side
 ```
 
 ## License

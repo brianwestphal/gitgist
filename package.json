@@ -44,6 +44,7 @@
     "build": "tsup",
     "build:apple-fm": "bash scripts/build-apple-fm-helper.sh",
     "dev": "tsup --watch",
+    "compare": "npm run build && node scripts/compare-providers.mjs",
     "demo": "npm run build && node scripts/demo.mjs",
     "diagram": "node scripts/diagram.mjs",
     "test": "vitest run --coverage",
