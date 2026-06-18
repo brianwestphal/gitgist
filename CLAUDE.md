@@ -33,9 +33,14 @@ The pipeline: resolve a range → read commits → generate notes.
     lazily.
   - `local.ts` — `createLocalProvider()`: any OpenAI-compatible endpoint
     (Ollama / LM Studio) via `fetch`; returns freeform Markdown. Opt-in only.
+  - `apple.ts` — `createAppleProvider()`: spawns the Swift helper
+    (`apple-fm-helper/main.swift`, built by `scripts/build-apple-fm-helper.sh` /
+    `npm run build:apple-fm`) for on-device macOS Apple Foundation Models;
+    `--probe` / `--generate`, JSON stdin → Markdown stdout. `GITGIST_APPLE_FM_BIN`.
   - `index.ts` — `resolveProvider(name, opts?)`; `auto` (`AUTO_ORDER`) prefers
-    the zero-config CLI (no key), then API-key backends. `local` is excluded
-    from `AUTO_ORDER` (never auto-probed); `opts` carries its endpoint/model.
+    the zero-config CLI, then API-key backends, then on-device `apple` (a no-op
+    when unbuilt). `local` is excluded from `AUTO_ORDER` (never auto-probed);
+    `opts` carries the local endpoint/model.
 - `src/releaseNotes.ts` — `generateReleaseNotes()` ties it together (AI path, or
   `ai: false` → deterministic `buildChangelog` + `renderMarkdown`).
 - `src/changelog.ts` — deterministic Conventional Commit grouping + Markdown
@@ -56,10 +61,10 @@ API key and is the default-friendly path that belongs early in `AUTO_ORDER`.
 Reserve API-key providers (`anthropicApi.ts`-style) for tools without a usable
 CLI, and place them after the CLI backends.
 
-Follow-up providers on the roadmap, CLI-first where possible: Apple Foundation
-Models (on-device Swift helper, see `~/Documents/hotsheet`), OpenAI/Codex
-(`codex exec`), Gemini CLI, Cursor agent. (Ollama / local OpenAI-compatible is
-done — `providers/local.ts`.)
+Follow-up providers on the roadmap, CLI-first where possible: OpenAI/Codex
+(`codex exec`), Gemini CLI, Cursor agent. (Done: Ollama / local
+OpenAI-compatible — `providers/local.ts`; Apple Foundation Models —
+`providers/apple.ts` + `apple-fm-helper/main.swift`.)
 
 ## Conventions
 

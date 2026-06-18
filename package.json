@@ -35,10 +35,14 @@
   },
   "files": [
     "dist",
-    "!dist/*.map"
+    "!dist/*.map",
+    "apple-fm-helper",
+    "scripts/build-apple-fm-helper.sh",
+    "bin/apple-fm-helper"
   ],
   "scripts": {
     "build": "tsup",
+    "build:apple-fm": "bash scripts/build-apple-fm-helper.sh",
     "dev": "tsup --watch",
     "demo": "npm run build && node scripts/demo.mjs",
     "diagram": "node scripts/diagram.mjs",

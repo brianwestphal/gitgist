@@ -29,10 +29,10 @@ grouped Markdown — written by Claude, with the internal noise stripped out.
   network, no key, and fully deterministic output.
 - **CLI _and_ library.** Use the `gitgist` bin, or call `generateReleaseNotes()`
   from your release tooling.
-- **Pluggable providers.** Claude (CLI + API) and any local OpenAI-compatible
-  endpoint (Ollama / LM Studio) ship today; Codex, Gemini, Cursor, and Apple
-  Foundation Models are on the way — CLI-first wherever the tool offers a
-  headless mode.
+- **Pluggable providers.** Claude (CLI + API), any local OpenAI-compatible
+  endpoint (Ollama / LM Studio), and on-device Apple Foundation Models ship
+  today; Codex, Gemini, and Cursor are on the way — CLI-first wherever the tool
+  offers a headless mode.
 
 ## See it
 
@@ -101,7 +101,7 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 | `--commit-message`         | Shorthand for `--format commit` (requires AI).                      |
 | `--template <file>`        | Shape the notes with a Markdown template ([docs](docs/4-templates.md)). |
 | `--no-ai`                  | Group commits by Conventional Commit type instead (offline).        |
-| `--provider <name>`        | `auto` \| `claude-cli` \| `anthropic-api` \| `local` (default: `auto`). |
+| `--provider <name>`        | `auto` \| `claude-cli` \| `anthropic-api` \| `local` \| `apple` (default: `auto`). |
 | `--endpoint <url>`         | Base URL for `--provider local` (default: Ollama's `…:11434/v1`).   |
 | `--model <id>`             | `anthropic-api` model (default `claude-opus-4-8`), or the `local` model name. |
 | `--max-tokens <n>`         | Max output tokens for the `anthropic-api` provider (default: 16000). |
@@ -127,12 +127,20 @@ approach the related tools take with `claude -p`. Three backends ship today:
    `--provider local`; configure with `--endpoint` (`$GITGIST_LOCAL_ENDPOINT`,
    default `http://localhost:11434/v1`) and `--model` (`$GITGIST_LOCAL_MODEL`,
    else the endpoint's first model). No API key.
+4. **`apple`** — on-device **Apple Foundation Models** (macOS 26+ on Apple
+   Silicon with Apple Intelligence). Free, private, no API key. Published
+   releases bundle a **Developer-ID-signed, notarized** helper binary, so it
+   works out of the box — no toolchain required. From source (or to rebuild),
+   run `npm run build:apple-fm` (needs Xcode 26); point gitgist at a custom
+   build with `GITGIST_APPLE_FM_BIN`.
 
 With `--provider auto` (the default), gitgist uses the `claude` CLI when it's
-installed, and falls back to the Anthropic API when `ANTHROPIC_API_KEY` is set.
-The `local` provider is **never** auto-selected (so a normal run doesn't probe
-localhost) — request it explicitly. Force any with `--provider <name>`. If no
-provider is available, use `--no-ai` for offline Conventional Commits grouping.
+installed, falls back to the Anthropic API when `ANTHROPIC_API_KEY` is set, and
+then to on-device Apple Foundation Models if its helper is built — a no-op when
+it isn't. The `local` provider is **never** auto-selected (so a normal run
+doesn't probe localhost) — request it explicitly. Force any with
+`--provider <name>`. If no provider is available, use `--no-ai` for offline
+Conventional Commits grouping.
 
 > Planned providers follow the same **CLI-first, no-key** pattern wherever the
 > tool offers a headless mode — Codex (`codex exec`), Gemini CLI, Cursor agent —

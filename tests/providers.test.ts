@@ -218,8 +218,9 @@ describe('resolveProvider', () => {
     await expect(resolveProvider('auto', { order })).rejects.toThrow(/No AI provider available/);
   });
 
-  it('never auto-selects the local provider (not in AUTO_ORDER)', () => {
-    expect(AUTO_ORDER.map((p) => p.name)).not.toContain('local');
-    expect(AUTO_ORDER.map((p) => p.name)).toEqual(['claude-cli', 'anthropic-api']);
+  it('auto order: CLI → API → apple, and never local', () => {
+    const names = AUTO_ORDER.map((p) => p.name);
+    expect(names).not.toContain('local');
+    expect(names).toEqual(['claude-cli', 'anthropic-api', 'apple']);
   });
 });

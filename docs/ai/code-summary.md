@@ -23,7 +23,9 @@ src/
     claudeCli.ts      # claudeCliProvider
     anthropicApi.ts   # anthropicApiProvider
     local.ts          # createLocalProvider (Ollama / OpenAI-compatible; opt-in)
+    apple.ts          # createAppleProvider (macOS Apple Foundation Models via Swift helper)
     index.ts          # PROVIDERS, AUTO_ORDER, resolveProvider
+apple-fm-helper/main.swift   # Swift FoundationModels CLI (built by scripts/build-apple-fm-helper.sh)
 tests/                # parse, changelog, prompt, cliArgs, git, providers, integration
 ```
 

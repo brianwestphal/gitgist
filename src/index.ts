@@ -33,9 +33,13 @@ export {
 export {
   type AIProvider,
   anthropicApiProvider,
+  appleFmBinPath,
+  appleProvider,
+  type AppleProviderConfig,
   AUTO_ORDER,
   claudeCliProvider,
   type CliProviderSpec,
+  createAppleProvider,
   createCliProvider,
   createLocalProvider,
   DEFAULT_LOCAL_ENDPOINT,

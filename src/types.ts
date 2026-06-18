@@ -74,8 +74,10 @@ export interface ChangelogOptions {
  * - `anthropic-api` — the Anthropic Messages API via the official SDK.
  * - `local` — a local OpenAI-compatible endpoint (Ollama / LM Studio / …);
  *   opt-in only, never auto-selected.
+ * - `apple` — on-device macOS Apple Foundation Models (a free, private
+ *   fallback when no Claude backend is available).
  */
-export type ProviderName = 'auto' | 'anthropic-api' | 'claude-cli' | 'local';
+export type ProviderName = 'auto' | 'anthropic-api' | 'claude-cli' | 'local' | 'apple';
 
 /**
  * Output shape:

@@ -43,7 +43,7 @@ Options:
                           order, and AI guidance). Requires AI. See docs/4-templates.md.
   --no-ai                 Group commits by Conventional Commit type instead of
                           using AI (works offline, no API key needed).
-  --provider <name>       AI backend: auto | claude-cli | anthropic-api | local (default: auto).
+  --provider <name>       AI backend: auto | claude-cli | anthropic-api | local | apple (default: auto).
   --endpoint <url>        Base URL for --provider local (default: $GITGIST_LOCAL_ENDPOINT
                           or http://localhost:11434/v1).
   --model <id>            Model id — the anthropic-api model (default: claude-opus-4-8),
@@ -76,11 +76,17 @@ Examples:
   gitgist --no-ai`;
 
 function parseProvider(value: string | undefined): ProviderName {
-  if (value === 'auto' || value === 'anthropic-api' || value === 'claude-cli' || value === 'local') {
+  if (
+    value === 'auto' ||
+    value === 'anthropic-api' ||
+    value === 'claude-cli' ||
+    value === 'local' ||
+    value === 'apple'
+  ) {
     return value;
   }
   throw new Error(
-    `Invalid --provider: ${value ?? '(missing)'} (expected auto, claude-cli, anthropic-api, or local)`,
+    `Invalid --provider: ${value ?? '(missing)'} (expected auto, claude-cli, anthropic-api, local, or apple)`,
   );
 }
 
