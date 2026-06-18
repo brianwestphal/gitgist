@@ -41,7 +41,7 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
   // Read commits unless we're summarizing pending changes only (working flags
   // with no explicit range).
   let range = '';
-  let commits = [] as Awaited<ReturnType<typeof readCommits>>;
+  let commits: Commit[] = [];
   if (!wantWorking || explicitRange) {
     range = options.range ?? (await resolveCommitRange(options.from, options.to, cwd));
     commits = await readCommits(range, { cwd });
@@ -69,6 +69,22 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     return parts.join('\n\n');
   };
 
+  // One AI round-trip: resolve the provider, generate, clean the output. The
+  // three AI paths below differ only in the system prompt and the user prompt.
+  const generateViaAI = async (system: string, prompt: string): Promise<string> => {
+    const provider = await resolveProvider(options.provider, {
+      endpoint: options.endpoint,
+      model: options.model,
+    });
+    const generated = await provider.generate({
+      system,
+      prompt,
+      model: options.model,
+      maxTokens: options.maxTokens,
+    });
+    return cleanModelOutput(generated, format);
+  };
+
   if (options.template !== undefined && format === 'commit') {
     throw new Error('--template cannot be combined with --format commit.');
   }
@@ -83,50 +99,23 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     if (options.ai === false) {
       throw new Error('--format commit requires AI; remove --no-ai.');
     }
-    const provider = await resolveProvider(options.provider, {
-      endpoint: options.endpoint,
-      model: options.model,
-    });
-    const generated = await provider.generate({
-      system: COMMIT_SYSTEM_PROMPT,
-      prompt: buildPromptMaterial(commits, working),
-      model: options.model,
-      maxTokens: options.maxTokens,
-    });
-    body = cleanModelOutput(generated, format);
+    body = await generateViaAI(COMMIT_SYSTEM_PROMPT, buildPromptMaterial(commits, working));
   } else if (options.template !== undefined) {
     if (options.ai === false) {
       throw new Error('--template requires AI; remove --no-ai.');
     }
     const template = await loadTemplate(options.template, cwd);
-    const provider = await resolveProvider(options.provider, {
-      endpoint: options.endpoint,
-      model: options.model,
-    });
-    const generated = await provider.generate({
-      system: TEMPLATE_SYSTEM_PROMPT,
-      prompt: buildTemplatePrompt(template, buildPromptMaterial(commits, working)),
-      model: options.model,
-      maxTokens: options.maxTokens,
-    });
-    body = cleanModelOutput(generated, format);
+    body = await generateViaAI(
+      TEMPLATE_SYSTEM_PROMPT,
+      buildTemplatePrompt(template, buildPromptMaterial(commits, working)),
+    );
   } else if (options.ai === false) {
     const pieces: string[] = [];
     if (haveCommits) pieces.push(renderMarkdown(buildChangelog(range, commits)).trimEnd());
     if (haveWorking && working !== undefined) pieces.push(renderWorkingChanges(working));
     body = pieces.join('\n\n');
   } else {
-    const provider = await resolveProvider(options.provider, {
-      endpoint: options.endpoint,
-      model: options.model,
-    });
-    const generated = await provider.generate({
-      system: SYSTEM_PROMPT,
-      prompt: buildPromptMaterial(commits, working),
-      model: options.model,
-      maxTokens: options.maxTokens,
-    });
-    body = cleanModelOutput(generated, format);
+    body = await generateViaAI(SYSTEM_PROMPT, buildPromptMaterial(commits, working));
   }
 
   // A commit message has no Markdown title; only notes get the `--title` heading.

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { readCommits, readWorkingChanges, resolveCommitRange } from '../src/git.js';
+import { generateChangelog } from '../src/index.js';
 import { generateReleaseNotes } from '../src/releaseNotes.js';
 
 /** Run a git command in `cwd`, returning trimmed stdout. */
@@ -84,6 +85,15 @@ describe('git + orchestration integration', () => {
   it('generateReleaseNotes reports an empty range cleanly', async () => {
     const notes = await generateReleaseNotes({ range: 'HEAD..HEAD', ai: false, cwd: tagged });
     expect(notes.trim()).toBe('_No changes in `HEAD..HEAD`._');
+  });
+
+  it('generateChangelog renders the deterministic grouped changelog', async () => {
+    const md = await generateChangelog('v1.0.0..HEAD', { cwd: tagged, title: 'v1.1.0' });
+    expect(md).toContain('# v1.1.0');
+    expect(md).toContain('## Features');
+    expect(md).toContain('charlie');
+    expect(md).toContain('## Documentation');
+    expect(md).not.toContain('bravo');
   });
 });
 

@@ -26,22 +26,28 @@ src/
     apple.ts          # createAppleProvider (macOS Apple Foundation Models via Swift helper)
     index.ts          # PROVIDERS, AUTO_ORDER, resolveProvider
 apple-fm-helper/main.swift   # Swift FoundationModels CLI (built by scripts/build-apple-fm-helper.sh)
-tests/                # parse, changelog, prompt, cliArgs, git, providers, integration
+tests/                # parse, changelog, prompt, cliArgs, git, template, providers, apple, integration
 ```
 
 ## Public API (`src/index.ts`)
 
-- `generateReleaseNotes(options)` — main entry (AI or `ai:false` offline; commits and/or working-tree changes).
+- `generateReleaseNotes(options)` — main entry (AI or `ai:false` offline; commits and/or working-tree changes; `format`/`template`).
 - `generateChangelog(range, options)` — deterministic-only convenience wrapper.
 - Commits/range: `readCommits`, `latestTag`, `resolveCommitRange`, `parseCommit`.
 - Working tree: `readWorkingChanges`, `renderWorkingChanges`, `workingChangesToMaterial`.
 - Changelog: `buildChangelog`, `renderMarkdown`, `DEFAULT_GROUPS`.
-- Prompt: `SYSTEM_PROMPT`, `buildUserPrompt`, `commitsToMaterial`, `stripCodeFences`.
-- Providers: `resolveProvider`, `PROVIDERS`, `AUTO_ORDER`, `createCliProvider`,
-  `anthropicApiProvider`, `claudeCliProvider`, and types `AIProvider`,
-  `GenerateRequest`, `CliProviderSpec`.
+- Prompt: `SYSTEM_PROMPT`, `COMMIT_SYSTEM_PROMPT`, `TEMPLATE_SYSTEM_PROMPT`,
+  `buildUserPrompt`, `buildTemplatePrompt`, `commitsToMaterial`,
+  `workingChangesToMaterial`, `stripCodeFences`, `cleanModelOutput`.
+- Templates: `loadTemplate`, `parseTemplate`, type `Template`.
+- Providers: `resolveProvider`, `PROVIDERS`, `AUTO_ORDER`; `createCliProvider`,
+  `claudeCliProvider`, `anthropicApiProvider`; `createLocalProvider`,
+  `localProvider`, `DEFAULT_LOCAL_ENDPOINT`; `createAppleProvider`,
+  `appleProvider`, `appleFmBinPath`; types `AIProvider`, `GenerateRequest`,
+  `CliProviderSpec`, `LocalProviderConfig`, `AppleProviderConfig`.
 - Types: `Commit`, `Changelog`, `ChangelogSection`, `ChangelogOptions`,
-  `ReadCommitsOptions`, `ReleaseNotesOptions`, `ProviderName`, `RawCommit`.
+  `ReadCommitsOptions`, `ReleaseNotesOptions`, `ProviderName`, `OutputFormat`,
+  `WorkingChanges`, `WorkingChangeOptions`, `RawCommit`.
 
 ## Where do I look to…
 
@@ -50,7 +56,7 @@ tests/                # parse, changelog, prompt, cliArgs, git, providers, integ
 | change the AI instructions / section style | `prompt.ts` (`SYSTEM_PROMPT`) |
 | change the commit-message output (`--format commit`) | `prompt.ts` (`COMMIT_SYSTEM_PROMPT`); selected in `releaseNotes.ts` |
 | change template parsing or the template prompt (`--template`) | `template.ts`; `prompt.ts` (`TEMPLATE_SYSTEM_PROMPT`, `buildTemplatePrompt`); spec in `docs/4-templates.md` |
-| add an AI provider | `providers/` — `createCliProvider` for CLIs, register in `index.ts` (`PROVIDERS` + `AUTO_ORDER`) |
+| add an AI provider | `providers/` — `createCliProvider` for headless CLIs, `createLocalProvider` for OpenAI-compatible HTTP, `createAppleProvider`/spawn for a native helper; register in `index.ts` (`PROVIDERS` + `AUTO_ORDER`) |
 | change how the git range is resolved | `git.ts` (`resolveCommitRange`, `latestTag`) |
 | change how commits are read/parsed | `git.ts` (`readCommits`), `parse.ts` |
 | change how uncommitted changes are read | `git.ts` (`readWorkingChanges`); orchestration in `releaseNotes.ts` |

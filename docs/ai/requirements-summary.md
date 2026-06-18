@@ -30,6 +30,7 @@ Keep status markers in sync with the implementation.
 - **NFR-4 Strict TS / ESM / lint-clean** — Shipped.
 - **NFR-5 Unit + integration tests** — Shipped (GG-10).
 - **NFR-6 Surface truncation** — Partial (GG-12: `max_tokens` warning + `--max-tokens`).
+- **NFR-7 Clean AI output** — Shipped (GG-18: `cleanModelOutput` strips agentic-CLI preamble/postamble).
 
 ## Tracked follow-ups
 
