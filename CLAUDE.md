@@ -21,11 +21,15 @@ The pipeline: resolve a range → read commits → generate notes.
   `stripCodeFences()`: turn commits into the model prompt and clean its output.
 - `src/providers/` — pluggable AI backends implementing `AIProvider`
   (`isAvailable()` / `generate()`):
+  - `cli.ts` — `createCliProvider({ command, runArgs, … })`: the reusable
+    no-API-key path for any headless coding/agent CLI (`claude -p` and friends).
+    Prompt delivered via stdin (default) or as an arg; strips wrapping fences.
+  - `claudeCli.ts` — the `claude -p` provider, built from `createCliProvider`.
   - `anthropicApi.ts` — official `@anthropic-ai/sdk`, model `claude-opus-4-8`,
     adaptive thinking, streaming. Reads `ANTHROPIC_API_KEY`. SDK is imported
     lazily.
-  - `claudeCli.ts` — shells out to `claude -p` (prompt piped via stdin). No key.
-  - `index.ts` — `resolveProvider(name)`; `auto` prefers the API, then the CLI.
+  - `index.ts` — `resolveProvider(name, order?)`; `auto` (`AUTO_ORDER`) prefers
+    the zero-config CLI (no key), then API-key backends.
 - `src/releaseNotes.ts` — `generateReleaseNotes()` ties it together (AI path, or
   `ai: false` → deterministic `buildChangelog` + `renderMarkdown`).
 - `src/changelog.ts` — deterministic Conventional Commit grouping + Markdown
@@ -36,9 +40,18 @@ The pipeline: resolve a range → read commits → generate notes.
 ## Adding an AI provider
 
 Implement `AIProvider` in `src/providers/<name>.ts` and register it in
-`src/providers/index.ts` (`PROVIDERS` + `AUTO_ORDER`). Follow-up providers on
-the roadmap: Apple Foundation Models (Swift helper, see `~/Documents/hotsheet`),
-Ollama / local OpenAI-compatible endpoints, OpenAI/Codex, Gemini, Cursor.
+`src/providers/index.ts` (`PROVIDERS` + `AUTO_ORDER`).
+
+**Prefer a CLI (no-key) backend.** If the target tool offers a headless mode
+(like `claude -p`), build the provider with `createCliProvider()` — it needs no
+API key and is the default-friendly path that belongs early in `AUTO_ORDER`.
+Reserve API-key providers (`anthropicApi.ts`-style) for tools without a usable
+CLI, and place them after the CLI backends.
+
+Follow-up providers on the roadmap, CLI-first where possible: Apple Foundation
+Models (on-device Swift helper, see `~/Documents/hotsheet`), Ollama / local
+OpenAI-compatible endpoints, OpenAI/Codex (`codex exec`), Gemini CLI, Cursor
+agent.
 
 ## Conventions
 

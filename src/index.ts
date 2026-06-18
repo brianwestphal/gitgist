@@ -23,7 +23,10 @@ export {
 export {
   type AIProvider,
   anthropicApiProvider,
+  AUTO_ORDER,
   claudeCliProvider,
+  type CliProviderSpec,
+  createCliProvider,
   type GenerateRequest,
   PROVIDERS,
   resolveProvider,

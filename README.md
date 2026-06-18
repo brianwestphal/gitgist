@@ -61,21 +61,26 @@ Options:
 
 ### AI providers & API keys
 
-gitgist supports two Claude backends today, picked automatically:
+gitgist prefers **zero-config CLI backends that need no API key** — the same
+approach the related tools take with `claude -p`. Two Claude backends ship
+today:
 
-1. **`anthropic-api`** — the Anthropic API via the official SDK. Set
-   `ANTHROPIC_API_KEY` in your environment.
-2. **`claude-cli`** — your locally installed, signed-in
+1. **`claude-cli`** — your locally installed, signed-in
    [`claude`](https://www.npmjs.com/package/@anthropic-ai/claude-code) CLI.
    Needs **no API key** — it reuses the CLI's own auth.
+2. **`anthropic-api`** — the Anthropic API via the official SDK. Set
+   `ANTHROPIC_API_KEY` in your environment.
 
-With `--provider auto` (the default), gitgist uses the API when
-`ANTHROPIC_API_KEY` is set, otherwise falls back to the `claude` CLI. If neither
-is available, use `--no-ai` for offline Conventional Commits grouping.
+With `--provider auto` (the default), gitgist uses the `claude` CLI when it's
+installed, and falls back to the Anthropic API when `ANTHROPIC_API_KEY` is set.
+Force one with `--provider claude-cli` / `--provider anthropic-api`. If no
+provider is available, use `--no-ai` for offline Conventional Commits grouping.
 
-> More providers (Apple Foundation Models, Ollama / local OpenAI-compatible
-> endpoints, OpenAI/Codex, Gemini, Cursor) are planned — the provider layer is
-> pluggable.
+> Planned providers follow the same **CLI-first, no-key** pattern wherever the
+> tool offers a headless mode — Codex (`codex exec`), Gemini CLI, Cursor agent —
+> alongside on-device Apple Foundation Models and local OpenAI-compatible
+> endpoints (Ollama / LM Studio). The provider layer is pluggable, and CLI
+> backends share a small `createCliProvider()` helper.
 
 ## Library
 
