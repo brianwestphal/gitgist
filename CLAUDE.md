@@ -37,6 +37,8 @@ The pipeline: resolve a range → read commits → generate notes.
   `ai: false` → deterministic `buildChangelog` + `renderMarkdown`).
 - `src/changelog.ts` — deterministic Conventional Commit grouping + Markdown
   rendering (the `--no-ai` path).
+- `src/template.ts` — `loadTemplate()` / `parseTemplate()` for `--template`
+  (Markdown + YAML frontmatter); fed to the model via `TEMPLATE_SYSTEM_PROMPT`.
 - `src/cliArgs.ts` — `parseArgs()` + `USAGE` (testable). `src/cli.ts` — the bin.
 - `src/index.ts` — public API. `src/types.ts` — shared types.
 
@@ -88,6 +90,7 @@ hit the real AI in unit tests.
 - [docs/1-overview.md](docs/1-overview.md) — what gitgist is and its principles.
 - [docs/2-architecture.md](docs/2-architecture.md) — module layout and data flow.
 - [docs/3-requirements.md](docs/3-requirements.md) — FR/NFR requirements with status.
+- [docs/4-templates.md](docs/4-templates.md) — the `--template` format reference.
 - [docs/ai/code-summary.md](docs/ai/code-summary.md) — AI-oriented code map.
 - [docs/ai/requirements-summary.md](docs/ai/requirements-summary.md) — AI-oriented requirements digest.
 

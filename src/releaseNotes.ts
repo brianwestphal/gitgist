@@ -1,12 +1,15 @@
 import { buildChangelog, renderMarkdown, renderWorkingChanges } from './changelog.js';
 import { readCommits, readWorkingChanges, resolveCommitRange } from './git.js';
 import {
+  buildTemplatePrompt,
   buildUserPrompt,
   COMMIT_SYSTEM_PROMPT,
   SYSTEM_PROMPT,
+  TEMPLATE_SYSTEM_PROMPT,
   workingChangesToMaterial,
 } from './prompt.js';
 import { resolveProvider } from './providers/index.js';
+import { loadTemplate } from './template.js';
 import type { Commit, ReleaseNotesOptions, WorkingChanges } from './types.js';
 
 /**
@@ -65,6 +68,10 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     return parts.join('\n\n');
   };
 
+  if (options.template !== undefined && format === 'commit') {
+    throw new Error('--template cannot be combined with --format commit.');
+  }
+
   let body: string;
   if (!haveCommits && !haveWorking) {
     body =
@@ -79,6 +86,19 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     const generated = await provider.generate({
       system: COMMIT_SYSTEM_PROMPT,
       prompt: buildPromptMaterial(commits, working),
+      model: options.model,
+      maxTokens: options.maxTokens,
+    });
+    body = generated.trim();
+  } else if (options.template !== undefined) {
+    if (options.ai === false) {
+      throw new Error('--template requires AI; remove --no-ai.');
+    }
+    const template = await loadTemplate(options.template, cwd);
+    const provider = await resolveProvider(options.provider);
+    const generated = await provider.generate({
+      system: TEMPLATE_SYSTEM_PROMPT,
+      prompt: buildTemplatePrompt(template, buildPromptMaterial(commits, working)),
       model: options.model,
       maxTokens: options.maxTokens,
     });

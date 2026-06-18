@@ -20,11 +20,13 @@ export {
 export { latestTag, readCommits, readWorkingChanges, resolveCommitRange } from './git.js';
 export { parseCommit, type RawCommit } from './parse.js';
 export {
+  buildTemplatePrompt,
   buildUserPrompt,
   COMMIT_SYSTEM_PROMPT,
   commitsToMaterial,
   stripCodeFences,
   SYSTEM_PROMPT,
+  TEMPLATE_SYSTEM_PROMPT,
   workingChangesToMaterial,
 } from './prompt.js';
 export {
@@ -39,6 +41,7 @@ export {
   resolveProvider,
 } from './providers/index.js';
 export { generateReleaseNotes } from './releaseNotes.js';
+export { loadTemplate, parseTemplate, type Template } from './template.js';
 export type {
   Changelog,
   ChangelogOptions,

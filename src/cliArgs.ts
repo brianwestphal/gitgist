@@ -11,6 +11,7 @@ export interface CliArgs {
   model?: string;
   maxTokens?: number;
   format: OutputFormat;
+  template?: string;
   staged: boolean;
   unstaged: boolean;
   untracked: boolean;
@@ -37,6 +38,8 @@ Options:
   --format <notes|commit> Output shape: themed release notes (default), or a
                           single Conventional Commit message (requires AI).
   --commit-message        Shorthand for --format commit.
+  --template <file>       Shape the notes with a Markdown template (sections,
+                          order, and AI guidance). Requires AI. See docs/4-templates.md.
   --no-ai                 Group commits by Conventional Commit type instead of
                           using AI (works offline, no API key needed).
   --provider <name>       AI backend: auto | anthropic-api | claude-cli (default: auto).
@@ -64,6 +67,7 @@ Examples:
   gitgist --staged --commit-message      # draft a commit message for the staged diff
   gitgist --working                      # all uncommitted work
   gitgist v1.4.0..HEAD --untracked       # commits plus new files
+  gitgist v1.4.0..HEAD --template notes.md   # shape with a template
   gitgist --no-ai`;
 
 function parseProvider(value: string | undefined): ProviderName {
@@ -136,6 +140,9 @@ export function parseArgs(argv: string[]): CliArgs {
         break;
       case '--commit-message':
         args.format = 'commit';
+        break;
+      case '--template':
+        args.template = argv[++i];
         break;
       case '--no-ai':
         args.ai = false;

@@ -170,4 +170,16 @@ describe('working-tree changes integration', () => {
       generateReleaseNotes({ cwd: repo, format: 'commit', ai: false, staged: true }),
     ).rejects.toThrow(/--format commit requires AI/);
   });
+
+  it('--template rejects --no-ai when there is content', async () => {
+    await expect(
+      generateReleaseNotes({ cwd: repo, template: 'whatever.md', ai: false, staged: true }),
+    ).rejects.toThrow(/--template requires AI/);
+  });
+
+  it('--template cannot be combined with --format commit', async () => {
+    await expect(
+      generateReleaseNotes({ cwd: repo, template: 'whatever.md', format: 'commit', staged: true }),
+    ).rejects.toThrow(/--template cannot be combined with --format commit/);
+  });
 });

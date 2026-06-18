@@ -22,6 +22,9 @@ grouped Markdown — written by Claude, with the internal noise stripped out.
   changes (`--staged`, `--working`, …) to preview notes for work that isn't
   committed yet — or add `--commit-message` to draft a Conventional Commit
   message straight from the staged diff.
+- **Bring your own template.** `--template notes.md` shapes the output to your
+  team's house style — fixed section set, order, emoji, and per-section AI
+  guidance — via a simple Markdown-with-frontmatter file.
 - **Works offline too.** `--no-ai` groups by Conventional Commit type with no
   network, no key, and fully deterministic output.
 - **CLI _and_ library.** Use the `gitgist` bin, or call `generateReleaseNotes()`
@@ -72,9 +75,17 @@ gitgist --staged --commit-message
 # Fold pending changes into a range's notes
 gitgist v1.4.0..HEAD --untracked
 
+# Shape the output to your team's template (sections, order, guidance)
+gitgist v1.4.0..HEAD --template release-notes.md
+
 # Offline, no AI — group by Conventional Commit type
 gitgist --no-ai
 ```
+
+A template is a Markdown file whose headings define the section order and whose
+optional YAML frontmatter / `<!-- comments -->` steer the AI — see
+[`docs/4-templates.md`](docs/4-templates.md) and the
+[example template](templates/release-notes.example.md).
 
 | Flag                       | Description                                                          |
 | -------------------------- | ------------------------------------------------------------------- |
@@ -84,6 +95,7 @@ gitgist --no-ai
 | `--working`, `--uncommitted` | Include all uncommitted work (staged + unstaged + untracked).      |
 | `--format <notes\|commit>` | Output shape: themed notes (default) or a Conventional Commit message. |
 | `--commit-message`         | Shorthand for `--format commit` (requires AI).                      |
+| `--template <file>`        | Shape the notes with a Markdown template ([docs](docs/4-templates.md)). |
 | `--no-ai`                  | Group commits by Conventional Commit type instead (offline).        |
 | `--provider <name>`        | `auto` \| `anthropic-api` \| `claude-cli` (default: `auto`).         |
 | `--model <id>`             | Model for the `anthropic-api` provider (default: `claude-opus-4-8`). |

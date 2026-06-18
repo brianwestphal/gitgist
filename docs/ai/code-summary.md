@@ -15,6 +15,7 @@ src/
   parse.ts            # parseCommit (Conventional Commits)
   prompt.ts           # SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT, buildUserPrompt, commitsToMaterial, stripCodeFences, workingChangesToMaterial
   changelog.ts        # buildChangelog, renderMarkdown, renderWorkingChanges, DEFAULT_GROUPS  (--no-ai path)
+  template.ts         # loadTemplate, parseTemplate (--template)
   releaseNotes.ts     # generateReleaseNotes (orchestrator)
   providers/
     types.ts          # AIProvider, GenerateRequest
@@ -45,6 +46,7 @@ tests/                # parse, changelog, prompt, cliArgs, git, providers, integ
 | --- | --- |
 | change the AI instructions / section style | `prompt.ts` (`SYSTEM_PROMPT`) |
 | change the commit-message output (`--format commit`) | `prompt.ts` (`COMMIT_SYSTEM_PROMPT`); selected in `releaseNotes.ts` |
+| change template parsing or the template prompt (`--template`) | `template.ts`; `prompt.ts` (`TEMPLATE_SYSTEM_PROMPT`, `buildTemplatePrompt`); spec in `docs/4-templates.md` |
 | add an AI provider | `providers/` — `createCliProvider` for CLIs, register in `index.ts` (`PROVIDERS` + `AUTO_ORDER`) |
 | change how the git range is resolved | `git.ts` (`resolveCommitRange`, `latestTag`) |
 | change how commits are read/parsed | `git.ts` (`readCommits`), `parse.ts` |

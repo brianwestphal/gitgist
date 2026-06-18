@@ -112,6 +112,11 @@ export interface ReleaseNotesOptions {
   title?: string;
   /** Output shape (default: `notes`). `commit` requires AI. */
   format?: OutputFormat;
+  /**
+   * Path to a Markdown template file that defines the output sections and
+   * guidance (see `loadTemplate`). Requires AI; incompatible with `format: 'commit'`.
+   */
+  template?: string;
   /** Include staged (indexed) changes — `git diff --staged`. */
   staged?: boolean;
   /** Include unstaged changes to tracked files — `git diff`. */

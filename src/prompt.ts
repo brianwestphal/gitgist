@@ -1,3 +1,4 @@
+import type { Template } from './template.js';
 import type { Commit, WorkingChanges } from './types.js';
 
 /**
@@ -29,6 +30,36 @@ Rules:
 - If the change is breaking, append \`!\` after the type/scope (e.g. \`feat!:\`) and add a \`BREAKING CHANGE: <what broke>\` footer.
 - For anything beyond a trivial one-liner, add a blank line then a body: a few short bullet points or sentences explaining what changed and why. Wrap body lines at about 72 characters.
 - Summarize the actual changes; do not invent anything not present in the input.`;
+
+/**
+ * System prompt for `--template`: produce release notes that follow a
+ * user-supplied template exactly (strict section set, in order).
+ */
+export const TEMPLATE_SYSTEM_PROMPT = `You are a release-notes generator. You are given git commits and/or uncommitted changes (diffs), plus a TEMPLATE that defines the exact output format. Produce Markdown release notes that follow the template precisely.
+
+Template rules:
+- Use EXACTLY the section headings from the template, with the same wording, emoji, and order. Do NOT add, rename, reorder, merge, or split sections, and do NOT invent sections the template does not list.
+- Omit a section entirely if it has no relevant changes — do not emit an empty section or a placeholder.
+- Text inside HTML comments (\`<!-- ... -->\`) is guidance for the section directly above it: follow it to decide that section's content, but do NOT include the comments in your output.
+- If the template has YAML frontmatter (a \`---\`-fenced block at the top), treat it as global directives — audience, tone, and what to include or exclude. Apply it, but do NOT output the frontmatter.
+- Under each section, write concise, user-facing bullet points. Filter out noise (internal refactors, tests, CI tweaks, ticket IDs) unless the template's guidance says otherwise. Summarize the actual changes; do not invent anything.
+- Output ONLY the rendered Markdown — no preamble, no surrounding code fence, no leftover template comments or frontmatter.`;
+
+/**
+ * Build the user prompt for template mode: the template followed by the change
+ * material.
+ *
+ * @param template - The parsed template.
+ * @param changesMaterial - The commit/working-change material (see {@link buildUserPrompt} / {@link workingChangesToMaterial}).
+ * @returns The user-turn prompt string.
+ */
+export function buildTemplatePrompt(template: Template, changesMaterial: string): string {
+  const frontmatter =
+    template.frontmatter !== ''
+      ? `Global directives (frontmatter):\n${template.frontmatter}\n\n`
+      : '';
+  return `TEMPLATE — follow it exactly (sections, order, wording):\n\n${frontmatter}${template.body}\n\n---\n\n${changesMaterial}`;
+}
 
 /**
  * Strip a single wrapping Markdown code fence from the model's output, if

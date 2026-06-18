@@ -21,6 +21,7 @@ async function main(): Promise<void> {
     maxTokens: args.maxTokens,
     title: args.title,
     format: args.format,
+    template: args.template,
     staged: args.staged,
     unstaged: args.unstaged,
     untracked: args.untracked,

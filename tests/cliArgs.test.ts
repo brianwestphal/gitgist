@@ -111,4 +111,9 @@ describe('parseArgs', () => {
   it('rejects an invalid --format', () => {
     expect(() => parseArgs(['--format', 'changelog'])).toThrow(/Invalid --format/);
   });
+
+  it('parses --template as a path (default undefined)', () => {
+    expect(parseArgs([]).template).toBeUndefined();
+    expect(parseArgs(['--template', 'notes.md']).template).toBe('notes.md');
+  });
 });
