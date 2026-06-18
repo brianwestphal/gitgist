@@ -89,6 +89,11 @@ describe('SYSTEM_PROMPT', () => {
     expect(SYSTEM_PROMPT).toContain('##');
     expect(SYSTEM_PROMPT).toContain('diff');
   });
+
+  it('gives each change a single section home (helps smaller models)', () => {
+    expect(SYSTEM_PROMPT).toContain('EXACTLY ONE section');
+    expect(SYSTEM_PROMPT).toContain('Breaking Changes" only');
+  });
 });
 
 describe('COMMIT_SYSTEM_PROMPT', () => {

@@ -148,6 +148,26 @@ Conventional Commits grouping.
 > endpoints (Ollama / LM Studio). The provider layer is pluggable, and CLI
 > backends share a small `createCliProvider()` helper.
 
+### Choosing a provider
+
+The backends differ in output quality as well as cost, privacy, and latency. As
+a rule of thumb, larger models categorize and filter noise more reliably:
+
+| Provider | Quality | Cost | Privacy | Notes |
+| --- | --- | --- | --- | --- |
+| `claude-cli` / `anthropic-api` | **Best** | CLI: included with your plan · API: per-token | Sent to Anthropic | Cleanest grouping; Breaking Changes surfaced first; refactor/test/chore noise dropped. |
+| `local` (Ollama / LM Studio) | Very good | Free | **On-device** | Same shape as Claude on a capable model; minor ordering differences. Quality tracks the model you load. |
+| `apple` (Foundation Models) | Usable, weaker | Free | **On-device** | Smallest model — can miscategorize (e.g. a breaking change under Features), invent sections, or keep an internal commit. Free, private, fast. |
+| `--no-ai` | Deterministic | Free | **No network** | Conventional-Commits grouping; keeps every commit, no rewriting. The offline baseline. |
+
+**Pick by what you care about most:** best notes → Claude; private/free with
+good quality → `local` with a capable model; private/free/fast on a Mac with
+nothing to install → `apple`; reproducible and offline → `--no-ai`.
+
+Want to judge for yourself? `npm run compare` runs the same fixed history
+through every backend available on your machine and prints the results side by
+side (see `scripts/compare-providers.mjs`).
+
 ## Library
 
 ```ts
