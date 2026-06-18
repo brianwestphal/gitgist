@@ -76,6 +76,14 @@ export interface ChangelogOptions {
  */
 export type ProviderName = 'auto' | 'anthropic-api' | 'claude-cli';
 
+/**
+ * Output shape:
+ * - `notes` (default) — themed Markdown release notes (`## Section` + bullets).
+ * - `commit` — a single Conventional Commit message (`type(scope): subject`,
+ *   optional body and `BREAKING CHANGE:` footer). Requires AI.
+ */
+export type OutputFormat = 'notes' | 'commit';
+
 /** Options for {@link generateReleaseNotes}. */
 export interface ReleaseNotesOptions {
   /** Start of the range (e.g. a tag). Defaults to the most recent tag. */
@@ -100,8 +108,10 @@ export interface ReleaseNotesOptions {
   model?: string;
   /** Max output tokens for the `anthropic-api` provider (default: 16000). */
   maxTokens?: number;
-  /** Heading text rendered as a top-level `#` heading above the notes. */
+  /** Heading text rendered as a top-level `#` heading above the notes (ignored for `commit` format). */
   title?: string;
+  /** Output shape (default: `notes`). `commit` requires AI. */
+  format?: OutputFormat;
   /** Include staged (indexed) changes — `git diff --staged`. */
   staged?: boolean;
   /** Include unstaged changes to tracked files — `git diff`. */

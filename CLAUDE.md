@@ -18,8 +18,10 @@ The pipeline: resolve a range → read commits → generate notes.
   pair into a range (defaults: latest tag → `HEAD`); `readWorkingChanges()`
   gathers staged/unstaged/untracked diffs for the `--staged`/`--working` flags.
 - `src/parse.ts` — `parseCommit(raw)` parses Conventional Commit subjects.
-- `src/prompt.ts` — `SYSTEM_PROMPT`, `buildUserPrompt()`, `commitsToMaterial()`,
-  `stripCodeFences()`: turn commits into the model prompt and clean its output.
+- `src/prompt.ts` — `SYSTEM_PROMPT` (themed notes) and `COMMIT_SYSTEM_PROMPT`
+  (`--format commit`, a Conventional Commit message), plus `buildUserPrompt()`,
+  `workingChangesToMaterial()`, `commitsToMaterial()`, `stripCodeFences()`.
+  `releaseNotes.ts` picks the system prompt from `options.format`.
 - `src/providers/` — pluggable AI backends implementing `AIProvider`
   (`isAvailable()` / `generate()`):
   - `cli.ts` — `createCliProvider({ command, runArgs, … })`: the reusable

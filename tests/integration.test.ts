@@ -164,4 +164,10 @@ describe('working-tree changes integration', () => {
       rmSync(clean, { recursive: true, force: true });
     }
   });
+
+  it('--format commit rejects --no-ai when there is content to summarize', async () => {
+    await expect(
+      generateReleaseNotes({ cwd: repo, format: 'commit', ai: false, staged: true }),
+    ).rejects.toThrow(/--format commit requires AI/);
+  });
 });

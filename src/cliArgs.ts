@@ -1,4 +1,4 @@
-import type { ProviderName } from './types.js';
+import type { OutputFormat, ProviderName } from './types.js';
 
 /** Parsed command-line arguments. */
 export interface CliArgs {
@@ -10,6 +10,7 @@ export interface CliArgs {
   provider: ProviderName;
   model?: string;
   maxTokens?: number;
+  format: OutputFormat;
   staged: boolean;
   unstaged: boolean;
   untracked: boolean;
@@ -33,6 +34,9 @@ Options:
   --unstaged              Include unstaged changes to tracked files (git diff).
   --untracked             Include untracked (new) files.
   --working, --uncommitted  Include all uncommitted work (staged + unstaged + untracked).
+  --format <notes|commit> Output shape: themed release notes (default), or a
+                          single Conventional Commit message (requires AI).
+  --commit-message        Shorthand for --format commit.
   --no-ai                 Group commits by Conventional Commit type instead of
                           using AI (works offline, no API key needed).
   --provider <name>       AI backend: auto | anthropic-api | claude-cli (default: auto).
@@ -56,7 +60,8 @@ Working-tree changes:
 Examples:
   gitgist v2.0 HEAD
   gitgist v1.4.0..HEAD --title "v1.5.0"
-  gitgist --staged                       # summarize staged changes (commit msg)
+  gitgist --staged                       # summarize staged changes
+  gitgist --staged --commit-message      # draft a commit message for the staged diff
   gitgist --working                      # all uncommitted work
   gitgist v1.4.0..HEAD --untracked       # commits plus new files
   gitgist --no-ai`;
@@ -76,6 +81,11 @@ function parseMaxTokens(value: string | undefined): number {
   return n;
 }
 
+function parseFormat(value: string | undefined): OutputFormat {
+  if (value === 'notes' || value === 'commit') return value;
+  throw new Error(`Invalid --format: ${value ?? '(missing)'} (expected notes or commit)`);
+}
+
 /**
  * Parse `gitgist` CLI arguments.
  *
@@ -91,6 +101,7 @@ export function parseArgs(argv: string[]): CliArgs {
     provider: 'auto',
     ai: true,
     help: false,
+    format: 'notes',
     staged: false,
     unstaged: false,
     untracked: false,
@@ -119,6 +130,12 @@ export function parseArgs(argv: string[]): CliArgs {
         args.staged = true;
         args.unstaged = true;
         args.untracked = true;
+        break;
+      case '--format':
+        args.format = parseFormat(argv[++i]);
+        break;
+      case '--commit-message':
+        args.format = 'commit';
         break;
       case '--no-ai':
         args.ai = false;

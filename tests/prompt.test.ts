@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseCommit, type RawCommit } from '../src/parse.js';
 import {
   buildUserPrompt,
+  COMMIT_SYSTEM_PROMPT,
   commitsToMaterial,
   stripCodeFences,
   SYSTEM_PROMPT,
@@ -86,5 +87,13 @@ describe('SYSTEM_PROMPT', () => {
     expect(SYSTEM_PROMPT).toContain('Markdown');
     expect(SYSTEM_PROMPT).toContain('##');
     expect(SYSTEM_PROMPT).toContain('diff');
+  });
+});
+
+describe('COMMIT_SYSTEM_PROMPT', () => {
+  it('asks for a Conventional Commit message, not grouped notes', () => {
+    expect(COMMIT_SYSTEM_PROMPT).toContain('Conventional Commits');
+    expect(COMMIT_SYSTEM_PROMPT).toContain('type(scope): description');
+    expect(COMMIT_SYSTEM_PROMPT).toContain('BREAKING CHANGE');
   });
 });

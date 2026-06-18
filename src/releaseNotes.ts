@@ -1,8 +1,13 @@
 import { buildChangelog, renderMarkdown, renderWorkingChanges } from './changelog.js';
 import { readCommits, readWorkingChanges, resolveCommitRange } from './git.js';
-import { buildUserPrompt, SYSTEM_PROMPT, workingChangesToMaterial } from './prompt.js';
+import {
+  buildUserPrompt,
+  COMMIT_SYSTEM_PROMPT,
+  SYSTEM_PROMPT,
+  workingChangesToMaterial,
+} from './prompt.js';
 import { resolveProvider } from './providers/index.js';
-import type { ReleaseNotesOptions, WorkingChanges } from './types.js';
+import type { Commit, ReleaseNotesOptions, WorkingChanges } from './types.js';
 
 /**
  * Generate release notes for a commit range and/or the uncommitted working
@@ -50,6 +55,15 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
 
   const haveCommits = commits.length > 0;
   const haveWorking = working !== undefined && !working.isEmpty;
+  const format = options.format ?? 'notes';
+
+  // Build the AI material (commit messages + working-tree diffs) once.
+  const buildPromptMaterial = (commitList: Commit[], wc: WorkingChanges | undefined): string => {
+    const parts: string[] = [];
+    if (commitList.length > 0) parts.push(buildUserPrompt(range, commitList));
+    if (wc !== undefined && !wc.isEmpty) parts.push(workingChangesToMaterial(wc));
+    return parts.join('\n\n');
+  };
 
   let body: string;
   if (!haveCommits && !haveWorking) {
@@ -57,6 +71,18 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
       wantWorking && !explicitRange
         ? '_No uncommitted changes._'
         : `_No changes in \`${range}\`._`;
+  } else if (format === 'commit') {
+    if (options.ai === false) {
+      throw new Error('--format commit requires AI; remove --no-ai.');
+    }
+    const provider = await resolveProvider(options.provider);
+    const generated = await provider.generate({
+      system: COMMIT_SYSTEM_PROMPT,
+      prompt: buildPromptMaterial(commits, working),
+      model: options.model,
+      maxTokens: options.maxTokens,
+    });
+    body = generated.trim();
   } else if (options.ai === false) {
     const pieces: string[] = [];
     if (haveCommits) pieces.push(renderMarkdown(buildChangelog(range, commits)).trimEnd());
@@ -64,19 +90,18 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     body = pieces.join('\n\n');
   } else {
     const provider = await resolveProvider(options.provider);
-    const parts: string[] = [];
-    if (haveCommits) parts.push(buildUserPrompt(range, commits));
-    if (haveWorking && working !== undefined) parts.push(workingChangesToMaterial(working));
     const generated = await provider.generate({
       system: SYSTEM_PROMPT,
-      prompt: parts.join('\n\n'),
+      prompt: buildPromptMaterial(commits, working),
       model: options.model,
       maxTokens: options.maxTokens,
     });
     body = generated.trim();
   }
 
+  // A commit message has no Markdown title; only notes get the `--title` heading.
   const title = options.title;
-  const heading = title !== undefined && title !== '' ? `# ${title}\n\n` : '';
+  const heading =
+    format !== 'commit' && title !== undefined && title !== '' ? `# ${title}\n\n` : '';
   return `${heading}${body}\n`;
 }

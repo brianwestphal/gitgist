@@ -17,6 +17,20 @@ Rules:
 - If there are no user-facing changes, output exactly: \`_No user-facing changes._\``;
 
 /**
+ * System prompt for `--format commit`: produce a single Conventional Commit
+ * message (subject + optional body + footer) instead of grouped release notes.
+ */
+export const COMMIT_SYSTEM_PROMPT = `You write git commit messages. You are given git commits and/or uncommitted changes (diffs). Produce ONE commit message that describes them, following the Conventional Commits standard.
+
+Rules:
+- Output ONLY the commit message — no preamble, no explanation, no Markdown headings, and do not wrap it in a code fence.
+- First line is the subject: \`type(scope): description\`. The scope is optional. Use an imperative description ("add", not "added"/"adds"), no trailing period, and keep it to about 50 characters (72 max).
+- Choose one type: feat, fix, docs, style, refactor, perf, test, build, ci, chore.
+- If the change is breaking, append \`!\` after the type/scope (e.g. \`feat!:\`) and add a \`BREAKING CHANGE: <what broke>\` footer.
+- For anything beyond a trivial one-liner, add a blank line then a body: a few short bullet points or sentences explaining what changed and why. Wrap body lines at about 72 characters.
+- Summarize the actual changes; do not invent anything not present in the input.`;
+
+/**
  * Strip a single wrapping Markdown code fence from the model's output, if
  * present. Models sometimes wrap the whole response in triple-backtick fences.
  *

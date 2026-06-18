@@ -94,4 +94,21 @@ describe('parseArgs', () => {
       expect(args.untracked).toBe(true);
     }
   });
+
+  it('defaults format to notes', () => {
+    expect(parseArgs([]).format).toBe('notes');
+  });
+
+  it('parses --format commit and --format notes', () => {
+    expect(parseArgs(['--format', 'commit']).format).toBe('commit');
+    expect(parseArgs(['--format', 'notes']).format).toBe('notes');
+  });
+
+  it('--commit-message is shorthand for --format commit', () => {
+    expect(parseArgs(['--commit-message']).format).toBe('commit');
+  });
+
+  it('rejects an invalid --format', () => {
+    expect(() => parseArgs(['--format', 'changelog'])).toThrow(/Invalid --format/);
+  });
 });

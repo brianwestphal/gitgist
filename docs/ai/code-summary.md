@@ -13,7 +13,7 @@ src/
   types.ts            # shared types
   git.ts              # readCommits, latestTag, resolveCommitRange, readWorkingChanges
   parse.ts            # parseCommit (Conventional Commits)
-  prompt.ts           # SYSTEM_PROMPT, buildUserPrompt, commitsToMaterial, stripCodeFences, workingChangesToMaterial
+  prompt.ts           # SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT, buildUserPrompt, commitsToMaterial, stripCodeFences, workingChangesToMaterial
   changelog.ts        # buildChangelog, renderMarkdown, renderWorkingChanges, DEFAULT_GROUPS  (--no-ai path)
   releaseNotes.ts     # generateReleaseNotes (orchestrator)
   providers/
@@ -44,6 +44,7 @@ tests/                # parse, changelog, prompt, cliArgs, git, providers, integ
 | Task | Look at |
 | --- | --- |
 | change the AI instructions / section style | `prompt.ts` (`SYSTEM_PROMPT`) |
+| change the commit-message output (`--format commit`) | `prompt.ts` (`COMMIT_SYSTEM_PROMPT`); selected in `releaseNotes.ts` |
 | add an AI provider | `providers/` — `createCliProvider` for CLIs, register in `index.ts` (`PROVIDERS` + `AUTO_ORDER`) |
 | change how the git range is resolved | `git.ts` (`resolveCommitRange`, `latestTag`) |
 | change how commits are read/parsed | `git.ts` (`readCommits`), `parse.ts` |

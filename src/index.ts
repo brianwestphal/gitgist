@@ -21,6 +21,7 @@ export { latestTag, readCommits, readWorkingChanges, resolveCommitRange } from '
 export { parseCommit, type RawCommit } from './parse.js';
 export {
   buildUserPrompt,
+  COMMIT_SYSTEM_PROMPT,
   commitsToMaterial,
   stripCodeFences,
   SYSTEM_PROMPT,
@@ -43,6 +44,7 @@ export type {
   ChangelogOptions,
   ChangelogSection,
   Commit,
+  OutputFormat,
   ProviderName,
   ReadCommitsOptions,
   ReleaseNotesOptions,

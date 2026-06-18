@@ -18,6 +18,7 @@ gaps noted), **Deferred** (planned, tracked by a ticket).
 | FR-9 | CLI flags: `--no-ai`, `--provider`, `--model`, `--max-tokens`, `--title`, `--cwd`, `--help`, and the working-tree flags (FR-11) | **Shipped** | `cliArgs.ts`. |
 | FR-10 | Additional providers: Apple FM, Ollama/local, Codex, Gemini, Cursor | **Deferred** | Tickets GG-3, GG-4, GG-5, GG-6, GG-7 (CLI-first where possible). |
 | FR-11 | Summarize **uncommitted** working-tree changes (`--staged`/`--cached`, `--unstaged`, `--untracked`, `--working`) — alongside a range, or standalone (no range) for a commit-message draft | **Shipped** | `readWorkingChanges` (`git.ts`); diffs fed to the AI, or a deterministic file listing under `--no-ai` (`renderWorkingChanges`). |
+| FR-12 | Output format selection: `--format notes` (default, themed Markdown) or `--format commit` / `--commit-message` (a single Conventional Commit message). `commit` requires AI; `--title` is ignored for it | **Shipped** | `COMMIT_SYSTEM_PROMPT` (`prompt.ts`) selected in `releaseNotes.ts`. Pairs with FR-11 for "draft my commit message". |
 
 ## Non-functional requirements
 

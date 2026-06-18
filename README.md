@@ -19,8 +19,9 @@ grouped Markdown — written by Claude, with the internal noise stripped out.
   [`claude`](https://www.npmjs.com/package/@anthropic-ai/claude-code) CLI — zero
   config. Prefer the API? Set `ANTHROPIC_API_KEY`.
 - **Summarize uncommitted work too.** Point it at your staged/unstaged/untracked
-  changes (`--staged`, `--working`, …) to draft a commit message or preview notes
-  for work that isn't committed yet.
+  changes (`--staged`, `--working`, …) to preview notes for work that isn't
+  committed yet — or add `--commit-message` to draft a Conventional Commit
+  message straight from the staged diff.
 - **Works offline too.** `--no-ai` groups by Conventional Commit type with no
   network, no key, and fully deterministic output.
 - **CLI _and_ library.** Use the `gitgist` bin, or call `generateReleaseNotes()`
@@ -61,9 +62,12 @@ gitgist v1.4.0..HEAD --title "v1.5.0"
 # No range given → from the latest tag (or full history) to HEAD
 gitgist
 
-# Summarize uncommitted work (no range) — e.g. to draft a commit message
+# Summarize uncommitted work (no range)
 gitgist --staged          # just the staged diff
 gitgist --working         # staged + unstaged + untracked
+
+# Draft a Conventional Commit message from the staged diff
+gitgist --staged --commit-message
 
 # Fold pending changes into a range's notes
 gitgist v1.4.0..HEAD --untracked
@@ -78,6 +82,8 @@ gitgist --no-ai
 | `--unstaged`               | Include unstaged changes to tracked files (`git diff`).             |
 | `--untracked`              | Include untracked (new) files.                                      |
 | `--working`, `--uncommitted` | Include all uncommitted work (staged + unstaged + untracked).      |
+| `--format <notes\|commit>` | Output shape: themed notes (default) or a Conventional Commit message. |
+| `--commit-message`         | Shorthand for `--format commit` (requires AI).                      |
 | `--no-ai`                  | Group commits by Conventional Commit type instead (offline).        |
 | `--provider <name>`        | `auto` \| `anthropic-api` \| `claude-cli` (default: `auto`).         |
 | `--model <id>`             | Model for the `anthropic-api` provider (default: `claude-opus-4-8`). |
