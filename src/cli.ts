@@ -18,6 +18,7 @@ async function main(): Promise<void> {
     ai: args.ai,
     provider: args.provider,
     model: args.model,
+    endpoint: args.endpoint,
     maxTokens: args.maxTokens,
     title: args.title,
     format: args.format,

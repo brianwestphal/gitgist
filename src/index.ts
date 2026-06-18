@@ -37,7 +37,11 @@ export {
   claudeCliProvider,
   type CliProviderSpec,
   createCliProvider,
+  createLocalProvider,
+  DEFAULT_LOCAL_ENDPOINT,
   type GenerateRequest,
+  localProvider,
+  type LocalProviderConfig,
   PROVIDERS,
   resolveProvider,
 } from './providers/index.js';

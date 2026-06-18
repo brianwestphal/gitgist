@@ -14,10 +14,11 @@ Keep status markers in sync with the implementation.
 - **FR-7 CLI-first auto-selection** — Shipped. `providers/index.ts`.
 - **FR-8 Offline `--no-ai` fallback** — Shipped. `changelog.ts`.
 - **FR-9 CLI flags** — Shipped. `cliArgs.ts` (`--no-ai/--provider/--model/--max-tokens/--title/--cwd/--help` + working-tree flags).
-- **FR-10 More providers** — Deferred. GG-3 (Apple FM), GG-4 (Ollama/local), GG-5 (Codex), GG-6 (Gemini), GG-7 (Cursor).
+- **FR-10 More providers** — Deferred. GG-3 (Apple FM), GG-5 (Codex), GG-6 (Gemini), GG-7 (Cursor).
 - **FR-11 Uncommitted working-tree changes** — Shipped. `git.ts:readWorkingChanges` + `--staged`/`--cached`/`--unstaged`/`--untracked`/`--working`; standalone (no range) summarizes only pending changes (commit-message draft). Deterministic listing via `changelog.ts:renderWorkingChanges`.
 - **FR-12 Output format** — Shipped. `--format notes` (default) or `--format commit` / `--commit-message` → a Conventional Commit message via `prompt.ts:COMMIT_SYSTEM_PROMPT` (requires AI; `--title` ignored).
 - **FR-13 Templates** — Shipped. `--template <file>`: Markdown-with-frontmatter template (`template.ts:loadTemplate/parseTemplate` + `prompt.ts:TEMPLATE_SYSTEM_PROMPT/buildTemplatePrompt`); strict sections/order. Requires AI; not combinable with `--format commit`. Spec: `docs/4-templates.md`.
+- **FR-14 Local provider** — Shipped. `--provider local` → OpenAI-compatible endpoint (Ollama/LM Studio) via `providers/local.ts:createLocalProvider`; `--endpoint`/`GITGIST_LOCAL_ENDPOINT`, `--model`/`GITGIST_LOCAL_MODEL`. Opt-in only (not in `AUTO_ORDER`).
 
 ## Non-functional
 

@@ -22,6 +22,7 @@ src/
     cli.ts            # createCliProvider (reusable no-key CLI backend)
     claudeCli.ts      # claudeCliProvider
     anthropicApi.ts   # anthropicApiProvider
+    local.ts          # createLocalProvider (Ollama / OpenAI-compatible; opt-in)
     index.ts          # PROVIDERS, AUTO_ORDER, resolveProvider
 tests/                # parse, changelog, prompt, cliArgs, git, providers, integration
 ```

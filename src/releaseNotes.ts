@@ -83,7 +83,10 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     if (options.ai === false) {
       throw new Error('--format commit requires AI; remove --no-ai.');
     }
-    const provider = await resolveProvider(options.provider);
+    const provider = await resolveProvider(options.provider, {
+      endpoint: options.endpoint,
+      model: options.model,
+    });
     const generated = await provider.generate({
       system: COMMIT_SYSTEM_PROMPT,
       prompt: buildPromptMaterial(commits, working),
@@ -96,7 +99,10 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
       throw new Error('--template requires AI; remove --no-ai.');
     }
     const template = await loadTemplate(options.template, cwd);
-    const provider = await resolveProvider(options.provider);
+    const provider = await resolveProvider(options.provider, {
+      endpoint: options.endpoint,
+      model: options.model,
+    });
     const generated = await provider.generate({
       system: TEMPLATE_SYSTEM_PROMPT,
       prompt: buildTemplatePrompt(template, buildPromptMaterial(commits, working)),
@@ -110,7 +116,10 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     if (haveWorking && working !== undefined) pieces.push(renderWorkingChanges(working));
     body = pieces.join('\n\n');
   } else {
-    const provider = await resolveProvider(options.provider);
+    const provider = await resolveProvider(options.provider, {
+      endpoint: options.endpoint,
+      model: options.model,
+    });
     const generated = await provider.generate({
       system: SYSTEM_PROMPT,
       prompt: buildPromptMaterial(commits, working),

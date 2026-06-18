@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createCliProvider } from '../src/providers/cli.js';
-import { anthropicApiProvider, PROVIDERS, resolveProvider } from '../src/providers/index.js';
+import { anthropicApiProvider, AUTO_ORDER, PROVIDERS, resolveProvider } from '../src/providers/index.js';
+import {
+  createLocalProvider,
+  extractChatContent,
+  type FetchLike,
+  parseModelList,
+} from '../src/providers/local.js';
 import type { AIProvider } from '../src/providers/types.js';
 
 /** A deterministic stand-in provider whose availability we control. */
@@ -68,6 +74,92 @@ describe('createCliProvider', () => {
   });
 });
 
+describe('local provider helpers', () => {
+  it('parseModelList extracts ids from an OpenAI /models response', () => {
+    expect(parseModelList({ data: [{ id: 'llama3.2' }, { id: 'qwen' }, {}] })).toEqual([
+      'llama3.2',
+      'qwen',
+    ]);
+    expect(parseModelList({})).toEqual([]);
+    expect(parseModelList(null)).toEqual([]);
+  });
+
+  it('extractChatContent pulls choices[0].message.content', () => {
+    expect(extractChatContent({ choices: [{ message: { content: '## Features' } }] })).toBe(
+      '## Features',
+    );
+    expect(extractChatContent({ choices: [] })).toBe('');
+    expect(extractChatContent({})).toBe('');
+  });
+});
+
+/** A fake fetch that routes /models and /chat/completions to canned responses. */
+function fakeFetch(models: string[], content: string): FetchLike {
+  return (url) => {
+    if (url.endsWith('/models')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ data: models.map((id) => ({ id })) }),
+      });
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ choices: [{ message: { content } }] }),
+    });
+  };
+}
+
+describe('createLocalProvider', () => {
+  it('isAvailable() is true when the endpoint lists ≥1 model', async () => {
+    const p = createLocalProvider({ fetchImpl: fakeFetch(['llama3.2'], '') });
+    expect(await p.isAvailable()).toBe(true);
+  });
+
+  it('isAvailable() is false when no models are listed', async () => {
+    const p = createLocalProvider({ fetchImpl: fakeFetch([], '') });
+    expect(await p.isAvailable()).toBe(false);
+  });
+
+  it('isAvailable() is false when the endpoint is unreachable', async () => {
+    const p = createLocalProvider({
+      fetchImpl: () => Promise.reject(new Error('ECONNREFUSED')),
+    });
+    expect(await p.isAvailable()).toBe(false);
+  });
+
+  it('generate() posts the chat request and returns the message content', async () => {
+    const p = createLocalProvider({
+      model: 'llama3.2',
+      fetchImpl: fakeFetch(['llama3.2'], '## Features\n- a'),
+    });
+    expect(await p.generate({ system: 's', prompt: 'p' })).toBe('## Features\n- a');
+  });
+
+  it('generate() discovers the first model when none is configured', async () => {
+    const original = process.env.GITGIST_LOCAL_MODEL;
+    delete process.env.GITGIST_LOCAL_MODEL;
+    try {
+      const p = createLocalProvider({ fetchImpl: fakeFetch(['mistral'], 'notes') });
+      expect(await p.generate({ system: 's', prompt: 'p' })).toBe('notes');
+    } finally {
+      if (original !== undefined) process.env.GITGIST_LOCAL_MODEL = original;
+    }
+  });
+
+  it('generate() throws when no model is available', async () => {
+    const original = process.env.GITGIST_LOCAL_MODEL;
+    delete process.env.GITGIST_LOCAL_MODEL;
+    try {
+      const p = createLocalProvider({ fetchImpl: fakeFetch([], 'x') });
+      await expect(p.generate({ system: 's', prompt: 'p' })).rejects.toThrow(/No local model/);
+    } finally {
+      if (original !== undefined) process.env.GITGIST_LOCAL_MODEL = original;
+    }
+  });
+});
+
 describe('anthropicApiProvider.isAvailable', () => {
   const original = process.env.ANTHROPIC_API_KEY;
   afterEach(() => {
@@ -111,18 +203,23 @@ describe('resolveProvider', () => {
 
   it('auto-selects the first available provider in order', async () => {
     const order = [fakeProvider('cli', false), fakeProvider('api', true)];
-    const provider = await resolveProvider('auto', order);
+    const provider = await resolveProvider('auto', { order });
     expect(provider.name).toBe('api');
   });
 
   it('auto prefers an earlier available provider (CLI before API)', async () => {
     const order = [fakeProvider('cli', true), fakeProvider('api', true)];
-    const provider = await resolveProvider('auto', order);
+    const provider = await resolveProvider('auto', { order });
     expect(provider.name).toBe('cli');
   });
 
   it('throws when no provider in the order is available', async () => {
     const order = [fakeProvider('cli', false), fakeProvider('api', false)];
-    await expect(resolveProvider('auto', order)).rejects.toThrow(/No AI provider available/);
+    await expect(resolveProvider('auto', { order })).rejects.toThrow(/No AI provider available/);
+  });
+
+  it('never auto-selects the local provider (not in AUTO_ORDER)', () => {
+    expect(AUTO_ORDER.map((p) => p.name)).not.toContain('local');
+    expect(AUTO_ORDER.map((p) => p.name)).toEqual(['claude-cli', 'anthropic-api']);
   });
 });

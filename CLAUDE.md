@@ -31,8 +31,11 @@ The pipeline: resolve a range → read commits → generate notes.
   - `anthropicApi.ts` — official `@anthropic-ai/sdk`, model `claude-opus-4-8`,
     adaptive thinking, streaming. Reads `ANTHROPIC_API_KEY`. SDK is imported
     lazily.
-  - `index.ts` — `resolveProvider(name, order?)`; `auto` (`AUTO_ORDER`) prefers
-    the zero-config CLI (no key), then API-key backends.
+  - `local.ts` — `createLocalProvider()`: any OpenAI-compatible endpoint
+    (Ollama / LM Studio) via `fetch`; returns freeform Markdown. Opt-in only.
+  - `index.ts` — `resolveProvider(name, opts?)`; `auto` (`AUTO_ORDER`) prefers
+    the zero-config CLI (no key), then API-key backends. `local` is excluded
+    from `AUTO_ORDER` (never auto-probed); `opts` carries its endpoint/model.
 - `src/releaseNotes.ts` — `generateReleaseNotes()` ties it together (AI path, or
   `ai: false` → deterministic `buildChangelog` + `renderMarkdown`).
 - `src/changelog.ts` — deterministic Conventional Commit grouping + Markdown
@@ -54,9 +57,9 @@ Reserve API-key providers (`anthropicApi.ts`-style) for tools without a usable
 CLI, and place them after the CLI backends.
 
 Follow-up providers on the roadmap, CLI-first where possible: Apple Foundation
-Models (on-device Swift helper, see `~/Documents/hotsheet`), Ollama / local
-OpenAI-compatible endpoints, OpenAI/Codex (`codex exec`), Gemini CLI, Cursor
-agent.
+Models (on-device Swift helper, see `~/Documents/hotsheet`), OpenAI/Codex
+(`codex exec`), Gemini CLI, Cursor agent. (Ollama / local OpenAI-compatible is
+done — `providers/local.ts`.)
 
 ## Conventions
 

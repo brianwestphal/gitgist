@@ -9,6 +9,7 @@ export interface CliArgs {
   cwd?: string;
   provider: ProviderName;
   model?: string;
+  endpoint?: string;
   maxTokens?: number;
   format: OutputFormat;
   template?: string;
@@ -42,8 +43,11 @@ Options:
                           order, and AI guidance). Requires AI. See docs/4-templates.md.
   --no-ai                 Group commits by Conventional Commit type instead of
                           using AI (works offline, no API key needed).
-  --provider <name>       AI backend: auto | anthropic-api | claude-cli (default: auto).
-  --model <id>            Model id for the anthropic-api provider (default: claude-opus-4-8).
+  --provider <name>       AI backend: auto | claude-cli | anthropic-api | local (default: auto).
+  --endpoint <url>        Base URL for --provider local (default: $GITGIST_LOCAL_ENDPOINT
+                          or http://localhost:11434/v1).
+  --model <id>            Model id — the anthropic-api model (default: claude-opus-4-8),
+                          or the local model name (default: the endpoint's first model).
   --max-tokens <n>        Max output tokens for the anthropic-api provider (default: 16000).
   --title <text>          Render <text> as a top-level heading above the notes.
   --cwd <path>            Run against the git repository at <path> (default: cwd).
@@ -68,12 +72,15 @@ Examples:
   gitgist --working                      # all uncommitted work
   gitgist v1.4.0..HEAD --untracked       # commits plus new files
   gitgist v1.4.0..HEAD --template notes.md   # shape with a template
+  gitgist v1.4.0..HEAD --provider local --model llama3.2   # local Ollama/LM Studio
   gitgist --no-ai`;
 
 function parseProvider(value: string | undefined): ProviderName {
-  if (value === 'auto' || value === 'anthropic-api' || value === 'claude-cli') return value;
+  if (value === 'auto' || value === 'anthropic-api' || value === 'claude-cli' || value === 'local') {
+    return value;
+  }
   throw new Error(
-    `Invalid --provider: ${value ?? '(missing)'} (expected auto, anthropic-api, or claude-cli)`,
+    `Invalid --provider: ${value ?? '(missing)'} (expected auto, claude-cli, anthropic-api, or local)`,
   );
 }
 
@@ -155,6 +162,9 @@ export function parseArgs(argv: string[]): CliArgs {
         break;
       case '--model':
         args.model = argv[++i];
+        break;
+      case '--endpoint':
+        args.endpoint = argv[++i];
         break;
       case '--max-tokens':
         args.maxTokens = parseMaxTokens(argv[++i]);

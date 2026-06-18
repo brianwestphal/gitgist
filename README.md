@@ -29,9 +29,10 @@ grouped Markdown — written by Claude, with the internal noise stripped out.
   network, no key, and fully deterministic output.
 - **CLI _and_ library.** Use the `gitgist` bin, or call `generateReleaseNotes()`
   from your release tooling.
-- **Pluggable providers.** Claude ships today; Codex, Gemini, Cursor, Apple
-  Foundation Models, and local Ollama / OpenAI-compatible models are on the way
-  — CLI-first wherever the tool offers a headless mode.
+- **Pluggable providers.** Claude (CLI + API) and any local OpenAI-compatible
+  endpoint (Ollama / LM Studio) ship today; Codex, Gemini, Cursor, and Apple
+  Foundation Models are on the way — CLI-first wherever the tool offers a
+  headless mode.
 
 ## See it
 
@@ -75,6 +76,9 @@ gitgist --staged --commit-message
 # Fold pending changes into a range's notes
 gitgist v1.4.0..HEAD --untracked
 
+# Use a local model (Ollama / LM Studio) — free, private, no API key
+gitgist v1.4.0..HEAD --provider local --model llama3.2
+
 # Shape the output to your team's template (sections, order, guidance)
 gitgist v1.4.0..HEAD --template release-notes.md
 
@@ -97,8 +101,9 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 | `--commit-message`         | Shorthand for `--format commit` (requires AI).                      |
 | `--template <file>`        | Shape the notes with a Markdown template ([docs](docs/4-templates.md)). |
 | `--no-ai`                  | Group commits by Conventional Commit type instead (offline).        |
-| `--provider <name>`        | `auto` \| `anthropic-api` \| `claude-cli` (default: `auto`).         |
-| `--model <id>`             | Model for the `anthropic-api` provider (default: `claude-opus-4-8`). |
+| `--provider <name>`        | `auto` \| `claude-cli` \| `anthropic-api` \| `local` (default: `auto`). |
+| `--endpoint <url>`         | Base URL for `--provider local` (default: Ollama's `…:11434/v1`).   |
+| `--model <id>`             | `anthropic-api` model (default `claude-opus-4-8`), or the `local` model name. |
 | `--max-tokens <n>`         | Max output tokens for the `anthropic-api` provider (default: 16000). |
 | `--title <text>`           | Render `<text>` as a top-level heading above the notes.             |
 | `--cwd <path>`             | Run against the git repository at `<path>`.                         |
@@ -111,17 +116,22 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 ## AI providers & API keys
 
 gitgist prefers **zero-config CLI backends that need no API key** — the same
-approach the related tools take with `claude -p`. Two Claude backends ship
-today:
+approach the related tools take with `claude -p`. Three backends ship today:
 
 1. **`claude-cli`** — your locally installed, signed-in `claude` CLI. **No API
    key** — it reuses the CLI's own auth.
 2. **`anthropic-api`** — the Anthropic API via the official SDK. Set
    `ANTHROPIC_API_KEY` in your environment.
+3. **`local`** — any **OpenAI-compatible** endpoint (Ollama, LM Studio,
+   llama.cpp, vLLM, …) for free, private, on-device generation. Opt-in with
+   `--provider local`; configure with `--endpoint` (`$GITGIST_LOCAL_ENDPOINT`,
+   default `http://localhost:11434/v1`) and `--model` (`$GITGIST_LOCAL_MODEL`,
+   else the endpoint's first model). No API key.
 
 With `--provider auto` (the default), gitgist uses the `claude` CLI when it's
 installed, and falls back to the Anthropic API when `ANTHROPIC_API_KEY` is set.
-Force one with `--provider claude-cli` / `--provider anthropic-api`. If no
+The `local` provider is **never** auto-selected (so a normal run doesn't probe
+localhost) — request it explicitly. Force any with `--provider <name>`. If no
 provider is available, use `--no-ai` for offline Conventional Commits grouping.
 
 > Planned providers follow the same **CLI-first, no-key** pattern wherever the

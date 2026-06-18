@@ -69,12 +69,13 @@ export interface ChangelogOptions {
 /**
  * Which AI backend to use for release-note generation.
  *
- * - `auto` — prefer the Anthropic API (if `ANTHROPIC_API_KEY` is set), else the
- *   `claude` CLI.
- * - `anthropic-api` — the Anthropic Messages API via the official SDK.
+ * - `auto` — prefer a signed-in CLI (e.g. `claude`), else an API-key backend.
  * - `claude-cli` — shell out to the locally installed, signed-in `claude` CLI.
+ * - `anthropic-api` — the Anthropic Messages API via the official SDK.
+ * - `local` — a local OpenAI-compatible endpoint (Ollama / LM Studio / …);
+ *   opt-in only, never auto-selected.
  */
-export type ProviderName = 'auto' | 'anthropic-api' | 'claude-cli';
+export type ProviderName = 'auto' | 'anthropic-api' | 'claude-cli' | 'local';
 
 /**
  * Output shape:
@@ -104,8 +105,10 @@ export interface ReleaseNotesOptions {
   ai?: boolean;
   /** Which AI provider to use (default: `auto`). */
   provider?: ProviderName;
-  /** Model id for the `anthropic-api` provider (default: `claude-opus-4-8`). */
+  /** Model id (the `anthropic-api` model, or the `local` model name). */
   model?: string;
+  /** Base URL for the `local` provider (default: `GITGIST_LOCAL_ENDPOINT` or Ollama). */
+  endpoint?: string;
   /** Max output tokens for the `anthropic-api` provider (default: 16000). */
   maxTokens?: number;
   /** Heading text rendered as a top-level `#` heading above the notes (ignored for `commit` format). */
