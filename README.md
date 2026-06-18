@@ -42,6 +42,12 @@ grouped Markdown — written by Claude, with the internal noise stripped out.
   <img src="assets/demos/ai-release-notes.svg" alt="gitgist v1.0.0..HEAD --title v1.5.0 produces grouped Markdown: Breaking Changes (Node 18 dropped), Features (--watch flag, streamed diffs), Performance (cached config ~3x faster startup), Bug Fixes (expired tokens, empty range) — refactor/test/chore commits filtered out.">
 </p>
 
+**Commit message from your staged diff** — `gitgist --staged --commit-message`
+
+<p align="center">
+  <img src="assets/demos/commit-message.svg" alt="gitgist --staged --commit-message reads the staged diff and writes a Conventional Commit message: feat(auth): reject expired tokens during verification, with a wrapped body explaining the exp-claim check and the 401 AuthError it now throws.">
+</p>
+
 **Offline mode** — `gitgist v1.0.0..HEAD --no-ai`
 
 <p align="center">
@@ -163,6 +169,89 @@ a rule of thumb, larger models categorize and filter noise more reliably:
 **Pick by what you care about most:** best notes → Claude; private/free with
 good quality → `local` with a capable model; private/free/fast on a Mac with
 nothing to install → `apple`; reproducible and offline → `--no-ai`.
+
+<details>
+<summary><strong>See it: the same 10 commits through three backends</strong> (real <code>npm&nbsp;run&nbsp;compare</code> output)</summary>
+
+The history mixes real user-facing work (a breaking `feat!: drop Node 18`, two
+features, two fixes, a perf win) with noise that good notes should drop (a
+`docs:` tweak, a `refactor:`, a `test:`, a `chore:` dep bump).
+
+**`claude-cli` (Claude)** — tightest. Breaking Changes first; the `docs:`,
+`refactor:`, `test:`, and `chore:` commits are all dropped as noise:
+
+```markdown
+## Breaking Changes
+- Dropped support for Node 18 — Node 20 is now the minimum required version.
+
+## Features
+- Added cursor-based pagination to the list endpoint.
+- Added a dark-mode toggle to the settings page.
+
+## Bug Fixes
+- Expired authentication tokens are now rejected with a proper error instead of a 500.
+- Fixed the sidebar flickering on window resize.
+
+## Performance
+- Cached compiled regexes for roughly 3x faster cold start.
+```
+
+**`local` (Ollama, `llama3.2`)** — very close, but kept the `docs:` commit as a
+Documentation section and ordered Performance ahead of Bug Fixes:
+
+```markdown
+## Breaking Changes
+- Support for Node.js 18 has been dropped; the minimum supported version is now Node.js 20.
+
+## Features
+- Added a dark mode toggle to the settings page.
+- Introduced cursor-based pagination for list endpoints.
+
+## Performance
+- Cached compiled regular expressions, significantly improving cold start performance.
+
+## Bug Fixes
+- Fixed an issue where the sidebar would flicker when resizing the window.
+- Improved auth handling by rejecting expired tokens with a specific error instead of a 500 response.
+
+## Documentation
+- Expanded the quickstart guide with more comprehensive examples.
+```
+
+**`--no-ai`** — deterministic baseline. Keeps every commit verbatim with its
+hash, no rewriting and no noise-filtering — so the breaking change appears under
+both Breaking Changes *and* Features, and the refactor/test/chore commits stay:
+
+```markdown
+## ⚠ BREAKING CHANGES
+- drop Node 18; the minimum supported version is now Node 20 (`cff23c3`)
+
+## Features
+- drop Node 18; the minimum supported version is now Node 20 (`cff23c3`)
+- **ui:** add a dark-mode toggle to the settings page (`29cef29`)
+- **api:** add cursor-based pagination to the list endpoint (`aebce25`)
+
+## Bug Fixes
+- stop the sidebar from flickering on window resize (`d0e275b`)
+- **auth:** reject expired tokens instead of returning a 500 (`69ef42a`)
+
+## Performance
+- cache compiled regexes — about 3x faster cold start (`75e07cd`)
+
+## Refactoring
+- split the loader into smaller modules (`1758a1e`)
+
+## Documentation
+- expand the quickstart with a tag-to-HEAD example (`0ef0091`)
+
+## Tests
+- add coverage for the range parser (`68869fd`)
+
+## Chores
+- bump eslint to v10 (`1458698`)
+```
+
+</details>
 
 Want to judge for yourself? `npm run compare` runs the same fixed history
 through every backend available on your machine and prints the results side by

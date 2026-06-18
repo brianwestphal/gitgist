@@ -12,15 +12,17 @@
  *
  * The SVGs embedded in README.md are the output of this script. The seeded repo
  * is deterministic; the `--no-ai` demo is therefore fully reproducible, while
- * the AI demo reflects the live model's real output (wording can vary slightly
- * between captures — that is the tool's actual behavior). The temp repo is a
- * throwaway; only the SVGs under assets/ are kept.
+ * the AI demos (release notes and the staged commit message) reflect the live
+ * model's real output (wording can vary slightly between captures — that is the
+ * tool's actual behavior). The temp repo is a throwaway; only the SVGs under
+ * assets/ are kept.
  *
  * Rendering drives headless Chromium via Playwright (domotion installs it on
- * first use). The AI demo uses whatever provider `--provider auto` resolves —
+ * first use). The AI demos use whatever provider `--provider auto` resolves —
  * typically the signed-in `claude` CLI, so no API key is required.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -54,13 +56,19 @@ const COMMITS = [
   'feat!: drop Node 18; the minimum supported version is now Node 20',
 ];
 
-/** Seed a throwaway git repo with COMMITS and a `v1.0.0` tag. */
-function seedRepo(dir) {
+/** Open a `git` runner bound to `dir`, with demo identity/config preset. */
+function gitIn(dir) {
   const git = (...args) => execFileSync('git', args, { cwd: dir, stdio: ['ignore', 'ignore', 'inherit'] });
   git('init', '-q');
   git('config', 'user.email', 'demo@example.com');
   git('config', 'user.name', 'gitgist demo');
   git('config', 'commit.gpgsign', 'false');
+  return git;
+}
+
+/** Seed a throwaway git repo with COMMITS and a `v1.0.0` tag. */
+function seedRepo(dir) {
+  const git = gitIn(dir);
   for (const subject of COMMITS) {
     if (subject === '__TAG__') {
       git('tag', 'v1.0.0');
@@ -68,6 +76,36 @@ function seedRepo(dir) {
     }
     git('commit', '--allow-empty', '-q', '-m', subject);
   }
+}
+
+/** The committed baseline of the file the commit-message demo then edits. */
+const AUTH_BEFORE = `export function verifyToken(token) {
+  const payload = decode(token);
+  return payload;
+}
+`;
+
+/** The staged version — adds an expiry check that rejects stale tokens. */
+const AUTH_AFTER = `export function verifyToken(token) {
+  const payload = decode(token);
+  if (payload.exp * 1000 < Date.now()) {
+    throw new AuthError('token expired', 401);
+  }
+  return payload;
+}
+`;
+
+/**
+ * Seed a repo for the commit-message demo: one committed baseline file, then a
+ * real, staged edit for gitgist to summarize into a Conventional Commit message.
+ */
+function seedStaged(dir) {
+  const git = gitIn(dir);
+  writeFileSync(join(dir, 'auth.js'), AUTH_BEFORE);
+  git('add', 'auth.js');
+  git('commit', '-q', '-m', 'feat: add token verification');
+  writeFileSync(join(dir, 'auth.js'), AUTH_AFTER);
+  git('add', 'auth.js');
 }
 
 /** Run the built CLI in `dir` and return its transcript (stderr+stdout) as lines. */
@@ -90,6 +128,18 @@ const DEMOS = [
     },
     cmd: 'gitgist v1.0.0..HEAD --title "v1.5.0"',
     capture: (dir) => runCli(dir, ['v1.0.0..HEAD', '--title', 'v1.5.0']),
+  },
+  {
+    slug: 'commit-message',
+    title: {
+      eyebrow: 'Commit messages',
+      headline: 'Draft the commit from your staged diff',
+      subtitle:
+        'Stage your work and gitgist writes a Conventional Commit message — type, scope, and body — straight from the actual diff.',
+    },
+    cmd: 'gitgist --staged --commit-message',
+    seed: seedStaged,
+    capture: (dir) => runCli(dir, ['--staged', '--commit-message']),
   },
   {
     slug: 'offline',
@@ -198,7 +248,7 @@ async function main() {
     for (const demo of DEMOS) {
       const dir = join(root, demo.slug);
       await mkdir(dir, { recursive: true });
-      seedRepo(dir);
+      (demo.seed ?? seedRepo)(dir);
       const lines = demo.capture(dir);
       await buildSvg(demo, lines);
     }
