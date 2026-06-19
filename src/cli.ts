@@ -19,6 +19,7 @@ async function main(): Promise<void> {
     provider: args.provider,
     model: args.model,
     endpoint: args.endpoint,
+    language: args.language,
     maxTokens: args.maxTokens,
     title: args.title,
     format: args.format,

@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   type AppleGenerateFn,
   type AppleProbeFn,
+  AUTO_LANGUAGE,
   createAppleProvider,
+  detectSystemLanguage,
 } from '../src/providers/apple.js';
 
 /** A fake `apple-fm` probe returning a canned availability result. */
@@ -49,10 +51,83 @@ describe('createAppleProvider', () => {
     expect(await p.generate({ system: 's', prompt: 'p' })).toBe('## Features\n- a');
   });
 
-  it('generate() forwards the system prompt and user prompt to apple-fm', async () => {
-    let received: unknown;
+  it('generate() forwards the system prompt and (hinted) user prompt to apple-fm', async () => {
+    let received: { system?: string; prompt?: string } | undefined;
     const p = createAppleProvider({
       isDarwin: true,
+      detectLanguage: () => 'English',
+      generate: (request) => {
+        received = request;
+        return Promise.resolve('## X');
+      },
+    });
+    await p.generate({ system: 'sys', prompt: 'pr' });
+    expect(received?.system).toBe('sys');
+    expect(received?.prompt).toBe('Treat the following as English:\n\npr');
+  });
+
+  it('generate() defaults the language hint to the detected system language', async () => {
+    let prompt = '';
+    const p = createAppleProvider({
+      isDarwin: true,
+      detectLanguage: () => 'French',
+      generate: (request) => {
+        prompt = request.prompt;
+        return Promise.resolve('## X');
+      },
+    });
+    await p.generate({ system: 's', prompt: 'pr' });
+    expect(prompt).toBe('Treat the following as French:\n\npr');
+  });
+
+  it('generate() falls back to English when the system language is undetectable', async () => {
+    let prompt = '';
+    const p = createAppleProvider({
+      isDarwin: true,
+      detectLanguage: () => undefined,
+      generate: (request) => {
+        prompt = request.prompt;
+        return Promise.resolve('## X');
+      },
+    });
+    await p.generate({ system: 's', prompt: 'pr' });
+    expect(prompt).toBe('Treat the following as English:\n\npr');
+  });
+
+  it('generate() honors an explicit language override (code → display name)', async () => {
+    let prompt = '';
+    const p = createAppleProvider({
+      isDarwin: true,
+      language: 'de',
+      detectLanguage: () => 'English',
+      generate: (request) => {
+        prompt = request.prompt;
+        return Promise.resolve('## X');
+      },
+    });
+    await p.generate({ system: 's', prompt: 'pr' });
+    expect(prompt).toBe('Treat the following as German:\n\npr');
+  });
+
+  it('generate() passes a spelled-out language name through verbatim', async () => {
+    let prompt = '';
+    const p = createAppleProvider({
+      isDarwin: true,
+      language: 'Klingon',
+      generate: (request) => {
+        prompt = request.prompt;
+        return Promise.resolve('## X');
+      },
+    });
+    await p.generate({ system: 's', prompt: 'pr' });
+    expect(prompt).toBe('Treat the following as Klingon:\n\npr');
+  });
+
+  it('generate() with language "auto" sends the prompt unprefixed', async () => {
+    let received: { system?: string; prompt?: string } | undefined;
+    const p = createAppleProvider({
+      isDarwin: true,
+      language: AUTO_LANGUAGE,
       generate: (request) => {
         received = request;
         return Promise.resolve('## X');
@@ -73,5 +148,16 @@ describe('createAppleProvider', () => {
       generate: () => Promise.reject(new Error('[modelNotReady] inference failed: boom')),
     });
     await expect(p.generate({ system: 's', prompt: 'p' })).rejects.toThrow(/inference failed: boom/);
+  });
+});
+
+describe('detectSystemLanguage', () => {
+  it('returns an English display name (or undefined), never a bare code', () => {
+    const lang = detectSystemLanguage();
+    if (lang !== undefined) {
+      // A display name, not a code like "en" — at minimum not all-lowercase-2-char.
+      expect(lang).not.toMatch(/^[a-z]{2,3}$/);
+      expect(lang.length).toBeGreaterThan(0);
+    }
   });
 });

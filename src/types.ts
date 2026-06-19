@@ -111,6 +111,12 @@ export interface ReleaseNotesOptions {
   model?: string;
   /** Base URL for the `local` provider (default: `GITGIST_LOCAL_ENDPOINT` or Ollama). */
   endpoint?: string;
+  /**
+   * Language hint for the on-device `apple` provider's prompt. Defaults to the
+   * detected system language; pass a language name / BCP-47 code to override, or
+   * `auto` to omit the hint. Ignored by other providers.
+   */
+  language?: string;
   /** Max output tokens for the `anthropic-api` provider (default: 16000). */
   maxTokens?: number;
   /** Heading text rendered as a top-level `#` heading above the notes (ignored for `commit` format). */

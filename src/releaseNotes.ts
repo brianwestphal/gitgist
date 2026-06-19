@@ -75,6 +75,7 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     const provider = await resolveProvider(options.provider, {
       endpoint: options.endpoint,
       model: options.model,
+      language: options.language,
     });
     const generated = await provider.generate({
       system,

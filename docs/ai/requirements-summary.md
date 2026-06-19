@@ -21,6 +21,7 @@ Keep status markers in sync with the implementation.
 - **FR-14 Local provider** — Shipped. `--provider local` → OpenAI-compatible endpoint (Ollama/LM Studio) via `providers/local.ts:createLocalProvider`; `--endpoint`/`GITGIST_LOCAL_ENDPOINT`, `--model`/`GITGIST_LOCAL_MODEL`. Opt-in only (not in `AUTO_ORDER`).
 - **FR-15 Apple Foundation Models** — Shipped. `--provider apple` (macOS 26+ on-device) via `providers/apple.ts:createAppleProvider`, which delegates to the [`apple-fm`](https://www.npmjs.com/package/apple-fm) npm package (`probe()`/`generate()`); `APPLE_FM_BIN` for a custom helper build. In `AUTO_ORDER` as a free fallback.
 - **FR-16 Notarized prebuilt helper** — Shipped (via the `apple-fm` dependency). The Developer-ID-signed + notarized arm64 helper now ships inside `apple-fm` (built + signed in that package's release), so gitgist neither builds nor bundles its own — the old `release.yml` `apple-fm` job is removed. (Superseded the GG-19 CI job.)
+- **FR-17 Apple language hint** — Shipped. `providers/apple.ts` prefixes the prompt with `Treat the following as <language>:` to satisfy the on-device language guardrail (`unsupportedLanguageOrLocale` on non-prose-heavy prompts like full-SHA ranges). Default = detected system language (`detectSystemLanguage`); `--language <name|code>` overrides, `--language auto` (`AUTO_LANGUAGE`) omits it. Threaded via `resolveProvider`.
 
 ## Non-functional
 

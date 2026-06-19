@@ -10,6 +10,7 @@ export interface CliArgs {
   provider: ProviderName;
   model?: string;
   endpoint?: string;
+  language?: string;
   maxTokens?: number;
   format: OutputFormat;
   template?: string;
@@ -48,6 +49,9 @@ Options:
                           or http://localhost:11434/v1).
   --model <id>            Model id — the anthropic-api model (default: claude-opus-4-8),
                           or the local model name (default: the endpoint's first model).
+  --language <name|auto>  Language hint for the apple provider's prompt, to satisfy
+                          its on-device language guardrail (default: the system
+                          language). A name or code (e.g. French, fr); auto omits it.
   --max-tokens <n>        Max output tokens for the anthropic-api provider (default: 16000).
   --title <text>          Render <text> as a top-level heading above the notes.
   --cwd <path>            Run against the git repository at <path> (default: cwd).
@@ -171,6 +175,9 @@ export function parseArgs(argv: string[]): CliArgs {
         break;
       case '--endpoint':
         args.endpoint = argv[++i];
+        break;
+      case '--language':
+        args.language = argv[++i];
         break;
       case '--max-tokens':
         args.maxTokens = parseMaxTokens(argv[++i]);

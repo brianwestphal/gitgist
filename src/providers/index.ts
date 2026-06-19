@@ -1,12 +1,18 @@
 import type { ProviderName } from '../types.js';
 import { anthropicApiProvider } from './anthropicApi.js';
-import { appleProvider } from './apple.js';
+import { appleProvider, createAppleProvider } from './apple.js';
 import { claudeCliProvider } from './claudeCli.js';
 import { createLocalProvider, localProvider } from './local.js';
 import type { AIProvider } from './types.js';
 
 export { anthropicApiProvider } from './anthropicApi.js';
-export { appleProvider, type AppleProviderConfig, createAppleProvider } from './apple.js';
+export {
+  appleProvider,
+  type AppleProviderConfig,
+  AUTO_LANGUAGE,
+  createAppleProvider,
+  detectSystemLanguage,
+} from './apple.js';
 export { claudeCliProvider } from './claudeCli.js';
 export { type CliProviderSpec, createCliProvider } from './cli.js';
 export {
@@ -45,6 +51,8 @@ export interface ResolveProviderOptions {
   endpoint?: string;
   /** Model name for the `local` provider. */
   model?: string;
+  /** Language hint for the `apple` provider (see {@link createAppleProvider}). */
+  language?: string;
 }
 
 function unavailableMessage(name: string, endpoint?: string): string {
@@ -70,13 +78,23 @@ export async function resolveProvider(
   requested: ProviderName = 'auto',
   opts: ResolveProviderOptions = {},
 ): Promise<AIProvider> {
-  const order = opts.order ?? AUTO_ORDER;
+  const { language } = opts;
+  // The default `appleProvider` already applies the system-language hint; only
+  // rebuild it when the caller overrides the language (an explicit value or
+  // `auto`), so `--language` works in both the explicit and `auto` paths.
+  const baseOrder = opts.order ?? AUTO_ORDER;
+  const order =
+    language === undefined
+      ? baseOrder
+      : baseOrder.map((p) => (p.name === 'apple' ? createAppleProvider({ language }) : p));
 
   if (requested !== 'auto') {
     const provider =
       requested === 'local'
         ? createLocalProvider({ endpoint: opts.endpoint, model: opts.model })
-        : PROVIDERS[requested];
+        : requested === 'apple'
+          ? createAppleProvider({ language })
+          : PROVIDERS[requested];
     if (!(await provider.isAvailable())) {
       throw new Error(unavailableMessage(provider.name, opts.endpoint));
     }

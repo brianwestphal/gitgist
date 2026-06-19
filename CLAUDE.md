@@ -37,6 +37,9 @@ The pipeline: resolve a range → read commits → generate notes.
     Models, delegating to the [`apple-fm`](https://www.npmjs.com/package/apple-fm)
     npm dependency (`probe()` / `generate()`). `apple-fm` bundles the signed Swift
     helper that wraps `FoundationModels`; `APPLE_FM_BIN` points at a custom build.
+    Prefixes the prompt with `Treat the following as <language>:` to satisfy the
+    on-device language guardrail (`--language`, default: detected system language;
+    `auto` opts out). See `detectSystemLanguage` / `AUTO_LANGUAGE`.
   - `index.ts` — `resolveProvider(name, opts?)`; `auto` (`AUTO_ORDER`) prefers
     the zero-config CLI, then API-key backends, then on-device `apple` (a no-op
     when the device/model isn't available). `local` is excluded from `AUTO_ORDER`

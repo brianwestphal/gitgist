@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `--language <name|auto>`: a language hint for the `apple` provider. Apple's on-device model runs a language-identification guardrail that can reject prompts dominated by non-prose tokens (e.g. a full-SHA range like `<sha>^..<sha>`) with `unsupportedLanguageOrLocale`. gitgist now prefixes the prompt with a short `Treat the following as <language>:` lead-in, defaulting to the detected system language. Pass a language name/code to override (e.g. `--language French`), or `--language auto` to omit the hint entirely.
+
 ### Changed
 
 - The on-device `apple` provider now uses the [`apple-fm`](https://www.npmjs.com/package/apple-fm) package instead of a vendored Swift helper. gitgist no longer builds, signs, or bundles its own Foundation Models helper — `apple-fm` ships a Developer-ID-signed, notarized binary, so the provider still works out of the box with no toolchain. Point at a custom helper build with `APPLE_FM_BIN` (the previous `GITGIST_APPLE_FM_BIN` is gone).

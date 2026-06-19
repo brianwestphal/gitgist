@@ -42,8 +42,8 @@ tests/                # parse, changelog, prompt, cliArgs, git, template, provid
 - Providers: `resolveProvider`, `PROVIDERS`, `AUTO_ORDER`; `createCliProvider`,
   `claudeCliProvider`, `anthropicApiProvider`; `createLocalProvider`,
   `localProvider`, `DEFAULT_LOCAL_ENDPOINT`; `createAppleProvider`,
-  `appleProvider`; types `AIProvider`, `GenerateRequest`,
-  `CliProviderSpec`, `LocalProviderConfig`, `AppleProviderConfig`.
+  `appleProvider`, `detectSystemLanguage`, `AUTO_LANGUAGE`; types `AIProvider`,
+  `GenerateRequest`, `CliProviderSpec`, `LocalProviderConfig`, `AppleProviderConfig`.
 - Types: `Commit`, `Changelog`, `ChangelogSection`, `ChangelogOptions`,
   `ReadCommitsOptions`, `ReleaseNotesOptions`, `ProviderName`, `OutputFormat`,
   `WorkingChanges`, `WorkingChangeOptions`, `RawCommit`.

@@ -110,6 +110,7 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 | `--provider <name>`        | `auto` \| `claude-cli` \| `anthropic-api` \| `local` \| `apple` (default: `auto`). |
 | `--endpoint <url>`         | Base URL for `--provider local` (default: Ollama's `…:11434/v1`).   |
 | `--model <id>`             | `anthropic-api` model (default `claude-opus-4-8`), or the `local` model name. |
+| `--language <name\|auto>`   | Language hint for the `apple` provider's prompt (default: system language; `auto` omits it). |
 | `--max-tokens <n>`         | Max output tokens for the `anthropic-api` provider (default: 16000). |
 | `--title <text>`           | Render `<text>` as a top-level heading above the notes.             |
 | `--cwd <path>`             | Run against the git repository at `<path>`.                         |
@@ -138,7 +139,10 @@ approach the related tools take with `claude -p`. Three backends ship today:
    [`apple-fm`](https://www.npmjs.com/package/apple-fm) package, a gitgist
    dependency that bundles a **Developer-ID-signed, notarized** helper binary, so
    it works out of the box — no toolchain required. Point gitgist at a custom
-   helper build with `APPLE_FM_BIN`.
+   helper build with `APPLE_FM_BIN`. The on-device model runs a language
+   guardrail over the prompt, so gitgist prefixes it with a short
+   `Treat the following as <language>:` lead-in (default: your system language;
+   override with `--language <name|code>`, or `--language auto` to disable it).
 
 With `--provider auto` (the default), gitgist uses the `claude` CLI when it's
 installed, falls back to the Anthropic API when `ANTHROPIC_API_KEY` is set, and
