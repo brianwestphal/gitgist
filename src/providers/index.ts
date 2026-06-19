@@ -6,12 +6,7 @@ import { createLocalProvider, localProvider } from './local.js';
 import type { AIProvider } from './types.js';
 
 export { anthropicApiProvider } from './anthropicApi.js';
-export {
-  appleFmBinPath,
-  appleProvider,
-  type AppleProviderConfig,
-  createAppleProvider,
-} from './apple.js';
+export { appleProvider, type AppleProviderConfig, createAppleProvider } from './apple.js';
 export { claudeCliProvider } from './claudeCli.js';
 export { type CliProviderSpec, createCliProvider } from './cli.js';
 export {

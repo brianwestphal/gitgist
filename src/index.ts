@@ -33,7 +33,6 @@ export {
 export {
   type AIProvider,
   anthropicApiProvider,
-  appleFmBinPath,
   appleProvider,
   type AppleProviderConfig,
   AUTO_ORDER,

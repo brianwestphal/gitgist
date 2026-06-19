@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- The on-device `apple` provider now uses the [`apple-fm`](https://www.npmjs.com/package/apple-fm) package instead of a vendored Swift helper. gitgist no longer builds, signs, or bundles its own Foundation Models helper — `apple-fm` ships a Developer-ID-signed, notarized binary, so the provider still works out of the box with no toolchain. Point at a custom helper build with `APPLE_FM_BIN` (the previous `GITGIST_APPLE_FM_BIN` is gone).
+
 ## [0.1.0] - 2026-06-18
 
 

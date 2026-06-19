@@ -134,16 +134,16 @@ approach the related tools take with `claude -p`. Three backends ship today:
    default `http://localhost:11434/v1`) and `--model` (`$GITGIST_LOCAL_MODEL`,
    else the endpoint's first model). No API key.
 4. **`apple`** — on-device **Apple Foundation Models** (macOS 26+ on Apple
-   Silicon with Apple Intelligence). Free, private, no API key. Published
-   releases bundle a **Developer-ID-signed, notarized** helper binary, so it
-   works out of the box — no toolchain required. From source (or to rebuild),
-   run `npm run build:apple-fm` (needs Xcode 26); point gitgist at a custom
-   build with `GITGIST_APPLE_FM_BIN`.
+   Silicon with Apple Intelligence). Free, private, no API key. Powered by the
+   [`apple-fm`](https://www.npmjs.com/package/apple-fm) package, a gitgist
+   dependency that bundles a **Developer-ID-signed, notarized** helper binary, so
+   it works out of the box — no toolchain required. Point gitgist at a custom
+   helper build with `APPLE_FM_BIN`.
 
 With `--provider auto` (the default), gitgist uses the `claude` CLI when it's
 installed, falls back to the Anthropic API when `ANTHROPIC_API_KEY` is set, and
-then to on-device Apple Foundation Models if its helper is built — a no-op when
-it isn't. The `local` provider is **never** auto-selected (so a normal run
+then to on-device Apple Foundation Models when the device and model are
+available — a no-op when they aren't. The `local` provider is **never** auto-selected (so a normal run
 doesn't probe localhost) — request it explicitly. Force any with
 `--provider <name>`. If no provider is available, use `--no-ai` for offline
 Conventional Commits grouping.

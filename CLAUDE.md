@@ -33,14 +33,14 @@ The pipeline: resolve a range → read commits → generate notes.
     lazily.
   - `local.ts` — `createLocalProvider()`: any OpenAI-compatible endpoint
     (Ollama / LM Studio) via `fetch`; returns freeform Markdown. Opt-in only.
-  - `apple.ts` — `createAppleProvider()`: spawns the Swift helper
-    (`apple-fm-helper/main.swift`, built by `scripts/build-apple-fm-helper.sh` /
-    `npm run build:apple-fm`) for on-device macOS Apple Foundation Models;
-    `--probe` / `--generate`, JSON stdin → Markdown stdout. `GITGIST_APPLE_FM_BIN`.
+  - `apple.ts` — `createAppleProvider()`: on-device macOS Apple Foundation
+    Models, delegating to the [`apple-fm`](https://www.npmjs.com/package/apple-fm)
+    npm dependency (`probe()` / `generate()`). `apple-fm` bundles the signed Swift
+    helper that wraps `FoundationModels`; `APPLE_FM_BIN` points at a custom build.
   - `index.ts` — `resolveProvider(name, opts?)`; `auto` (`AUTO_ORDER`) prefers
     the zero-config CLI, then API-key backends, then on-device `apple` (a no-op
-    when unbuilt). `local` is excluded from `AUTO_ORDER` (never auto-probed);
-    `opts` carries the local endpoint/model.
+    when the device/model isn't available). `local` is excluded from `AUTO_ORDER`
+    (never auto-probed); `opts` carries the local endpoint/model.
 - `src/releaseNotes.ts` — `generateReleaseNotes()` ties it together (AI path, or
   `ai: false` → deterministic `buildChangelog` + `renderMarkdown`).
 - `src/changelog.ts` — deterministic Conventional Commit grouping + Markdown
@@ -64,7 +64,7 @@ CLI, and place them after the CLI backends.
 Follow-up providers on the roadmap, CLI-first where possible: OpenAI/Codex
 (`codex exec`), Gemini CLI, Cursor agent. (Done: Ollama / local
 OpenAI-compatible — `providers/local.ts`; Apple Foundation Models —
-`providers/apple.ts` + `apple-fm-helper/main.swift`.)
+`providers/apple.ts`, delegating to the `apple-fm` npm package.)
 
 ## Conventions
 

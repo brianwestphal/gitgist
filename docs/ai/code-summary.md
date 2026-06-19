@@ -23,9 +23,8 @@ src/
     claudeCli.ts      # claudeCliProvider
     anthropicApi.ts   # anthropicApiProvider
     local.ts          # createLocalProvider (Ollama / OpenAI-compatible; opt-in)
-    apple.ts          # createAppleProvider (macOS Apple Foundation Models via Swift helper)
+    apple.ts          # createAppleProvider (macOS Apple Foundation Models via the apple-fm npm package)
     index.ts          # PROVIDERS, AUTO_ORDER, resolveProvider
-apple-fm-helper/main.swift   # Swift FoundationModels CLI (built by scripts/build-apple-fm-helper.sh)
 tests/                # parse, changelog, prompt, cliArgs, git, template, providers, apple, integration
 ```
 
@@ -43,7 +42,7 @@ tests/                # parse, changelog, prompt, cliArgs, git, template, provid
 - Providers: `resolveProvider`, `PROVIDERS`, `AUTO_ORDER`; `createCliProvider`,
   `claudeCliProvider`, `anthropicApiProvider`; `createLocalProvider`,
   `localProvider`, `DEFAULT_LOCAL_ENDPOINT`; `createAppleProvider`,
-  `appleProvider`, `appleFmBinPath`; types `AIProvider`, `GenerateRequest`,
+  `appleProvider`; types `AIProvider`, `GenerateRequest`,
   `CliProviderSpec`, `LocalProviderConfig`, `AppleProviderConfig`.
 - Types: `Commit`, `Changelog`, `ChangelogSection`, `ChangelogOptions`,
   `ReadCommitsOptions`, `ReleaseNotesOptions`, `ProviderName`, `OutputFormat`,
@@ -56,7 +55,7 @@ tests/                # parse, changelog, prompt, cliArgs, git, template, provid
 | change the AI instructions / section style | `prompt.ts` (`SYSTEM_PROMPT`) |
 | change the commit-message output (`--format commit`) | `prompt.ts` (`COMMIT_SYSTEM_PROMPT`); selected in `releaseNotes.ts` |
 | change template parsing or the template prompt (`--template`) | `template.ts`; `prompt.ts` (`TEMPLATE_SYSTEM_PROMPT`, `buildTemplatePrompt`); spec in `docs/4-templates.md` |
-| add an AI provider | `providers/` — `createCliProvider` for headless CLIs, `createLocalProvider` for OpenAI-compatible HTTP, `createAppleProvider`/spawn for a native helper; register in `index.ts` (`PROVIDERS` + `AUTO_ORDER`) |
+| add an AI provider | `providers/` — `createCliProvider` for headless CLIs, `createLocalProvider` for OpenAI-compatible HTTP, `createAppleProvider` (delegates to the `apple-fm` package) for on-device; register in `index.ts` (`PROVIDERS` + `AUTO_ORDER`) |
 | change how the git range is resolved | `git.ts` (`resolveCommitRange`, `latestTag`) |
 | change how commits are read/parsed | `git.ts` (`readCommits`), `parse.ts` |
 | change how uncommitted changes are read | `git.ts` (`readWorkingChanges`); orchestration in `releaseNotes.ts` |

@@ -1,69 +1,77 @@
 import { describe, expect, it } from 'vitest';
 
-import { createAppleProvider, type ProcessRunner } from '../src/providers/apple.js';
+import {
+  type AppleGenerateFn,
+  type AppleProbeFn,
+  createAppleProvider,
+} from '../src/providers/apple.js';
 
-/** A fake runner that returns canned output for `--probe` / `--generate`. */
-function fakeRunner(
-  probe: string,
-  generateOut: { stdout?: string; stderr?: string; code?: number } = {},
-): ProcessRunner {
-  return (_bin, args) => {
-    if (args.includes('--probe')) {
-      return Promise.resolve({ stdout: probe, stderr: '', code: 0 });
-    }
-    return Promise.resolve({
-      stdout: generateOut.stdout ?? '',
-      stderr: generateOut.stderr ?? '',
-      code: generateOut.code ?? 0,
-    });
-  };
+/** A fake `apple-fm` probe returning a canned availability result. */
+function fakeProbe(available: boolean): AppleProbeFn {
+  return () =>
+    Promise.resolve(available ? { available: true } : { available: false, reason: 'modelNotReady' });
+}
+
+/** A fake `apple-fm` probe that rejects (e.g. the helper binary is missing). */
+const throwingProbe: AppleProbeFn = () => Promise.reject(new Error('helper not found'));
+
+/** A fake `apple-fm` generate returning canned output. */
+function fakeGenerate(output: string): AppleGenerateFn {
+  return () => Promise.resolve(output);
 }
 
 describe('createAppleProvider', () => {
-  const BIN = '/fake/apple-fm-helper';
-
-  it('is unavailable off macOS regardless of the helper', async () => {
-    const p = createAppleProvider({ isDarwin: false, binPath: BIN, runner: fakeRunner('available') });
+  it('is unavailable off macOS regardless of the probe', async () => {
+    const p = createAppleProvider({ isDarwin: false, probe: fakeProbe(true) });
     expect(await p.isAvailable()).toBe(false);
   });
 
-  it('is unavailable when the helper binary is missing', async () => {
-    const p = createAppleProvider({ isDarwin: true, binPath: null, runner: fakeRunner('available') });
-    expect(await p.isAvailable()).toBe(false);
-  });
-
-  it('is available when darwin + helper + probe says "available"', async () => {
-    const p = createAppleProvider({ isDarwin: true, binPath: BIN, runner: fakeRunner('available') });
+  it('is available when darwin + the probe says available', async () => {
+    const p = createAppleProvider({ isDarwin: true, probe: fakeProbe(true) });
     expect(await p.isAvailable()).toBe(true);
   });
 
-  it('is unavailable when the probe says "unavailable"', async () => {
-    const p = createAppleProvider({ isDarwin: true, binPath: BIN, runner: fakeRunner('unavailable') });
+  it('is unavailable when the probe says unavailable', async () => {
+    const p = createAppleProvider({ isDarwin: true, probe: fakeProbe(false) });
     expect(await p.isAvailable()).toBe(false);
   });
 
-  it('generate() returns the helper Markdown (fences stripped)', async () => {
+  it('is unavailable when the probe throws (e.g. helper missing)', async () => {
+    const p = createAppleProvider({ isDarwin: true, probe: throwingProbe });
+    expect(await p.isAvailable()).toBe(false);
+  });
+
+  it('generate() returns the model Markdown (fences stripped)', async () => {
     const p = createAppleProvider({
       isDarwin: true,
-      binPath: BIN,
-      runner: fakeRunner('available', { stdout: '```markdown\n## Features\n- a\n```' }),
+      generate: fakeGenerate('```markdown\n## Features\n- a\n```'),
     });
     expect(await p.generate({ system: 's', prompt: 'p' })).toBe('## Features\n- a');
   });
 
-  it('generate() surfaces stderr on a non-zero exit', async () => {
+  it('generate() forwards the system prompt and user prompt to apple-fm', async () => {
+    let received: unknown;
     const p = createAppleProvider({
       isDarwin: true,
-      binPath: BIN,
-      runner: fakeRunner('available', { stderr: 'inference failed: boom', code: 4 }),
+      generate: (request) => {
+        received = request;
+        return Promise.resolve('## X');
+      },
     });
-    await expect(p.generate({ system: 's', prompt: 'p' })).rejects.toThrow(
-      /exited with code 4: inference failed: boom/,
-    );
+    await p.generate({ system: 'sys', prompt: 'pr' });
+    expect(received).toEqual({ system: 'sys', prompt: 'pr' });
   });
 
-  it('generate() throws a helpful error when the helper is missing', async () => {
-    const p = createAppleProvider({ isDarwin: true, binPath: null, runner: fakeRunner('available') });
-    await expect(p.generate({ system: 's', prompt: 'p' })).rejects.toThrow(/helper not found/);
+  it('generate() throws when apple-fm returns empty output', async () => {
+    const p = createAppleProvider({ isDarwin: true, generate: fakeGenerate('   ') });
+    await expect(p.generate({ system: 's', prompt: 'p' })).rejects.toThrow(/no output/);
+  });
+
+  it('generate() surfaces errors thrown by apple-fm', async () => {
+    const p = createAppleProvider({
+      isDarwin: true,
+      generate: () => Promise.reject(new Error('[modelNotReady] inference failed: boom')),
+    });
+    await expect(p.generate({ system: 's', prompt: 'p' })).rejects.toThrow(/inference failed: boom/);
   });
 });

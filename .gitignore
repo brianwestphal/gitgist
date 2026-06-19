@@ -11,9 +11,6 @@ coverage/
 .claude
 .mcp.json
 
-# Compiled Apple Foundation Models helper binary (build with `npm run build:apple-fm`)
-bin/
-
 # Scratch directories created by tests / manual runs
 tmp/
 

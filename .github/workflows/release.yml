@@ -91,55 +91,6 @@ jobs:
           echo "is_beta=$IS_BETA" >> "$GITHUB_OUTPUT"
           echo "Releasing v$VERSION (beta: $IS_BETA)"
 
-  # ─── Build + sign + notarize the on-device Apple Foundation Models helper ──
-  #
-  # Produces a Developer-ID-signed + notarized arm64 binary so users on macOS 26+
-  # Apple Silicon get the `apple` provider with no Swift toolchain. Requires a
-  # macOS 26 runner (Xcode 26 / FoundationModels SDK); if that's unavailable or
-  # the secrets are unset, this job fails and the publish job still ships the
-  # helper as source (build-on-demand) — npm-publish does not require it.
-  apple-fm:
-    runs-on: macos-26
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: '${{ env.NODE_VERSION }}' }
-      - name: Import Developer ID certificate
-        env:
-          APPLE_CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
-          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
-        run: |
-          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
-          KEYCHAIN_PWD="$(openssl rand -base64 24)"
-          security create-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN"
-          security unlock-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN"
-          echo "$APPLE_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$APPLE_CERT_PASSWORD" -T /usr/bin/codesign
-          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PWD" "$KEYCHAIN"
-      - name: Build + sign the helper
-        env:
-          CODESIGN_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        run: |
-          npm run build:apple-fm
-          test -x bin/apple-fm-helper || { echo "helper did not build — runner needs the macOS 26 SDK / Xcode 26"; exit 1; }
-          codesign --verify --strict --verbose=2 bin/apple-fm-helper
-      - name: Notarize (app-specific password)
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          ditto -c -k --keepParent bin/apple-fm-helper "$RUNNER_TEMP/apple-fm-helper.zip"
-          xcrun notarytool submit "$RUNNER_TEMP/apple-fm-helper.zip" \
-            --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
-      - uses: actions/upload-artifact@v4
-        with:
-          name: apple-fm-helper
-          path: bin/apple-fm-helper
-          if-no-files-found: error
-
   # ─── Phase 2: GitHub Release ────────────────────────────────────────
 
   create-release:
@@ -196,9 +147,10 @@ jobs:
   # ─── Phase 3: npm publish ───────────────────────────────────────────
 
   npm-publish:
-    # Wait for apple-fm so its artifact is ready, but don't require it: if the
-    # macOS build/notarize failed or was skipped, still publish (source-only helper).
-    needs: [create-release, detect, apple-fm]
+    # The on-device Apple Foundation Models helper now ships in the `apple-fm`
+    # dependency (its own signed + notarized binary), so this job no longer builds
+    # or bundles one.
+    needs: [create-release, detect]
     if: |
       always() &&
       needs.create-release.result == 'success' &&
@@ -214,14 +166,6 @@ jobs:
           registry-url: 'https://registry.npmjs.org/'
       - run: npm install -g npm@latest   # trusted publishing OIDC needs npm ≥ 11.5.1
       - run: npm ci
-      - name: Download notarized Apple FM helper (if the macOS job produced one)
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: apple-fm-helper
-          path: bin
-      - name: Make the helper executable (if present)
-        run: chmod +x bin/apple-fm-helper 2>/dev/null || true
       - name: Bump package.json to beta version (ephemeral, not committed)
         if: needs.detect.outputs.is_beta == 'true'
         run: |

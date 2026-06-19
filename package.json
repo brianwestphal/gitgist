@@ -35,14 +35,10 @@
   },
   "files": [
     "dist",
-    "!dist/*.map",
-    "apple-fm-helper",
-    "scripts/build-apple-fm-helper.sh",
-    "bin/apple-fm-helper"
+    "!dist/*.map"
   ],
   "scripts": {
     "build": "tsup",
-    "build:apple-fm": "bash scripts/build-apple-fm-helper.sh",
     "dev": "tsup --watch",
     "compare": "npm run build && node scripts/compare-providers.mjs",
     "demo": "npm run build && node scripts/demo.mjs",
@@ -72,6 +68,7 @@
     "vitest": "^4.1.9"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.104.2"
+    "@anthropic-ai/sdk": "^0.104.2",
+    "apple-fm": "^1.0.0"
   }
 }
