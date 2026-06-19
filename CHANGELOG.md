@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-06-19
+
+
+### Bug Fixes
+- Fixed the `apple` provider rejecting commit ranges given as full SHAs (e.g. `<sha>^ <sha>`); the on-device language guardrail no longer trips on SHA-heavy prompts.
+
+### Changes
+- The `apple` provider now uses the published `apple-fm` package, which ships its own signed and notarized Foundation Models binary ??? the provider works out of the box with no Swift toolchain or bundled helper.
+
 ## [Unreleased]
 
 ### Added
