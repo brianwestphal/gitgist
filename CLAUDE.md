@@ -85,17 +85,6 @@ npm run typecheck # tsc --noEmit
 npm run build     # tsup → dist/ (index + cli, with .d.ts)
 ```
 
-## Testing
-
-Keep AI/process/git calls thin and test the pure logic directly: `parse.ts`,
-`changelog.ts`, `prompt.ts`, `cliArgs.ts`, `resolveCommitRange` (the
-`from`-provided cases avoid spawning git), and provider availability/selection
-(toggle `ANTHROPIC_API_KEY`). The git + orchestration layer is covered by
-`tests/integration.test.ts`, which builds a throwaway temp repo and exercises
-`readCommits` / `resolveCommitRange` / `generateReleaseNotes({ ai: false })`
-offline. CLI providers are tested against a small `node -e` stub command. Don't
-hit the real AI in unit tests.
-
 ## Documentation
 
 - [docs/1-overview.md](docs/1-overview.md) — what gitgist is and its principles.
@@ -105,4 +94,70 @@ hit the real AI in unit tests.
 - [docs/ai/code-summary.md](docs/ai/code-summary.md) — AI-oriented code map.
 - [docs/ai/requirements-summary.md](docs/ai/requirements-summary.md) — AI-oriented requirements digest.
 
-Keep `docs/ai/*` and the requirement status markers in sync when code changes.
+<!-- hotsheet:begin section=ticket-driven-work v=1 -->
+## Ticket-Driven Work
+
+When the user gives you work directly (not via the Hot Sheet channel or events), create Hot Sheet tickets before starting implementation — especially for substantial or multi-step work.
+
+- **Do create tickets** for: features, bug fixes, refactoring, multi-step tasks, anything changing code. **Don't** for: simple questions, git commits, quick lookups, trivial one-liners. **When in doubt, create them.**
+- Create via the Hot Sheet API (prefer the `hotsheet_*` MCP tools), mark Up Next, then work through them: set status `started` → implement → set `completed` with notes.
+- **Always create follow-up tickets** for incomplete work (unfinished steps, open design questions, known gaps, designed-but-unbuilt features). If it's not in a ticket, it's forgotten.
+- **Incomplete-work checklist** — before marking a ticket `completed`, file follow-ups for any: (1) UI placeholder text ("coming soon"), (2) TODO/FIXME comments, (3) documented-but-unimplemented requirements, (4) empty/stub functions returning mock data.
+- **Use FEEDBACK NEEDED before deferring or asking about follow-ups.** When about to (a) defer a ticket needing more work, (b) ask whether to file follow-ups, or (c) close with a question buried in notes — DON'T. Leave the ticket `started`, add a `FEEDBACK NEEDED:` note (per `.hotsheet/worklist.md`), signal channel done, and wait. It's the only reliable way to surface a question.
+<!-- hotsheet:end section=ticket-driven-work -->
+
+<!-- hotsheet:begin section=testing-philosophy v=1 -->
+## Testing Philosophy
+
+- **Double coverage**: every feature covered by both unit tests AND E2E tests. Unit = logic in isolation; E2E = real user flows through the running app with minimal mocking.
+- **Unit tests**: Mock external deps (filesystem, network), test real logic.
+- **E2E tests**: As much as possible, use test automation tools to run realistic, user-facing flows. Minimize mocks.
+- **Coverage**: Merge all test coverage (e.g. unit, E2E server, E2E browser) into one report. Low-coverage files should get more of both test types. Aim for 100% coverage of code lines, 100% coverage of branches, and 100% of features described in the requirements documentation.
+- **Manual test plan**: keep a manual test plan doc (e.g. `docs/manual-test-plan.md`) for features that can't be reliably automated. **Keep it up to date** — add such features there; when you add automated coverage for a previously-manual item, remove it and note it in an "Automated Coverage Summary".
+- **Always fix lint and type errors before finishing**: Fix as you go, don't batch.
+
+<!-- hotsheet:begin specifics=testing-philosophy v=1 -->
+### This project's test setup
+
+- **Unit tests** (`tests/**/*.test.ts`): [vitest](https://vitest.dev/) with v8 coverage,
+  configured in `vitest.config.ts` (`globals: true`, coverage floors that fail the run on
+  regression). Keep AI/process/git calls thin and test the pure logic directly — `parse.ts`,
+  `changelog.ts`, `prompt.ts`, `cliArgs.ts`, `template.ts`, and provider availability/selection
+  (toggle `ANTHROPIC_API_KEY`). The `from`-provided `resolveCommitRange` cases avoid spawning git.
+  Mock external deps; never hit the real AI.
+- **Integration tests** (`tests/integration.test.ts`): vitest — no separate E2E framework. Stands
+  in for E2E: builds a throwaway temp git repo and exercises `readCommits` / `resolveCommitRange` /
+  `generateReleaseNotes({ ai: false })` offline. CLI providers run against a small `node -e` stub command.
+- **Meta tests** (`tests/docs.test.ts`): assert the public barrel (`src/index.ts`) and the docs stay in sync.
+- **Commands**: `npm test` (`vitest run --coverage`, all of the above, one merged v8 report in `coverage/`)
+  · `npm run test:watch` for watch mode. No manual test plan doc yet — add one (`docs/manual-test-plan.md`)
+  if a feature can't be reliably automated.
+<!-- hotsheet:end specifics=testing-philosophy -->
+<!-- hotsheet:end section=testing-philosophy -->
+
+<!-- hotsheet:begin section=requirements-documentation v=1 -->
+## Requirements Documentation
+
+Keep human-readable requirements documents as the source of truth for what the project does, and **keep them up to date in the same change as the code** (add/remove/modify a requirement → update its doc). Create new docs for major new functional areas. Cross-reference related docs with relative links.
+
+### AI Summaries
+
+Maintain two synthesis docs an AI assistant reads at the start of a fresh session — keep them in sync with reality (source doc/code wins on conflict), and prefer small targeted edits over rewrites:
+
+- A **codebase map** — directory tree, entry points, data schema, build, tests, settings, and a "where do I look for X" index. Update it in the same change when you add a file or directory, add a route/endpoint, change the schema, add a client module, or add a setting key.
+- A **requirements summary** — a synthesized view of every requirements doc with status markers (e.g. Shipped / Partial / Design only / Deferred). Update it in the same change when you add a requirements doc, ship a design-only feature, or defer/regress a shipped one.
+
+<!-- hotsheet:begin specifics=requirements-documentation v=1 -->
+### This project's docs layout
+
+Requirements docs live in `docs/`, numbered by topic (`1-overview.md`, `2-architecture.md`,
+`3-requirements.md`, `4-templates.md`) — see the **Documentation** section above for the full
+index. The two AI-summary files:
+
+- **Codebase map**: `docs/ai/code-summary.md`
+- **Requirements summary**: `docs/ai/requirements-summary.md` (status markers live here and in
+  `docs/3-requirements.md`)
+
+Update both AI summaries and the requirement status markers in the same change as the code.
+<!-- hotsheet:end specifics=requirements-documentation -->
+<!-- hotsheet:end section=requirements-documentation -->
