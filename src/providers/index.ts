@@ -5,7 +5,11 @@ import { claudeCliProvider } from './claudeCli.js';
 import { createLocalProvider, localProvider } from './local.js';
 import type { AIProvider } from './types.js';
 
-export { anthropicApiProvider } from './anthropicApi.js';
+export {
+  anthropicApiProvider,
+  type AnthropicApiProviderConfig,
+  createAnthropicApiProvider,
+} from './anthropicApi.js';
 export {
   appleProvider,
   type AppleProviderConfig,

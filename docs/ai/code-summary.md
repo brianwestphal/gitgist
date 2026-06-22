@@ -40,10 +40,11 @@ tests/                # parse, changelog, prompt, cliArgs, git, template, provid
   `workingChangesToMaterial`, `stripCodeFences`, `cleanModelOutput`.
 - Templates: `loadTemplate`, `parseTemplate`, type `Template`.
 - Providers: `resolveProvider`, `PROVIDERS`, `AUTO_ORDER`; `createCliProvider`,
-  `claudeCliProvider`, `anthropicApiProvider`; `createLocalProvider`,
-  `localProvider`, `DEFAULT_LOCAL_ENDPOINT`; `createAppleProvider`,
-  `appleProvider`, `detectSystemLanguage`, `AUTO_LANGUAGE`; types `AIProvider`,
-  `GenerateRequest`, `CliProviderSpec`, `LocalProviderConfig`, `AppleProviderConfig`.
+  `claudeCliProvider`; `createAnthropicApiProvider`, `anthropicApiProvider`;
+  `createLocalProvider`, `localProvider`, `DEFAULT_LOCAL_ENDPOINT`;
+  `createAppleProvider`, `appleProvider`, `detectSystemLanguage`, `AUTO_LANGUAGE`;
+  types `AIProvider`, `GenerateRequest`, `CliProviderSpec`,
+  `AnthropicApiProviderConfig`, `LocalProviderConfig`, `AppleProviderConfig`.
 - Types: `Commit`, `Changelog`, `ChangelogSection`, `ChangelogOptions`,
   `ReadCommitsOptions`, `ReleaseNotesOptions`, `ProviderName`, `OutputFormat`,
   `WorkingChanges`, `WorkingChangeOptions`, `RawCommit`.

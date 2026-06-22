@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
+import {
+  type AnthropicMessage,
+  type AnthropicRunParams,
+  createAnthropicApiProvider,
+} from '../src/providers/anthropicApi.js';
 import { createCliProvider } from '../src/providers/cli.js';
 import { anthropicApiProvider, AUTO_ORDER, PROVIDERS, resolveProvider } from '../src/providers/index.js';
 import {
@@ -180,6 +185,83 @@ describe('anthropicApiProvider.isAvailable', () => {
   it('is unavailable for an empty key', async () => {
     process.env.ANTHROPIC_API_KEY = '';
     expect(await anthropicApiProvider.isAvailable()).toBe(false);
+  });
+});
+
+/** A text content block, as the provider expects from the SDK. */
+function textBlock(text: string): AnthropicMessage['content'][number] {
+  return { type: 'text', text };
+}
+
+describe('createAnthropicApiProvider.generate', () => {
+  it('concatenates text blocks and strips a wrapping code fence', async () => {
+    const provider = createAnthropicApiProvider({
+      run: () =>
+        Promise.resolve({
+          stopReason: 'end_turn',
+          content: [textBlock('```markdown\n## Features\n'), textBlock('- a\n```')],
+        }),
+      warn: () => undefined,
+    });
+    expect(await provider.generate({ system: 's', prompt: 'p' })).toBe('## Features\n- a');
+  });
+
+  it('ignores non-text content blocks', async () => {
+    const provider = createAnthropicApiProvider({
+      run: () =>
+        Promise.resolve({
+          stopReason: 'end_turn',
+          content: [{ type: 'thinking' }, textBlock('## Notes'), { type: 'tool_use' }],
+        }),
+      warn: () => undefined,
+    });
+    expect(await provider.generate({ system: 's', prompt: 'p' })).toBe('## Notes');
+  });
+
+  it('warns on stderr when the model hits max_tokens (NFR-6)', async () => {
+    const warnings: string[] = [];
+    const provider = createAnthropicApiProvider({
+      run: () => Promise.resolve({ stopReason: 'max_tokens', content: [textBlock('partial')] }),
+      warn: (m) => warnings.push(m),
+    });
+    await provider.generate({ system: 's', prompt: 'p' });
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/truncated.*max_tokens/);
+  });
+
+  it('does not warn when generation stops normally', async () => {
+    const warnings: string[] = [];
+    const provider = createAnthropicApiProvider({
+      run: () => Promise.resolve({ stopReason: 'end_turn', content: [textBlock('full')] }),
+      warn: (m) => warnings.push(m),
+    });
+    await provider.generate({ system: 's', prompt: 'p' });
+    expect(warnings).toHaveLength(0);
+  });
+
+  it('defaults the model and max_tokens, and forwards overrides to the run', async () => {
+    const calls: AnthropicRunParams[] = [];
+    const run = (params: AnthropicRunParams): Promise<AnthropicMessage> => {
+      calls.push(params);
+      return Promise.resolve({ stopReason: 'end_turn', content: [textBlock('x')] });
+    };
+    const provider = createAnthropicApiProvider({ run, warn: () => undefined });
+
+    await provider.generate({ system: 'sys', prompt: 'body' });
+    expect(calls[0]).toMatchObject({
+      model: 'claude-opus-4-8',
+      maxTokens: 16000,
+      system: 'sys',
+      prompt: 'body',
+    });
+
+    await provider.generate({ system: 's', prompt: 'p', model: 'claude-haiku-4-5', maxTokens: 99 });
+    expect(calls[1]).toMatchObject({ model: 'claude-haiku-4-5', maxTokens: 99 });
+  });
+
+  it('isAvailable() honors the injected key check', async () => {
+    expect(await createAnthropicApiProvider({ hasApiKey: () => true }).isAvailable()).toBe(true);
+    expect(await createAnthropicApiProvider({ hasApiKey: () => false }).isAvailable()).toBe(false);
   });
 });
 
