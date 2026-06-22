@@ -41,7 +41,7 @@ export async function readCommits(range: string, options: ReadCommitsOptions = {
   const { stdout } = await execFileAsync(
     'git',
     ['log', '-z', `--pretty=format:${PRETTY_FORMAT}`, range],
-    { cwd, maxBuffer: 64 * 1024 * 1024 },
+    { cwd, maxBuffer: GIT_MAX_BUFFER },
   );
 
   return stdout
