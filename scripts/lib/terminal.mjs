@@ -148,6 +148,11 @@ export function wrapTerminal({ termSvg, windowTitle, eyebrow, headline, accent }
     'Z',
   ].join(' ');
 
+  // Width of the translucent lower-third panel, sized to fit its caption text.
+  const eyebrowW = eyebrow.length * 9.4; // 11px uppercase, letter-spaced
+  const headlineW = headline.length * 9.3; // 17px bold
+  const panelW = Math.min(winW, Math.round(56 + Math.max(eyebrowW, headlineW)));
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <style>
   @keyframes dm-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -156,13 +161,8 @@ export function wrapTerminal({ termSvg, windowTitle, eyebrow, headline, accent }
   .dm-lt { animation: dm-slide 0.55s cubic-bezier(.2,.7,.2,1) 0.25s both; }
   .dm-title, .dm-lt text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 </style>
-<defs>
-  <filter id="dm-shadow" x="-30%" y="-30%" width="160%" height="160%">
-    <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#010409" flood-opacity="0.55"/>
-  </filter>
-</defs>
 <g class="dm-window">
-  <rect x="${winX}" y="${winY}" width="${winW}" height="${winH}" rx="${rx}" fill="${PALETTE.bg}" stroke="${PALETTE.border}" stroke-width="1" filter="url(#dm-shadow)"/>
+  <rect x="${winX}" y="${winY}" width="${winW}" height="${winH}" rx="${rx}" fill="${PALETTE.bg}" stroke="${PALETTE.border}" stroke-width="1"/>
   <path d="${barPath}" fill="${PALETTE.bar}"/>
   <line x1="${winX}" y1="${winY + BAR_H}" x2="${winX + winW}" y2="${winY + BAR_H}" stroke="${PALETTE.border}" stroke-width="1"/>
   <circle cx="${winX + 20}" cy="${cy}" r="6" fill="#ff5f56"/>
@@ -172,9 +172,10 @@ export function wrapTerminal({ termSvg, windowTitle, eyebrow, headline, accent }
 ${innerSvg}
 </g>
 <g class="dm-lt">
-  <rect x="${MARGIN}" y="${ltY}" width="4" height="${LT_H}" rx="2" fill="${accent}"/>
-  <text x="${MARGIN + 16}" y="${ltY + 20}" font-size="11" font-weight="600" letter-spacing="2.4" fill="${accent}">${esc(eyebrow.toUpperCase())}</text>
-  <text x="${MARGIN + 16}" y="${ltY + 44}" font-size="17" font-weight="700" fill="${PALETTE.title}">${esc(headline)}</text>
+  <rect x="${MARGIN}" y="${ltY}" width="${panelW}" height="${LT_H}" rx="12" fill="#010409" fill-opacity="0.55" stroke="${PALETTE.border}" stroke-opacity="0.6"/>
+  <rect x="${MARGIN + 16}" y="${ltY + 12}" width="4" height="${LT_H - 24}" rx="2" fill="${accent}"/>
+  <text x="${MARGIN + 30}" y="${ltY + 25}" font-size="11" font-weight="600" letter-spacing="2.4" fill="${accent}">${esc(eyebrow.toUpperCase())}</text>
+  <text x="${MARGIN + 30}" y="${ltY + 46}" font-size="17" font-weight="700" fill="${PALETTE.title}">${esc(headline)}</text>
 </g>
 </svg>`;
 }
