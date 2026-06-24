@@ -28,6 +28,10 @@ The pipeline: resolve a range → read commits → generate notes.
     no-API-key path for any headless coding/agent CLI (`claude -p` and friends).
     Prompt delivered via stdin (default) or as an arg; strips wrapping fences.
   - `claudeCli.ts` — the `claude -p` provider, built from `createCliProvider`.
+  - `codex.ts` / `gemini.ts` / `opencode.ts` — the other no-key agent-CLI
+    providers (`codex exec`, `gemini -p`, `opencode run`), each a
+    `createCliProvider` spec. `--model` is threaded via `createCliProvider`'s
+    `runArgs`-function form. See [docs/5-providers.md](docs/5-providers.md).
   - `anthropicApi.ts` — official `@anthropic-ai/sdk`, model `claude-opus-4-8`,
     adaptive thinking, streaming. Reads `ANTHROPIC_API_KEY`. SDK is imported
     lazily.
@@ -64,10 +68,17 @@ API key and is the default-friendly path that belongs early in `AUTO_ORDER`.
 Reserve API-key providers (`anthropicApi.ts`-style) for tools without a usable
 CLI, and place them after the CLI backends.
 
-Follow-up providers on the roadmap, CLI-first where possible: OpenAI/Codex
-(`codex exec`), Gemini CLI, Cursor agent. (Done: Ollama / local
+Threading `--model` through a CLI backend: pass `runArgs` as a function of
+`{ model }` (see `providers/codex.ts` / `gemini.ts` / `opencode.ts`) so the model
+flag lands at that CLI's expected position.
+
+Follow-up providers on the roadmap, CLI-first where possible: Cursor agent
+(`cursor-agent`, GG-7), plus optional API-key fallbacks for the agent CLIs
+(OpenAI / `@google/genai`). (Done: OpenAI/Codex — `providers/codex.ts`; Gemini
+CLI — `providers/gemini.ts`; OpenCode — `providers/opencode.ts`; Ollama / local
 OpenAI-compatible — `providers/local.ts`; Apple Foundation Models —
-`providers/apple.ts`, delegating to the `apple-fm` npm package.)
+`providers/apple.ts`, delegating to the `apple-fm` npm package.) Provider specs:
+[docs/5-providers.md](docs/5-providers.md).
 
 ## Conventions
 
@@ -91,6 +102,8 @@ npm run build     # tsup → dist/ (index + cli, with .d.ts)
 - [docs/2-architecture.md](docs/2-architecture.md) — module layout and data flow.
 - [docs/3-requirements.md](docs/3-requirements.md) — FR/NFR requirements with status.
 - [docs/4-templates.md](docs/4-templates.md) — the `--template` format reference.
+- [docs/5-providers.md](docs/5-providers.md) — the CLI-first agent providers (codex/gemini/opencode) reference.
+- [docs/manual-test-plan.md](docs/manual-test-plan.md) — manual checks (CLI-provider output quality).
 - [docs/ai/code-summary.md](docs/ai/code-summary.md) — AI-oriented code map.
 - [docs/ai/requirements-summary.md](docs/ai/requirements-summary.md) — AI-oriented requirements digest.
 

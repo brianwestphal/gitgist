@@ -71,13 +71,24 @@ export interface ChangelogOptions {
  *
  * - `auto` — prefer a signed-in CLI (e.g. `claude`), else an API-key backend.
  * - `claude-cli` — shell out to the locally installed, signed-in `claude` CLI.
+ * - `codex` — shell out to the signed-in OpenAI **Codex** CLI (`codex exec`).
+ * - `gemini` — shell out to the signed-in Google **Gemini** CLI (`gemini -p`).
+ * - `opencode` — shell out to the configured **OpenCode** CLI (`opencode run`).
  * - `anthropic-api` — the Anthropic Messages API via the official SDK.
  * - `local` — a local OpenAI-compatible endpoint (Ollama / LM Studio / …);
  *   opt-in only, never auto-selected.
  * - `apple` — on-device macOS Apple Foundation Models (a free, private
  *   fallback when no Claude backend is available).
  */
-export type ProviderName = 'auto' | 'anthropic-api' | 'claude-cli' | 'local' | 'apple';
+export type ProviderName =
+  | 'auto'
+  | 'anthropic-api'
+  | 'claude-cli'
+  | 'codex'
+  | 'gemini'
+  | 'opencode'
+  | 'local'
+  | 'apple';
 
 /**
  * Output shape:

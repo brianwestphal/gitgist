@@ -2,7 +2,10 @@ import type { ProviderName } from '../types.js';
 import { anthropicApiProvider } from './anthropicApi.js';
 import { appleProvider, createAppleProvider } from './apple.js';
 import { claudeCliProvider } from './claudeCli.js';
+import { codexProvider } from './codex.js';
+import { geminiProvider } from './gemini.js';
 import { createLocalProvider, localProvider } from './local.js';
+import { opencodeProvider } from './opencode.js';
 import type { AIProvider } from './types.js';
 
 export {
@@ -19,6 +22,8 @@ export {
 } from './apple.js';
 export { claudeCliProvider } from './claudeCli.js';
 export { type CliProviderSpec, createCliProvider } from './cli.js';
+export { codexProvider } from './codex.js';
+export { geminiProvider } from './gemini.js';
 export {
   createLocalProvider,
   DEFAULT_LOCAL_ENDPOINT,
@@ -27,25 +32,38 @@ export {
   type LocalProviderConfig,
   parseModelList,
 } from './local.js';
+export { opencodeProvider } from './opencode.js';
 export type { AIProvider, GenerateRequest } from './types.js';
 
 /** Registry of concrete providers, keyed by name. */
 export const PROVIDERS: Record<Exclude<ProviderName, 'auto'>, AIProvider> = {
   'anthropic-api': anthropicApiProvider,
   'claude-cli': claudeCliProvider,
+  codex: codexProvider,
+  gemini: geminiProvider,
+  opencode: opencodeProvider,
   local: localProvider,
   apple: appleProvider,
 };
 
 /**
  * Auto-resolution order. Zero-config CLI backends (no API key) come first —
- * matching how the sibling tools default to `claude -p` — then API-key
- * backends, then on-device Apple Foundation Models as a free fallback (only
- * reached when nothing earlier is available, and a no-op when its helper isn't
- * built). The `local` provider is intentionally absent: it is opt-in only
- * (`--provider local`) so a normal run never probes localhost.
+ * matching how the sibling tools default to `claude -p` — so `claude-cli` and
+ * the other signed-in agent CLIs (`codex`, `gemini`, `opencode`) are tried
+ * before the API-key `anthropic-api` backend, and finally on-device Apple
+ * Foundation Models as a free fallback (only reached when nothing earlier is
+ * available, and a no-op when its helper isn't built). The `local` provider is
+ * intentionally absent: it is opt-in only (`--provider local`) so a normal run
+ * never probes localhost.
  */
-export const AUTO_ORDER: AIProvider[] = [claudeCliProvider, anthropicApiProvider, appleProvider];
+export const AUTO_ORDER: AIProvider[] = [
+  claudeCliProvider,
+  codexProvider,
+  geminiProvider,
+  opencodeProvider,
+  anthropicApiProvider,
+  appleProvider,
+];
 
 /** Options for {@link resolveProvider}. */
 export interface ResolveProviderOptions {

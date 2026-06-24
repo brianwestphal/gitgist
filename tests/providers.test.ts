@@ -6,6 +6,8 @@ import {
   createAnthropicApiProvider,
 } from '../src/providers/anthropicApi.js';
 import { createCliProvider } from '../src/providers/cli.js';
+import { codexRunArgs } from '../src/providers/codex.js';
+import { geminiRunArgs } from '../src/providers/gemini.js';
 import { anthropicApiProvider, AUTO_ORDER, PROVIDERS, resolveProvider } from '../src/providers/index.js';
 import {
   createLocalProvider,
@@ -13,6 +15,7 @@ import {
   type FetchLike,
   parseModelList,
 } from '../src/providers/local.js';
+import { opencodeRunArgs } from '../src/providers/opencode.js';
 import type { AIProvider } from '../src/providers/types.js';
 
 /** A deterministic stand-in provider whose availability we control. */
@@ -25,9 +28,73 @@ function fakeProvider(name: string, available: boolean): AIProvider {
 }
 
 describe('provider registry', () => {
-  it('exposes the two concrete providers', () => {
+  it('exposes the concrete providers keyed by name', () => {
     expect(PROVIDERS['anthropic-api'].name).toBe('anthropic-api');
     expect(PROVIDERS['claude-cli'].name).toBe('claude-cli');
+    expect(PROVIDERS.codex.name).toBe('codex');
+    expect(PROVIDERS.gemini.name).toBe('gemini');
+    expect(PROVIDERS.opencode.name).toBe('opencode');
+  });
+});
+
+describe('CLI agent provider arg builders', () => {
+  it('codex: `exec`, with `-m <model>` after the subcommand', () => {
+    expect(codexRunArgs({})).toEqual(['exec']);
+    expect(codexRunArgs({ model: '' })).toEqual(['exec']);
+    expect(codexRunArgs({ model: 'o3' })).toEqual(['exec', '-m', 'o3']);
+  });
+
+  it('gemini: `-p` last, with `-m <model>` before it', () => {
+    expect(geminiRunArgs({})).toEqual(['-p']);
+    expect(geminiRunArgs({ model: 'gemini-2.5-pro' })).toEqual(['-m', 'gemini-2.5-pro', '-p']);
+  });
+
+  it('opencode: `run`, with `-m <provider/model>` after the subcommand', () => {
+    expect(opencodeRunArgs({})).toEqual(['run']);
+    expect(opencodeRunArgs({ model: 'anthropic/claude-opus-4-8' })).toEqual([
+      'run',
+      '-m',
+      'anthropic/claude-opus-4-8',
+    ]);
+  });
+});
+
+/** A node stub that echoes its argv + stdin as JSON, for arg-wiring assertions. */
+const ARG_ECHO =
+  "const c=[];process.stdin.on('data',d=>c.push(d));" +
+  "process.stdin.on('end',()=>process.stdout.write(" +
+  "JSON.stringify({argv:process.argv.slice(1),stdin:c.join('')})));";
+
+describe('createCliProvider model threading (runArgs function)', () => {
+  // Non-dash sentinels (`MODEL <id>`) so the `node` stub doesn't intercept them
+  // as its own options; the real CLIs parse their `-m`/`-p` flags themselves.
+  /** A provider whose runArgs append `MODEL <model>` only when a model is set. */
+  function echoProvider(input: 'stdin' | 'arg') {
+    return createCliProvider({
+      name: 'arg-echo',
+      command: process.execPath,
+      runArgs: ({ model }) =>
+        model !== undefined && model !== ''
+          ? ['-e', ARG_ECHO, 'MODEL', model]
+          : ['-e', ARG_ECHO],
+      input,
+    });
+  }
+
+  it('threads the model into the args and passes the prompt (arg input)', async () => {
+    const out = await echoProvider('arg').generate({ system: 'SYS', prompt: 'BODY', model: 'mod-x' });
+    const parsed = JSON.parse(out) as { argv: string[]; stdin: string };
+    expect(parsed.argv).toContain('MODEL');
+    expect(parsed.argv).toContain('mod-x');
+    expect(parsed.argv[parsed.argv.length - 1]).toBe('SYS\n\nBODY');
+    expect(parsed.stdin).toBe('');
+  });
+
+  it('omits the model args when no model is given and pipes the prompt via stdin', async () => {
+    const out = await echoProvider('stdin').generate({ system: 'SYS', prompt: 'BODY' });
+    const parsed = JSON.parse(out) as { argv: string[]; stdin: string };
+    expect(parsed.argv).not.toContain('MODEL');
+    expect(parsed.stdin).toBe('SYS\n\nBODY');
   });
 });
 
@@ -300,9 +367,16 @@ describe('resolveProvider', () => {
     await expect(resolveProvider('auto', { order })).rejects.toThrow(/No AI provider available/);
   });
 
-  it('auto order: CLI → API → apple, and never local', () => {
+  it('auto order: CLI agents → API → apple, and never local', () => {
     const names = AUTO_ORDER.map((p) => p.name);
     expect(names).not.toContain('local');
-    expect(names).toEqual(['claude-cli', 'anthropic-api', 'apple']);
+    expect(names).toEqual([
+      'claude-cli',
+      'codex',
+      'gemini',
+      'opencode',
+      'anthropic-api',
+      'apple',
+    ]);
   });
 });

@@ -24,8 +24,15 @@ export interface CliProviderSpec {
   name: string;
   /** Executable to run, e.g. `claude`. */
   command: string;
-  /** Args that run a single headless prompt, e.g. `['-p']`. */
-  runArgs: string[];
+  /**
+   * Args that run a single headless prompt, e.g. `['-p']`.
+   *
+   * Either a static list, or a function of the request's `model` — the function
+   * form lets a provider thread `--model` through at its CLI's expected position
+   * (e.g. `gemini -m <model> -p`, `codex exec -m <model>`). When `model` is
+   * undefined the function should return the no-model args.
+   */
+  runArgs: string[] | ((opts: { model?: string }) => string[]);
   /** Args used to probe availability (default: `['--version']`). */
   versionArgs?: string[];
   /**
@@ -79,7 +86,9 @@ export function createCliProvider(spec: CliProviderSpec): AIProvider {
 
     generate(request: GenerateRequest): Promise<string> {
       const fullPrompt = `${request.system}\n\n${request.prompt}`;
-      const args = input === 'arg' ? [...spec.runArgs, fullPrompt] : spec.runArgs;
+      const runArgs =
+        typeof spec.runArgs === 'function' ? spec.runArgs({ model: request.model }) : spec.runArgs;
+      const args = input === 'arg' ? [...runArgs, fullPrompt] : runArgs;
       const timeoutMs = request.timeoutMs ?? spec.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
       return new Promise<string>((resolve, reject) => {

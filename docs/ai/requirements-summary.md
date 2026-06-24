@@ -14,7 +14,7 @@ Keep status markers in sync with the implementation.
 - **FR-7 CLI-first auto-selection** — Shipped. `providers/index.ts`.
 - **FR-8 Offline `--no-ai` fallback** — Shipped. `changelog.ts`.
 - **FR-9 CLI flags** — Shipped. `cliArgs.ts` (`--no-ai/--provider/--model/--max-tokens/--title/--cwd/--help` + working-tree flags).
-- **FR-10 More providers** — Deferred. GG-5 (Codex), GG-6 (Gemini), GG-7 (Cursor).
+- **FR-10 More providers** — Deferred. GG-7 (Cursor); API-key fallbacks for the agent CLIs (OpenAI/Codex, Gemini API) as follow-ups. (Codex/Gemini/OpenCode CLI providers shipped — FR-18/19/20.)
 - **FR-11 Uncommitted working-tree changes** — Shipped. `git.ts:readWorkingChanges` + `--staged`/`--cached`/`--unstaged`/`--untracked`/`--working`; standalone (no range) summarizes only pending changes (commit-message draft). Deterministic listing via `changelog.ts:renderWorkingChanges`.
 - **FR-12 Output format** — Shipped. `--format notes` (default) or `--format commit` / `--commit-message` → a Conventional Commit message via `prompt.ts:COMMIT_SYSTEM_PROMPT` (requires AI; `--title` ignored).
 - **FR-13 Templates** — Shipped. `--template <file>`: Markdown-with-frontmatter template (`template.ts:loadTemplate/parseTemplate` + `prompt.ts:TEMPLATE_SYSTEM_PROMPT/buildTemplatePrompt`); strict sections/order. Requires AI; not combinable with `--format commit`. Spec: `docs/4-templates.md`.
@@ -22,6 +22,10 @@ Keep status markers in sync with the implementation.
 - **FR-15 Apple Foundation Models** — Shipped. `--provider apple` (macOS 26+ on-device) via `providers/apple.ts:createAppleProvider`, which delegates to the [`apple-fm`](https://www.npmjs.com/package/apple-fm) npm package (`probe()`/`generate()`); `APPLE_FM_BIN` for a custom helper build. In `AUTO_ORDER` as a free fallback.
 - **FR-16 Notarized prebuilt helper** — Shipped (via the `apple-fm` dependency). The Developer-ID-signed + notarized arm64 helper now ships inside `apple-fm` (built + signed in that package's release), so gitgist neither builds nor bundles its own — the old `release.yml` `apple-fm` job is removed. (Superseded the GG-19 CI job.)
 - **FR-17 Apple language hint** — Shipped. `providers/apple.ts` prefixes the prompt with `Treat the following as <language>:` to satisfy the on-device language guardrail (`unsupportedLanguageOrLocale` on non-prose-heavy prompts like full-SHA ranges). Default = detected system language (`detectSystemLanguage`); `--language <name|code>` overrides, `--language auto` (`AUTO_LANGUAGE`) omits it. Threaded via `resolveProvider`.
+- **FR-18 Codex CLI provider** — Shipped. `--provider codex` → `providers/codex.ts` (`codex exec`, prompt via stdin, `-m <model>`); no key, in `AUTO_ORDER`. Spec: `docs/5-providers.md`.
+- **FR-19 Gemini CLI provider** — Shipped. `--provider gemini` → `providers/gemini.ts` (`gemini -p "<prompt>"`, `-m <model>`); no key, in `AUTO_ORDER`. Spec: `docs/5-providers.md`.
+- **FR-20 OpenCode CLI provider** — Shipped (verified end-to-end). `--provider opencode` → `providers/opencode.ts` (`opencode run "<prompt>"`, `-m <provider/model>`); no gitgist key, in `AUTO_ORDER`. Spec: `docs/5-providers.md`.
+- **FR-21 `--model` for CLI agents** — Shipped. `providers/cli.ts` `CliProviderSpec.runArgs` accepts a `model`-function form so `codex`/`gemini`/`opencode` place `-m <model>` correctly.
 
 ## Non-functional
 
@@ -35,5 +39,6 @@ Keep status markers in sync with the implementation.
 
 ## Tracked follow-ups
 
-GG-3, GG-4, GG-5, GG-6, GG-7 (providers); GG-12 (truncation handling, partial);
-GG-13 (these docs).
+GG-7 (Cursor provider); API-key fallbacks for the agent CLIs (OpenAI/Codex,
+Gemini API) as follow-ups; GG-12 (truncation handling, partial); GG-13 (these
+docs). Shipped: GG-5 (Codex/FR-18), GG-6 (Gemini/FR-19), GG-31 (OpenCode/FR-20).

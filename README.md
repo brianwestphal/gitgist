@@ -29,10 +29,11 @@ grouped Markdown — written by Claude, with the internal noise stripped out.
   network, no key, and fully deterministic output.
 - **CLI _and_ library.** Use the `gitgist` bin, or call `generateReleaseNotes()`
   from your release tooling.
-- **Pluggable providers.** Claude (CLI + API), any local OpenAI-compatible
-  endpoint (Ollama / LM Studio), and on-device Apple Foundation Models ship
-  today; Codex, Gemini, and Cursor are on the way — CLI-first wherever the tool
-  offers a headless mode.
+- **Pluggable providers.** Claude (CLI + API), the OpenAI **Codex**, Google
+  **Gemini**, and **OpenCode** agent CLIs (all no-key), any local
+  OpenAI-compatible endpoint (Ollama / LM Studio), and on-device Apple Foundation
+  Models ship today; Cursor is on the way — CLI-first wherever the tool offers a
+  headless mode.
 
 ## See it
 
@@ -107,7 +108,7 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 | `--commit-message`         | Shorthand for `--format commit` (requires AI).                      |
 | `--template <file>`        | Shape the notes with a Markdown template ([docs](docs/4-templates.md)). |
 | `--no-ai`                  | Group commits by Conventional Commit type instead (offline).        |
-| `--provider <name>`        | `auto` \| `claude-cli` \| `anthropic-api` \| `local` \| `apple` (default: `auto`). |
+| `--provider <name>`        | `auto` \| `claude-cli` \| `codex` \| `gemini` \| `opencode` \| `anthropic-api` \| `local` \| `apple` (default: `auto`). |
 | `--endpoint <url>`         | Base URL for `--provider local` (default: Ollama's `…:11434/v1`).   |
 | `--model <id>`             | `anthropic-api` model (default `claude-opus-4-8`), or the `local` model name. |
 | `--language <name\|auto>`   | Language hint for the `apple` provider's prompt (default: system language; `auto` omits it). |
@@ -123,18 +124,23 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 ## AI providers & API keys
 
 gitgist prefers **zero-config CLI backends that need no API key** — the same
-approach the related tools take with `claude -p`. Three backends ship today:
+approach the related tools take with `claude -p`. The backends that ship today:
 
 1. **`claude-cli`** — your locally installed, signed-in `claude` CLI. **No API
    key** — it reuses the CLI's own auth.
-2. **`anthropic-api`** — the Anthropic API via the official SDK. Set
+2. **`codex`** / **`gemini`** / **`opencode`** — the other signed-in agent CLIs,
+   also **no API key** (they reuse each CLI's own auth): OpenAI **Codex**
+   (`codex exec`), Google **Gemini** (`gemini -p`), and **OpenCode**
+   (`opencode run`). Select with `--provider <name>`; pick the model with
+   `--model` (`-m`). See [docs/5-providers.md](docs/5-providers.md).
+3. **`anthropic-api`** — the Anthropic API via the official SDK. Set
    `ANTHROPIC_API_KEY` in your environment.
-3. **`local`** — any **OpenAI-compatible** endpoint (Ollama, LM Studio,
+4. **`local`** — any **OpenAI-compatible** endpoint (Ollama, LM Studio,
    llama.cpp, vLLM, …) for free, private, on-device generation. Opt-in with
    `--provider local`; configure with `--endpoint` (`$GITGIST_LOCAL_ENDPOINT`,
    default `http://localhost:11434/v1`) and `--model` (`$GITGIST_LOCAL_MODEL`,
    else the endpoint's first model). No API key.
-4. **`apple`** — on-device **Apple Foundation Models** (macOS 26+ on Apple
+5. **`apple`** — on-device **Apple Foundation Models** (macOS 26+ on Apple
    Silicon with Apple Intelligence). Free, private, no API key. Powered by the
    [`apple-fm`](https://www.npmjs.com/package/apple-fm) package, a gitgist
    dependency that bundles a **Developer-ID-signed, notarized** helper binary, so
@@ -144,19 +150,19 @@ approach the related tools take with `claude -p`. Three backends ship today:
    `Treat the following as <language>:` lead-in (default: your system language;
    override with `--language <name|code>`, or `--language auto` to disable it).
 
-With `--provider auto` (the default), gitgist uses the `claude` CLI when it's
-installed, falls back to the Anthropic API when `ANTHROPIC_API_KEY` is set, and
-then to on-device Apple Foundation Models when the device and model are
-available — a no-op when they aren't. The `local` provider is **never** auto-selected (so a normal run
-doesn't probe localhost) — request it explicitly. Force any with
-`--provider <name>`. If no provider is available, use `--no-ai` for offline
-Conventional Commits grouping.
+With `--provider auto` (the default), gitgist tries the signed-in agent CLIs
+first — `claude-cli`, then `codex`, `gemini`, `opencode` — falls back to the
+Anthropic API when `ANTHROPIC_API_KEY` is set, and then to on-device Apple
+Foundation Models when the device and model are available (a no-op when they
+aren't). The `local` provider is **never** auto-selected (so a normal run doesn't
+probe localhost) — request it explicitly. Force any with `--provider <name>`. If
+no provider is available, use `--no-ai` for offline Conventional Commits
+grouping.
 
-> Planned providers follow the same **CLI-first, no-key** pattern wherever the
-> tool offers a headless mode — Codex (`codex exec`), Gemini CLI, Cursor agent —
-> alongside on-device Apple Foundation Models and local OpenAI-compatible
-> endpoints (Ollama / LM Studio). The provider layer is pluggable, and CLI
-> backends share a small `createCliProvider()` helper.
+> The remaining planned provider follows the same **CLI-first, no-key** pattern —
+> Cursor agent (`cursor-agent`) — plus optional API-key fallbacks for the agent
+> CLIs (OpenAI, Google). The provider layer is pluggable, and CLI backends share
+> a small `createCliProvider()` helper.
 
 ### Choosing a provider
 
@@ -166,6 +172,7 @@ a rule of thumb, larger models categorize and filter noise more reliably:
 | Provider | Quality | Cost | Privacy | Notes |
 | --- | --- | --- | --- | --- |
 | `claude-cli` / `anthropic-api` | **Best** | CLI: included with your plan · API: per-token | Sent to Anthropic | Cleanest grouping; Breaking Changes surfaced first; refactor/test/chore noise dropped. |
+| `codex` / `gemini` / `opencode` | Very good | Included with your CLI sign-in (no key) | Sent to that vendor | No-key agent CLIs; quality tracks the underlying model. `--model` picks it (`opencode` uses `provider/model`). |
 | `local` (Ollama / LM Studio) | Very good | Free | **On-device** | Same shape as Claude on a capable model; minor ordering differences. Quality tracks the model you load. |
 | `apple` (Foundation Models) | Usable, weaker | Free | **On-device** | Smallest model — can miscategorize (e.g. a breaking change under Features), invent sections, or keep an internal commit. Free, private, fast. |
 | `--no-ai` | Deterministic | Free | **No network** | Conventional-Commits grouping; keeps every commit, no rewriting. The offline baseline. |

@@ -19,8 +19,11 @@ src/
   releaseNotes.ts     # generateReleaseNotes (orchestrator)
   providers/
     types.ts          # AIProvider, GenerateRequest
-    cli.ts            # createCliProvider (reusable no-key CLI backend)
-    claudeCli.ts      # claudeCliProvider
+    cli.ts            # createCliProvider (reusable no-key CLI backend; model via runArgs fn)
+    claudeCli.ts      # claudeCliProvider (claude -p)
+    codex.ts          # codexProvider (codex exec; no key)
+    gemini.ts         # geminiProvider (gemini -p; no key)
+    opencode.ts       # opencodeProvider (opencode run; no key)
     anthropicApi.ts   # anthropicApiProvider
     local.ts          # createLocalProvider (Ollama / OpenAI-compatible; opt-in)
     apple.ts          # createAppleProvider (macOS Apple Foundation Models via the apple-fm npm package)
@@ -40,11 +43,12 @@ tests/                # parse, changelog, prompt, cliArgs, git, template, provid
   `workingChangesToMaterial`, `stripCodeFences`, `cleanModelOutput`.
 - Templates: `loadTemplate`, `parseTemplate`, type `Template`.
 - Providers: `resolveProvider`, `PROVIDERS`, `AUTO_ORDER`; `createCliProvider`,
-  `claudeCliProvider`; `createAnthropicApiProvider`, `anthropicApiProvider`;
-  `createLocalProvider`, `localProvider`, `DEFAULT_LOCAL_ENDPOINT`;
-  `createAppleProvider`, `appleProvider`, `detectSystemLanguage`, `AUTO_LANGUAGE`;
-  types `AIProvider`, `GenerateRequest`, `CliProviderSpec`,
-  `AnthropicApiProviderConfig`, `LocalProviderConfig`, `AppleProviderConfig`.
+  `claudeCliProvider`, `codexProvider`, `geminiProvider`, `opencodeProvider`;
+  `createAnthropicApiProvider`, `anthropicApiProvider`; `createLocalProvider`,
+  `localProvider`, `DEFAULT_LOCAL_ENDPOINT`; `createAppleProvider`,
+  `appleProvider`, `detectSystemLanguage`, `AUTO_LANGUAGE`; types `AIProvider`,
+  `GenerateRequest`, `CliProviderSpec`, `AnthropicApiProviderConfig`,
+  `LocalProviderConfig`, `AppleProviderConfig`.
 - Types: `Commit`, `Changelog`, `ChangelogSection`, `ChangelogOptions`,
   `ReadCommitsOptions`, `ReleaseNotesOptions`, `ProviderName`, `OutputFormat`,
   `WorkingChanges`, `WorkingChangeOptions`, `RawCommit`.
