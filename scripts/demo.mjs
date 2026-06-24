@@ -3,10 +3,17 @@
  * Re-capturable animated CLI demos for the README.
  *
  * Each demo seeds a throwaway git repository with a representative set of
- * commits, runs the real built CLI (`dist/cli.js`) against it, captures its
- * actual transcript, then renders that transcript into a self-contained animated
- * terminal SVG with `domotion-svg`: a title card introducing the concept, then a
- * terminal that types the command and reveals the captured output.
+ * commits, runs the real built CLI (`dist/cli.js`) against it, and captures its
+ * actual transcript. That transcript is turned into a self-contained animated
+ * terminal SVG in two steps (see `scripts/lib/terminal.mjs`):
+ *
+ *   1. `buildCast` synthesizes an asciinema v2 recording that types the command
+ *      and streams the captured output. `domotion term` renders it into a
+ *      looping, transparent-background terminal — a faithful simulation with a
+ *      blinking caret, ANSI color, and timed line reveal.
+ *   2. `wrapTerminal` nests that terminal inside a macOS-style window (rounded
+ *      corners, drop shadow, traffic lights, title bar) with a broadcast-style
+ *      lower-third caption, all on a transparent canvas.
  *
  *   npm run demo                       # build + (re)generate assets/demos/*.svg
  *
@@ -23,12 +30,12 @@
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { terminalHeight, terminalHtml, titleCardHtml, WIDTH } from './lib/terminal.mjs';
+import { buildCast, PALETTE, wrapTerminal } from './lib/terminal.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CLI = join(ROOT, 'dist', 'cli.js');
@@ -120,121 +127,71 @@ function runCli(dir, argv) {
 const DEMOS = [
   {
     slug: 'ai-release-notes',
-    title: {
-      eyebrow: 'AI release notes',
-      headline: 'From raw commits to a changelog',
-      subtitle:
-        'Point gitgist at a commit range; Claude writes the user-facing notes and drops the noise. No API key — it uses your signed-in claude CLI.',
-    },
+    accent: PALETTE.heading,
+    eyebrow: 'AI release notes',
+    headline: 'From raw commits to a changelog',
     cmd: 'gitgist v1.0.0..HEAD --title "v1.5.0"',
     capture: (dir) => runCli(dir, ['v1.0.0..HEAD', '--title', 'v1.5.0']),
   },
   {
     slug: 'commit-message',
-    title: {
-      eyebrow: 'Commit messages',
-      headline: 'Draft the commit from your staged diff',
-      subtitle:
-        'Stage your work and gitgist writes a Conventional Commit message — type, scope, and body — straight from the actual diff.',
-    },
+    accent: '#58a6ff',
+    eyebrow: 'Commit messages',
+    headline: 'Draft the commit from your staged diff',
     cmd: 'gitgist --staged --commit-message',
     seed: seedStaged,
     capture: (dir) => runCli(dir, ['--staged', '--commit-message']),
   },
   {
     slug: 'offline',
-    title: {
-      eyebrow: 'Offline mode',
-      headline: 'No AI? No problem',
-      subtitle:
-        '--no-ai groups commits by Conventional Commit type — fully offline, deterministic, and zero dependencies beyond git.',
-    },
+    accent: PALETTE.warn,
+    eyebrow: 'Offline mode',
+    headline: 'No AI? No problem',
     cmd: 'gitgist v1.0.0..HEAD --no-ai',
     capture: (dir) => runCli(dir, ['v1.0.0..HEAD', '--no-ai']),
   },
 ];
 
 /**
- * Compose one demo into an animated SVG: write the two frame HTML files and a
- * domotion `animate` config into a temp dir, then shell out to the installed
- * `domotion` CLI to capture and stitch them.
+ * Compose one demo into an animated SVG: synthesize a cast, render it to a
+ * transparent terminal with `domotion term`, then wrap it in the window chrome.
  */
 async function buildSvg(demo, lines) {
-  const height = terminalHeight(lines.length);
   const work = await mkdtemp(join(tmpdir(), `dm-${demo.slug}-`));
   try {
-    const titleHtml = join(work, 'title.html');
-    const termHtml = join(work, 'term.html');
-    const config = join(work, 'config.json');
-    await writeFile(titleHtml, titleCardHtml({ ...demo.title, height }));
-    await writeFile(termHtml, terminalHtml({ title: 'gitgist', outputLines: lines, height }));
+    const castPath = join(work, 'demo.cast');
+    const termPath = join(work, 'term.svg');
+    const { cast, cols, rows } = buildCast({ command: demo.cmd, outputLines: lines });
+    await writeFile(castPath, cast);
 
-    const speed = 28; // characters per second
-    const typeMs = Math.ceil((demo.cmd.length / speed) * 1000);
-    const revealDelay = typeMs + 350; // let the command settle before output appears
-    const termDuration = revealDelay + 300 + 3600; // reveal + hold
-    const outHideDelay = termDuration - 150; // fade output as the typed command self-erases
-
-    await writeFile(
-      config,
-      JSON.stringify(
-        {
-          width: WIDTH,
-          height,
-          output: join(OUT_DIR, `${demo.slug}.svg`),
-          optimize: true,
-          frames: [
-            {
-              input: 'title.html',
-              duration: 1700,
-              transition: { type: 'crossfade', duration: 500 },
-            },
-            {
-              input: 'term.html',
-              duration: termDuration,
-              transition: { type: 'crossfade', duration: 500 },
-              overlays: [
-                {
-                  kind: 'typing',
-                  text: `${demo.cmd} `,
-                  anchor: { selector: '.cmd', at: 'left' },
-                  fontSize: 15,
-                  color: '#e6edf3',
-                  speed,
-                  caret: true,
-                },
-              ],
-              animations: [
-                {
-                  selector: '.outbody',
-                  property: 'opacity',
-                  from: '0',
-                  to: '1',
-                  duration: 300,
-                  delay: revealDelay,
-                },
-                {
-                  selector: '.out',
-                  property: 'opacity',
-                  from: '1',
-                  to: '0',
-                  duration: 100,
-                  delay: outHideDelay,
-                },
-              ],
-            },
-          ],
-        },
-        null,
-        2,
-      ),
+    const r = spawnSync(
+      DOMOTION,
+      // prettier-ignore
+      [
+        'term', '--cast', castPath,
+        '--bg', 'transparent',
+        '--fg', PALETTE.fgText,
+        '--font-size', '15',
+        '--cols', String(cols),
+        '--rows', String(rows),
+        '--min-frame-ms', '150',
+        '--max-frame-ms', '2600',
+        '--tail-ms', '2600',
+        '-o', termPath,
+      ],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
     );
+    if (r.status !== 0) throw new Error(`domotion term failed for ${demo.slug} (exit ${r.status})`);
 
-    const r = spawnSync(DOMOTION, ['animate', config], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'inherit'],
+    const termSvg = await readFile(termPath, 'utf8');
+    const svg = wrapTerminal({
+      termSvg,
+      windowTitle: 'gitgist — zsh',
+      eyebrow: demo.eyebrow,
+      headline: demo.headline,
+      accent: demo.accent,
     });
-    if (r.status !== 0) throw new Error(`domotion failed for ${demo.slug} (exit ${r.status})`);
+    await writeFile(join(OUT_DIR, `${demo.slug}.svg`), svg);
     process.stdout.write(`  ${demo.slug}.svg (${lines.length} lines)\n`);
   } finally {
     await rm(work, { recursive: true, force: true });
