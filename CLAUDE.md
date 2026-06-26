@@ -87,6 +87,27 @@ OpenAI-compatible — `providers/local.ts`; Apple Foundation Models —
   type-only imports. Avoid truthy checks on strings (`strict-boolean-expressions`).
 - Public functions and exported types carry TSDoc.
 
+### Code search (prefer ast-grep for structure)
+
+For **structural / syntax-aware** searches over the `.ts` source, use **ast-grep**
+(the `ast-grep` skill, or the CLI: `ast-grep run --lang ts -p '<pattern>' src`)
+rather than text grep — it matches the AST, so it skips comments/strings and
+catches multi-line/nested shapes. This is the same mindset as the project's
+strict-typed lint rules (§ Conventions: `strict-boolean-expressions`,
+`consistent-type-imports`). Good fits here: `$A as $B` casts (we keep these
+rare), `JSON.parse($X) as $T`, truthy string checks the linter forbids, relative
+imports missing the required `.js` extension, `process.env.$X` reads, and
+specific call/spec shapes like `createCliProvider({ $$$ })` or `resolveProvider($$$)`
+when threading a new provider or `--model`. Also the natural tool for
+codemod-style rewrites (`ast-grep run -p '<old>' --rewrite '<new>'`).
+
+Keep **text search** (ripgrep / the editor's grep / the Explore agent) for what
+it's best at: literal strings (e.g. `FEEDBACK NEEDED`), identifier/symbol
+lookups, **filenames**, and **non-code files** (the `docs/` Markdown, JSON,
+`git log` output) — there AST has nothing to match and text is simpler + faster.
+This repo is TypeScript-only, so `--lang ts` covers everything; there are no
+`.tsx` or Rust sources here.
+
 ## Commands
 
 ```bash
@@ -95,6 +116,14 @@ npm run lint      # eslint over src/ and tests/
 npm run typecheck # tsc --noEmit
 npm run build     # tsup → dist/ (index + cli, with .d.ts)
 ```
+
+## Git workflow
+
+- **Commit freely** when it helps — commit completed, coherent units of work as
+  needed without asking first.
+- **Never `git push` without explicit permission.** Pushing to a remote always
+  requires the user to ask for it (or confirm) in that moment; prior approval to
+  commit does not extend to pushing.
 
 ## Documentation
 
