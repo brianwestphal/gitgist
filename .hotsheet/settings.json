@@ -17,13 +17,15 @@
       "name": "Commit Changes",
       "prompt": "make a commit message for the recently completed tickets, without wrapping long lines.  Don't include any co-authored by Anthropic type lines in the commit message.  add all unstaged changes to the git commit.  git commit with the message you generated but don't push",
       "icon": "send",
-      "color": "#3b82f6"
+      "color": "#3b82f6",
+      "id": "35e16e6a-2eb0-486a-8593-9a3d264708f7"
     },
     {
       "name": "Update Requirements",
       "prompt": "Update the requirements docs as appropriate",
       "icon": "file-text",
-      "color": "#6b7280"
+      "color": "#6b7280",
+      "id": "d4e58d84-5fa4-4744-a0a4-fa503d18c47d"
     },
     {
       "type": "group",
@@ -33,27 +35,32 @@
           "name": "Reqs ↔︎ Code",
           "prompt": "/check-requirements-against-code",
           "icon": "arrow-left-right",
-          "color": "#ec4899"
+          "color": "#ec4899",
+          "id": "cb20b2b7-756e-4bb8-8112-388e23757a80"
         },
         {
           "name": "Analyze Code Quality",
           "prompt": "/analyze-code-quality",
           "icon": "circle-check-big",
-          "color": "#8b5cf6"
+          "color": "#8b5cf6",
+          "id": "26795b3c-5b36-466e-bcf3-de8079caed5f"
         },
         {
           "name": "Check Code Hygene",
           "prompt": "/check-code-hygiene",
           "icon": "soap-dispenser-droplet",
-          "color": "#f97316"
+          "color": "#f97316",
+          "id": "7282edae-63fe-4ef7-ae2d-4e533ac83a2a"
         },
         {
           "name": "Everything",
           "prompt": "do these sequentially, creating follow up tickets for all concerns encountered:\n/check-requirements-against-code\n/check-code-hygiene\n/analyze-code-quality\n",
           "icon": "balloon",
-          "color": "#e5e7eb"
+          "color": "#e5e7eb",
+          "id": "a6657689-aa8e-4a63-a62a-74c1290c18fa"
         }
-      ]
+      ],
+      "id": "5add63b6-5c7c-4444-bfa9-69e8a72d2503"
     },
     {
       "type": "group",
@@ -65,21 +72,25 @@
           "icon": "git-compare",
           "color": "#e5e7eb",
           "target": "shell",
-          "autoShowLog": true
+          "autoShowLog": true,
+          "id": "3a52d9dc-e07a-4730-b177-39c41155b928"
         },
         {
           "name": "git push",
           "prompt": "git push",
           "icon": "git-compare-arrows",
-          "target": "shell"
+          "target": "shell",
+          "id": "6687a987-e8a3-4046-9201-d567b3eafbf7"
         }
-      ]
+      ],
+      "id": "92ea09ec-3011-45d2-bdce-4fea9c6406fb"
     },
     {
       "name": "Prep Major Release",
       "prompt": "/prep-major-release",
       "icon": "wand",
-      "color": "#14b8a6"
+      "color": "#14b8a6",
+      "id": "411a476a-84eb-45a7-bc56-16ba02828f80"
     }
   ],
   "auto_context": [
