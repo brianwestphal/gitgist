@@ -36,7 +36,7 @@ generateReleaseNotes (releaseNotes.ts)
 | `template.ts` | `loadTemplate` / `parseTemplate` for `--template` (Markdown + YAML frontmatter). |
 | `providers/types.ts` | `AIProvider` / `GenerateRequest` interfaces. |
 | `providers/cli.ts` | `createCliProvider()` — reusable no-key CLI backend (timeout, stderr capture). |
-| `providers/claudeCli.ts` | The `claude -p` provider (a `createCliProvider` spec). |
+| `providers/claudeCli.ts` | The `claude -p` provider (a `createCliProvider` spec; system prompt via `--append-system-prompt`). |
 | `providers/codex.ts` | The `codex exec` provider (a `createCliProvider` spec; no key). |
 | `providers/gemini.ts` | The `gemini -p` provider (a `createCliProvider` spec; no key). |
 | `providers/opencode.ts` | The `opencode run` provider (a `createCliProvider` spec; no key). |

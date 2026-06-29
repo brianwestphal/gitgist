@@ -36,6 +36,18 @@ export interface CliProviderSpec {
   /** Args used to probe availability (default: `['--version']`). */
   versionArgs?: string[];
   /**
+   * Build the args that deliver the system prompt through the CLI's dedicated
+   * system-prompt flag, e.g. `['--append-system-prompt', system]`.
+   *
+   * When provided, the system prompt rides the CLI's **system** layer (matching
+   * the anthropic-api provider's role split) and only the user prompt is sent as
+   * input — so notes-generator instructions like the empty-notes escape hatch
+   * behave as a system constraint, not as part of the user turn. When omitted,
+   * the system and user prompts are concatenated into the input — the legacy
+   * fallback for CLIs without a usable system-prompt flag.
+   */
+  systemArgs?: (system: string) => string[];
+  /**
    * How the prompt reaches the CLI:
    * - `stdin` (default) — piped via stdin, avoiding `ARG_MAX` truncation.
    * - `arg` — appended as the final positional argument.
@@ -61,9 +73,11 @@ function stderrTail(stderr: string): string {
  * Build an {@link AIProvider} that shells out to a locally installed CLI.
  *
  * This is the no-API-key path, and the reusable shape every CLI-capable
- * provider should adopt. The combined system + user prompt is delivered to the
- * CLI, a wrapping Markdown code fence (if any) is stripped from its output, the
- * run is bounded by a timeout, and stderr is surfaced on failure.
+ * provider should adopt. The system prompt is delivered through the CLI's
+ * system-prompt flag when {@link CliProviderSpec.systemArgs} is set, otherwise
+ * concatenated ahead of the user prompt; a wrapping Markdown code fence (if any)
+ * is stripped from its output, the run is bounded by a timeout, and stderr is
+ * surfaced on failure.
  *
  * @param spec - The CLI invocation details.
  * @returns A provider backed by that CLI.
@@ -85,10 +99,15 @@ export function createCliProvider(spec: CliProviderSpec): AIProvider {
     },
 
     generate(request: GenerateRequest): Promise<string> {
-      const fullPrompt = `${request.system}\n\n${request.prompt}`;
       const runArgs =
         typeof spec.runArgs === 'function' ? spec.runArgs({ model: request.model }) : spec.runArgs;
-      const args = input === 'arg' ? [...runArgs, fullPrompt] : runArgs;
+      // With a system-prompt flag, keep the system layer separate (like the
+      // anthropic-api provider); otherwise fall back to concatenating it in.
+      const systemArgs = spec.systemArgs !== undefined ? spec.systemArgs(request.system) : [];
+      const inputText =
+        spec.systemArgs !== undefined ? request.prompt : `${request.system}\n\n${request.prompt}`;
+      const baseArgs = [...systemArgs, ...runArgs];
+      const args = input === 'arg' ? [...baseArgs, inputText] : baseArgs;
       const timeoutMs = request.timeoutMs ?? spec.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
       return new Promise<string>((resolve, reject) => {
@@ -152,7 +171,7 @@ export function createCliProvider(spec: CliProviderSpec): AIProvider {
         });
 
         if (input === 'stdin') {
-          child.stdin.write(fullPrompt);
+          child.stdin.write(inputText);
         }
         child.stdin.end();
       });

@@ -1,10 +1,15 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   type AnthropicMessage,
   type AnthropicRunParams,
   createAnthropicApiProvider,
 } from '../src/providers/anthropicApi.js';
+import { claudeSystemArgs } from '../src/providers/claudeCli.js';
 import { createCliProvider } from '../src/providers/cli.js';
 import { codexRunArgs } from '../src/providers/codex.js';
 import { geminiRunArgs } from '../src/providers/gemini.js';
@@ -47,6 +52,10 @@ describe('CLI agent provider arg builders', () => {
   it('gemini: `-p` last, with `-m <model>` before it', () => {
     expect(geminiRunArgs({})).toEqual(['-p']);
     expect(geminiRunArgs({ model: 'gemini-2.5-pro' })).toEqual(['-m', 'gemini-2.5-pro', '-p']);
+  });
+
+  it('claude: passes the system prompt via `--append-system-prompt`', () => {
+    expect(claudeSystemArgs('SYS')).toEqual(['--append-system-prompt', 'SYS']);
   });
 
   it('opencode: `run`, with `-m <provider/model>` after the subcommand', () => {
@@ -95,6 +104,83 @@ describe('createCliProvider model threading (runArgs function)', () => {
     const parsed = JSON.parse(out) as { argv: string[]; stdin: string };
     expect(parsed.argv).not.toContain('MODEL');
     expect(parsed.stdin).toBe('SYS\n\nBODY');
+  });
+});
+
+describe('createCliProvider systemArgs (system-prompt flag)', () => {
+  // The `node -e` stub can't take flags before its script, and systemArgs are
+  // prepended ahead of runArgs — so use an executable stub FILE whose every arg
+  // is its own argv. It echoes argv (minus node + script path) and stdin as JSON.
+  let stub: string;
+
+  beforeAll(() => {
+    const dir = mkdtempSync(join(tmpdir(), 'gitgist-stub-'));
+    stub = join(dir, 'echo.mjs');
+    writeFileSync(
+      stub,
+      "#!/usr/bin/env node\n" +
+        "const c=[];process.stdin.on('data',d=>c.push(d));" +
+        "process.stdin.on('end',()=>process.stdout.write(" +
+        "JSON.stringify({argv:process.argv.slice(2),stdin:c.join('')})));\n",
+    );
+    chmodSync(stub, 0o755);
+  });
+
+  /** A provider that passes the system prompt via `--sys <system>`. */
+  function flagProvider(input: 'stdin' | 'arg') {
+    return createCliProvider({
+      name: 'sys-flag',
+      command: stub,
+      runArgs: [],
+      systemArgs: (system) => ['--sys', system],
+      input,
+    });
+  }
+
+  it('passes the system prompt through the flag and only the user prompt on stdin', async () => {
+    const out = await flagProvider('stdin').generate({ system: 'SYS', prompt: 'BODY' });
+    const parsed = JSON.parse(out) as { argv: string[]; stdin: string };
+    // System rides the flag, not the user turn.
+    expect(parsed.argv).toEqual(['--sys', 'SYS']);
+    // stdin carries the user prompt alone — no `SYS\n\nBODY` concatenation.
+    expect(parsed.stdin).toBe('BODY');
+    expect(parsed.stdin).not.toContain('SYS');
+  });
+
+  it('keeps the user prompt last when input is an arg, with the system flag before it', async () => {
+    const out = await flagProvider('arg').generate({ system: 'SYS', prompt: 'BODY' });
+    const parsed = JSON.parse(out) as { argv: string[]; stdin: string };
+    // System flag first, user prompt as the final positional — no concatenation.
+    expect(parsed.argv).toEqual(['--sys', 'SYS', 'BODY']);
+    expect(parsed.stdin).toBe('');
+  });
+
+  it('falls back to concatenation when no systemArgs hook is given', async () => {
+    const provider = createCliProvider({ name: 'no-sys-flag', command: stub, runArgs: [] });
+    const out = await provider.generate({ system: 'SYS', prompt: 'BODY' });
+    const parsed = JSON.parse(out) as { argv: string[]; stdin: string };
+    expect(parsed.argv).toEqual([]);
+    expect(parsed.stdin).toBe('SYS\n\nBODY');
+  });
+
+  it('keeps the empty-notes escape hatch in the system layer, not the user turn (GG-38)', async () => {
+    // Mirrors the claudeCliProvider wiring (`--append-system-prompt`): the
+    // sentinel instruction must never reach stdin, or `claude -p` echoes it back.
+    const provider = createCliProvider({
+      name: 'claude-cli-echo',
+      command: stub,
+      runArgs: ['-p'],
+      systemArgs: (system) => ['--append-system-prompt', system],
+    });
+    const out = await provider.generate({
+      system: 'If there are no user-facing changes, output exactly _No user-facing changes._',
+      prompt: 'feat: add multi-cam sync',
+    });
+    const parsed = JSON.parse(out) as { argv: string[]; stdin: string };
+    expect(parsed.argv[0]).toBe('--append-system-prompt');
+    expect(parsed.argv).toContain('-p');
+    expect(parsed.stdin).toBe('feat: add multi-cam sync');
+    expect(parsed.stdin).not.toContain('No user-facing changes');
   });
 });
 

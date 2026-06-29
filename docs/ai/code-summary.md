@@ -19,8 +19,8 @@ src/
   releaseNotes.ts     # generateReleaseNotes (orchestrator)
   providers/
     types.ts          # AIProvider, GenerateRequest
-    cli.ts            # createCliProvider (reusable no-key CLI backend; model via runArgs fn)
-    claudeCli.ts      # claudeCliProvider (claude -p)
+    cli.ts            # createCliProvider (reusable no-key CLI backend; model via runArgs fn, system via systemArgs hook)
+    claudeCli.ts      # claudeCliProvider (claude -p; system via --append-system-prompt)
     codex.ts          # codexProvider (codex exec; no key)
     gemini.ts         # geminiProvider (gemini -p; no key)
     opencode.ts       # opencodeProvider (opencode run; no key)

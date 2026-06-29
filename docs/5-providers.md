@@ -14,8 +14,15 @@ FR-5/FR-6), `local` (FR-14), `apple` (FR-15/FR-16/FR-17).
 
 All agent-CLI providers are built from `createCliProvider()` (`src/providers/cli.ts`):
 
-- The combined `system\n\nprompt` is delivered to the CLI via **stdin** (default,
-  avoids `ARG_MAX`) or as the final **argument** (`input: 'arg'`).
+- The prompt is delivered to the CLI via **stdin** (default, avoids `ARG_MAX`) or
+  as the final **argument** (`input: 'arg'`).
+- The system prompt is kept in the CLI's **system layer** when the spec sets a
+  `systemArgs(system)` hook (e.g. `claude-cli` → `--append-system-prompt`); then
+  only the user prompt is sent as input. Without the hook the system + user
+  prompts are concatenated (`system\n\nprompt`) into the input — the fallback for
+  CLIs with no system-prompt flag. (Inlining gitgist's instructions into the user
+  turn made `claude -p` echo the `_No user-facing changes._` escape hatch instead
+  of generating notes — GG-38.)
 - `runArgs` is either a static list or a **function of the request's `model`**, so
   a provider threads `--model` through at its CLI's expected position. When no
   `--model` is given, the no-model args are used and the CLI's own default model
@@ -32,7 +39,7 @@ All agent-CLI providers are built from `createCliProvider()` (`src/providers/cli
 
 | Provider | CLI invocation | `--model` | Auth |
 | --- | --- | --- | --- |
-| `claude-cli` (FR-5) | `claude -p` (stdin) | — | `claude` sign-in |
+| `claude-cli` (FR-5) | `claude -p` (stdin; system via `--append-system-prompt`) | — | `claude` sign-in |
 | `codex` (FR-18) | `codex exec` (stdin) | `-m <model>` (e.g. `gpt-5-codex`, `o3`) | `codex login` (ChatGPT/Codex) |
 | `gemini` (FR-19) | `gemini -p "<prompt>"` (arg) | `-m <model>` (e.g. `gemini-2.5-pro`) | `gemini` Google sign-in |
 | `opencode` (FR-20) | `opencode run "<prompt>"` (arg) | `-m <provider/model>` (e.g. `anthropic/claude-opus-4-8`) | `opencode auth login` |
