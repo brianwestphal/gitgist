@@ -38,10 +38,11 @@ For a notes run with commits in range, the resolution order is:
    valid notes, use them.
 2. **Configured fallback provider** — tried when the primary **errors** *or*
    returns the suspect sentinel, and only if a fallback is configured (any of
-   `--fallback-provider` / `--fallback-endpoint` / `--fallback-model`). Each
-   unset fallback field inherits the primary's value, so `--fallback-model`
-   alone just retries with a different model on the same provider. If the
-   fallback returns valid notes, use them.
+   `--fallback-provider` / `--fallback-endpoint` / `--fallback-model`). The
+   model and endpoint are **provider-specific**, so they are inherited from the
+   primary only when the fallback targets the *same* provider (see below);
+   `--fallback-model` alone just retries with a different model on the same
+   provider. If the fallback returns valid notes, use them.
 3. **Deterministic changelog** — the final safety net. If the result is still the
    suspect sentinel after step 1 (no fallback) or step 2 (fallback also empty /
    errored), gitgist renders the deterministic Conventional-Commit changelog (the
@@ -50,6 +51,24 @@ For a notes run with commits in range, the resolution order is:
 Every transition emits a `gitgist:` **stderr warning** (a non-fatal notice), so
 the substitution is never silent: a retry notice when the fallback is tried, and
 a "falling back to the deterministic changelog" notice when step 3 fires.
+
+### Inheriting model & endpoint
+
+A model id (and the `local` `--endpoint`) is **provider-specific** — `llama3.2`
+is meaningless to `anthropic-api`, and a localhost URL is meaningless to a CLI
+backend. So the fallback inherits the primary's `--model` / `--endpoint` **only
+when it targets the same provider** (an unset `--provider` is treated as `auto`):
+
+- **Same provider** (`--fallback-provider` unset, or equal to `--provider`):
+  unset fallback fields inherit the primary's. `--fallback-model claude-haiku-4-5`
+  on a Claude primary retries the same provider with that model.
+- **Different provider** (`--fallback-provider` differs from `--provider`): an
+  unset `--fallback-model` / `--fallback-endpoint` stays empty, so the fallback
+  provider uses **its own default** — e.g. the local endpoint's first model, or
+  `anthropic-api`'s default model. Pass `--fallback-model` explicitly to pin it.
+
+`--max-tokens` and `--language` are passed through to both attempts; they are
+ignored by providers that don't use them, so they need no same-provider gating.
 
 ### Errors vs. suspect responses
 

@@ -12,8 +12,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 // preamble, so we can also assert cleanModelOutput ran.
 const h = vi.hoisted(() => {
   const DEFAULT_NOTES = 'Here are the notes:\n\n## Features\n- did a thing';
-  type Ctx = { provider: unknown; model?: string; system: string; prompt: string };
-  const calls: { system: string; prompt: string; provider: unknown; model?: string }[] = [];
+  type Ctx = { provider: unknown; model?: string; endpoint?: string; system: string; prompt: string };
+  const calls: {
+    system: string;
+    prompt: string;
+    provider: unknown;
+    model?: string;
+    endpoint?: string;
+  }[] = [];
   let responder: (ctx: Ctx) => string = () => DEFAULT_NOTES;
   return {
     DEFAULT_NOTES,
@@ -25,14 +31,15 @@ const h = vi.hoisted(() => {
       calls.length = 0;
       responder = () => DEFAULT_NOTES;
     },
-    resolveProvider: (provider: unknown) =>
+    resolveProvider: (provider: unknown, opts?: { endpoint?: string }) =>
       Promise.resolve({
         name: typeof provider === 'string' ? provider : 'auto',
         isAvailable: () => Promise.resolve(true),
         generate: (req: { system: string; prompt: string; model?: string }) => {
-          calls.push({ system: req.system, prompt: req.prompt, provider, model: req.model });
+          const endpoint = opts?.endpoint;
+          calls.push({ system: req.system, prompt: req.prompt, provider, model: req.model, endpoint });
           // Resolve via the responder; a throw becomes a rejected promise.
-          return Promise.resolve().then(() => responder({ ...req, provider }));
+          return Promise.resolve().then(() => responder({ ...req, provider, endpoint }));
         },
       }),
   };
@@ -217,6 +224,60 @@ describe('generateReleaseNotes empty-notes sentinel + fallback (GG-39)', () => {
     expect(warnings).toHaveLength(0);
     git(repo, 'reset', '-q');
     rmSync(join(repo, 'staged.txt'));
+  });
+
+  it('does NOT inherit the primary model/endpoint when the fallback is a different provider (GG-40)', async () => {
+    h.setResponder((ctx) =>
+      ctx.provider === 'anthropic-api' ? '## Features\n- ok' : NO_USER_FACING_CHANGES,
+    );
+    await generateReleaseNotes({
+      range: 'HEAD',
+      cwd: repo,
+      provider: 'local',
+      model: 'llama3.2',
+      endpoint: 'http://localhost:11434/v1',
+      fallbackProvider: 'anthropic-api',
+      warn,
+    });
+    const fb = h.calls[1];
+    expect(fb.provider).toBe('anthropic-api');
+    // The provider-specific primary model/endpoint are not carried across.
+    expect(fb.model).toBeUndefined();
+    expect(fb.endpoint).toBeUndefined();
+  });
+
+  it('inherits the primary model/endpoint when the fallback is the same provider (GG-40)', async () => {
+    h.setResponder(() => NO_USER_FACING_CHANGES); // both attempts suspect → deterministic
+    await generateReleaseNotes({
+      range: 'HEAD',
+      cwd: repo,
+      provider: 'local',
+      model: 'llama3.2',
+      endpoint: 'http://localhost:11434/v1',
+      fallbackProvider: 'local',
+      warn,
+    });
+    const fb = h.calls[1];
+    expect(fb.provider).toBe('local');
+    expect(fb.model).toBe('llama3.2');
+    expect(fb.endpoint).toBe('http://localhost:11434/v1');
+  });
+
+  it('an explicit --fallback-model is used even across a different provider (GG-40)', async () => {
+    h.setResponder((ctx) =>
+      ctx.model === 'claude-haiku-4-5' ? '## Features\n- pinned' : NO_USER_FACING_CHANGES,
+    );
+    const out = await generateReleaseNotes({
+      range: 'HEAD',
+      cwd: repo,
+      provider: 'local',
+      model: 'llama3.2',
+      fallbackProvider: 'anthropic-api',
+      fallbackModel: 'claude-haiku-4-5',
+      warn,
+    });
+    expect(out).toBe('## Features\n- pinned\n');
+    expect(h.calls[1].model).toBe('claude-haiku-4-5');
   });
 
   it('on --format commit, retries on a primary error but never flags the sentinel', async () => {

@@ -112,14 +112,20 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     return cleanModelOutput(generated, format);
   };
 
-  const runFallback = (system: string, prompt: string): Promise<string> =>
-    runProvider(
-      options.fallbackProvider ?? options.provider,
-      options.fallbackEndpoint ?? options.endpoint,
-      options.fallbackModel ?? options.model,
-      system,
-      prompt,
-    );
+  const runFallback = (system: string, prompt: string): Promise<string> => {
+    const provider = options.fallbackProvider ?? options.provider;
+    // A model id and a `local` endpoint are provider-specific, so only inherit
+    // them from the primary when the fallback targets the SAME provider (unset
+    // provider means `auto`). Across different providers an unset fallback
+    // model/endpoint stays undefined, letting that provider use its own default
+    // (e.g. the local endpoint's first model, or anthropic's default model).
+    const sameProvider =
+      options.fallbackProvider === undefined ||
+      options.fallbackProvider === (options.provider ?? 'auto');
+    const endpoint = options.fallbackEndpoint ?? (sameProvider ? options.endpoint : undefined);
+    const model = options.fallbackModel ?? (sameProvider ? options.model : undefined);
+    return runProvider(provider, endpoint, model, system, prompt);
+  };
 
   // Generate with the primary provider, retrying once with the configured
   // fallback when the primary errors or returns a likely-invalid response

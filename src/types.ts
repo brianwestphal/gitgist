@@ -127,13 +127,25 @@ export interface ReleaseNotesOptions {
    * likely-invalid response (e.g. the empty-notes sentinel while commits are in
    * range). When any of {@link fallbackProvider} / {@link fallbackEndpoint} /
    * {@link fallbackModel} is set, gitgist makes one fallback attempt with that
-   * config before resorting to the deterministic changelog. Each unset field
-   * inherits the primary's value, so `fallbackModel` alone just swaps the model.
+   * config before resorting to the deterministic changelog.
+   *
+   * Model and endpoint are **provider-specific**, so they are inherited from the
+   * primary only when the fallback targets the *same* provider: `fallbackModel`
+   * alone swaps the model on the same provider, but a different
+   * {@link fallbackProvider} starts from that provider's own defaults unless
+   * {@link fallbackModel} / {@link fallbackEndpoint} are given explicitly.
    */
   fallbackProvider?: ProviderName;
-  /** Base URL for the fallback `local` provider (default: inherits {@link endpoint}). */
+  /**
+   * Base URL for the fallback `local` provider. Inherits {@link endpoint} only
+   * when {@link fallbackProvider} matches the primary; otherwise unset.
+   */
   fallbackEndpoint?: string;
-  /** Model id for the fallback attempt (default: inherits {@link model}). */
+  /**
+   * Model id for the fallback attempt. Inherits {@link model} only when
+   * {@link fallbackProvider} matches the primary; otherwise the fallback
+   * provider's own default applies.
+   */
   fallbackModel?: string;
   /**
    * Language hint for the on-device `apple` provider's prompt. Defaults to the

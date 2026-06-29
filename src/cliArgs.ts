@@ -58,9 +58,12 @@ Options:
                           errors or returns a likely-invalid response (e.g. the
                           empty-notes sentinel on a non-empty range). Same names
                           as --provider.
-  --fallback-endpoint <url>   --endpoint for the fallback (default: inherits --endpoint).
-  --fallback-model <id>   --model for the fallback (default: inherits --model).
-                          Set this alone to just retry with a different model.
+  --fallback-endpoint <url>   --endpoint for the fallback. Inherits --endpoint
+                          only when --fallback-provider matches --provider.
+  --fallback-model <id>   --model for the fallback. Inherits --model only when
+                          --fallback-provider matches --provider; for a different
+                          provider it defaults to that provider's own model.
+                          Set this alone to retry with a different model.
   --language <name|auto>  Language hint for the apple provider's prompt, to satisfy
                           its on-device language guardrail (default: the system
                           language). A name or code (e.g. French, fr); auto omits it.

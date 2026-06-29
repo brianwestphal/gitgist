@@ -27,7 +27,7 @@ Keep status markers in sync with the implementation.
 - **FR-20 OpenCode CLI provider** — Shipped (verified end-to-end). `--provider opencode` → `providers/opencode.ts` (`opencode run "<prompt>"`, `-m <provider/model>`); no gitgist key, in `AUTO_ORDER`. Spec: `docs/5-providers.md`.
 - **FR-21 `--model` for CLI agents** — Shipped. `providers/cli.ts` `CliProviderSpec.runArgs` accepts a `model`-function form so `codex`/`gemini`/`opencode` place `-m <model>` correctly.
 - **FR-22 Suspect empty-notes handling** — Shipped. `releaseNotes.ts`: a returned `_No user-facing changes._` sentinel (`prompt.ts:NO_USER_FACING_CHANGES`/`isEmptyNotesSentinel`) is suspect when commits were in range → warn + deterministic changelog (notes only; working-tree-only sentinel trusted). Spec: `docs/6-fallback.md`. Follows GG-38.
-- **FR-23 Configurable fallback provider** — Shipped. `--fallback-provider/--fallback-endpoint/--fallback-model` retry with a secondary config on a primary error or suspect response (unset fields inherit the primary's), before the deterministic changelog. `releaseNotes.ts` (`hasFallback`/`runFallback`/`generateViaAI`) + `ReleaseNotesOptions.fallback*`/`warn`. Spec: `docs/6-fallback.md`.
+- **FR-23 Configurable fallback provider** — Shipped. `--fallback-provider/--fallback-endpoint/--fallback-model` retry with a secondary config on a primary error or suspect response, before the deterministic changelog. The provider-specific model/endpoint inherit the primary's only when the fallback is the **same** provider (else that provider's own default). `releaseNotes.ts` (`hasFallback`/`runFallback`/`generateViaAI`) + `ReleaseNotesOptions.fallback*`/`warn`. Spec: `docs/6-fallback.md`.
 
 ## Non-functional
 
