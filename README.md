@@ -27,6 +27,10 @@ grouped Markdown — written by Claude, with the internal noise stripped out.
   guidance — via a simple Markdown-with-frontmatter file.
 - **Works offline too.** `--no-ai` groups by Conventional Commit type with no
   network, no key, and fully deterministic output.
+- **Resilient by default.** If a provider errors or returns nothing useful for a
+  range that clearly has commits, gitgist retries with a fallback provider/model
+  you choose (`--fallback-provider`, `--fallback-model`) and ultimately drops to
+  deterministic grouping — so a release never blocks on one flaky backend.
 - **CLI _and_ library.** Use the `gitgist` bin, or call `generateReleaseNotes()`
   from your release tooling.
 - **Pluggable providers.** Claude (CLI + API), the OpenAI **Codex**, Google
@@ -86,6 +90,9 @@ gitgist v1.4.0..HEAD --untracked
 # Use a local model (Ollama / LM Studio) — free, private, no API key
 gitgist v1.4.0..HEAD --provider local --model llama3.2
 
+# Retry on a primary error or empty/suspect result with a second provider
+gitgist v1.4.0..HEAD --provider local --model llama3.2 --fallback-provider anthropic-api
+
 # Shape the output to your team's template (sections, order, guidance)
 gitgist v1.4.0..HEAD --template release-notes.md
 
@@ -111,6 +118,9 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 | `--provider <name>`        | `auto` \| `claude-cli` \| `codex` \| `gemini` \| `opencode` \| `anthropic-api` \| `local` \| `apple` (default: `auto`). |
 | `--endpoint <url>`         | Base URL for `--provider local` (default: Ollama's `…:11434/v1`).   |
 | `--model <id>`             | `anthropic-api` model (default `claude-opus-4-8`), or the `local` model name. |
+| `--fallback-provider <name>` | Retry with this provider when the primary errors or returns an empty/suspect result ([docs](docs/6-fallback.md)). |
+| `--fallback-endpoint <url>` | `--endpoint` for the fallback provider.                            |
+| `--fallback-model <id>`    | `--model` for the fallback provider.                                |
 | `--language <name\|auto>`   | Language hint for the `apple` provider's prompt (default: system language; `auto` omits it). |
 | `--max-tokens <n>`         | Max output tokens for the `anthropic-api` provider (default: 16000). |
 | `--title <text>`           | Render `<text>` as a top-level heading above the notes.             |
@@ -158,6 +168,16 @@ aren't). The `local` provider is **never** auto-selected (so a normal run doesn'
 probe localhost) — request it explicitly. Force any with `--provider <name>`. If
 no provider is available, use `--no-ai` for offline Conventional Commits
 grouping.
+
+**Graceful degradation.** When the chosen provider errors — or returns the
+empty-notes sentinel for a range that clearly has commits — gitgist treats it as
+suspect rather than trusting it. If you've configured a fallback
+(`--fallback-provider` / `--fallback-endpoint` / `--fallback-model`), it retries
+there first; otherwise (or if that also comes up empty) it falls back to the
+deterministic `--no-ai` grouping, warning on stderr. A model id and `local`
+endpoint are provider-specific, so they're inherited from the primary only when
+the fallback is the same provider. See
+[docs/6-fallback.md](docs/6-fallback.md).
 
 > The remaining planned provider follows the same **CLI-first, no-key** pattern —
 > Cursor agent (`cursor-agent`) — plus optional API-key fallbacks for the agent
