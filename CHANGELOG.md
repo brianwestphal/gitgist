@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-29
+
+
+### Features
+
+- Added three zero-config, no-API-key AI providers — Codex, Gemini, and OpenCode — each using the tool's own CLI sign-in, alongside the existing `claude` CLI backend.
+- Added a configurable fallback provider (`--fallback-provider`, `--fallback-endpoint`, `--fallback-model`) that's tried when the primary provider errors out.
+- Empty release notes are now treated as suspect: when the AI returns `_No user-facing changes._` for a range that actually had commits, gitgist falls back to the deterministic Conventional-Commit changelog instead of trusting it silently.
+
+### Bug Fixes
+
+- Fixed the `claude` CLI provider passing gitgist's instructions as user input, which caused it to echo `_No user-facing changes._` instead of generating notes; the system prompt now rides the CLI's own system layer.
+- A fallback provider no longer inherits a `--model`/`--endpoint` that doesn't apply to it — those are only carried over when the fallback targets the same provider as the primary.
+
+### Documentation
+
+- The README now advertises the fallback/resilience behavior and includes a `--template` demo showing commits shaped to a fixed house-style layout.
+
 ## [1.0.0] - 2026-06-19
 
 
