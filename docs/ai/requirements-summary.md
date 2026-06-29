@@ -13,7 +13,7 @@ Keep status markers in sync with the implementation.
 - **FR-6 Anthropic API provider** — Shipped. `providers/anthropicApi.ts`.
 - **FR-7 CLI-first auto-selection** — Shipped. `providers/index.ts`.
 - **FR-8 Offline `--no-ai` fallback** — Shipped. `changelog.ts`.
-- **FR-9 CLI flags** — Shipped. `cliArgs.ts` (`--no-ai/--provider/--model/--max-tokens/--title/--cwd/--help` + working-tree flags).
+- **FR-9 CLI flags** — Shipped. `cliArgs.ts` (`--no-ai/--provider/--model/--endpoint/--fallback-provider/--fallback-endpoint/--fallback-model/--max-tokens/--title/--cwd/--help` + format, template, language, and working-tree flags).
 - **FR-10 More providers** — Deferred. GG-7 (Cursor); API-key fallbacks for the agent CLIs (OpenAI/Codex, Gemini API) as follow-ups. (Codex/Gemini/OpenCode CLI providers shipped — FR-18/19/20.)
 - **FR-11 Uncommitted working-tree changes** — Shipped. `git.ts:readWorkingChanges` + `--staged`/`--cached`/`--unstaged`/`--untracked`/`--working`; standalone (no range) summarizes only pending changes (commit-message draft). Deterministic listing via `changelog.ts:renderWorkingChanges`.
 - **FR-12 Output format** — Shipped. `--format notes` (default) or `--format commit` / `--commit-message` → a Conventional Commit message via `prompt.ts:COMMIT_SYSTEM_PROMPT` (requires AI; `--title` ignored).
@@ -26,6 +26,8 @@ Keep status markers in sync with the implementation.
 - **FR-19 Gemini CLI provider** — Shipped. `--provider gemini` → `providers/gemini.ts` (`gemini -p "<prompt>"`, `-m <model>`); no key, in `AUTO_ORDER`. Spec: `docs/5-providers.md`.
 - **FR-20 OpenCode CLI provider** — Shipped (verified end-to-end). `--provider opencode` → `providers/opencode.ts` (`opencode run "<prompt>"`, `-m <provider/model>`); no gitgist key, in `AUTO_ORDER`. Spec: `docs/5-providers.md`.
 - **FR-21 `--model` for CLI agents** — Shipped. `providers/cli.ts` `CliProviderSpec.runArgs` accepts a `model`-function form so `codex`/`gemini`/`opencode` place `-m <model>` correctly.
+- **FR-22 Suspect empty-notes handling** — Shipped. `releaseNotes.ts`: a returned `_No user-facing changes._` sentinel (`prompt.ts:NO_USER_FACING_CHANGES`/`isEmptyNotesSentinel`) is suspect when commits were in range → warn + deterministic changelog (notes only; working-tree-only sentinel trusted). Spec: `docs/6-fallback.md`. Follows GG-38.
+- **FR-23 Configurable fallback provider** — Shipped. `--fallback-provider/--fallback-endpoint/--fallback-model` retry with a secondary config on a primary error or suspect response (unset fields inherit the primary's), before the deterministic changelog. `releaseNotes.ts` (`hasFallback`/`runFallback`/`generateViaAI`) + `ReleaseNotesOptions.fallback*`/`warn`. Spec: `docs/6-fallback.md`.
 
 ## Non-functional
 

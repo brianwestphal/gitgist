@@ -2,6 +2,25 @@ import type { Template } from './template.js';
 import type { Commit, OutputFormat, WorkingChanges } from './types.js';
 
 /**
+ * The exact sentinel the model is told to emit when a range has no user-facing
+ * changes. Kept as a shared constant so the {@link SYSTEM_PROMPT} instruction
+ * and the post-generation {@link isEmptyNotesSentinel} check can never drift.
+ */
+export const NO_USER_FACING_CHANGES = '_No user-facing changes._';
+
+/**
+ * Whether the model's (cleaned) notes output is exactly the empty-notes
+ * sentinel. The orchestrator treats this as **suspect** when the range actually
+ * contained commits — a possible model misfire rather than a real empty range.
+ *
+ * @param text - The cleaned model output.
+ * @returns `true` when the output is the sentinel and nothing else.
+ */
+export function isEmptyNotesSentinel(text: string): boolean {
+  return text.trim() === NO_USER_FACING_CHANGES;
+}
+
+/**
  * System prompt instructing the model to turn commits into grouped,
  * user-facing release notes. The sections are intentionally not fixed — the
  * model picks whatever headings best fit the actual changes.
@@ -16,7 +35,7 @@ Rules:
 - INCLUDE user-visible changes: new features, bug fixes, performance, UX, breaking changes, and notable behavior changes.
 - EXCLUDE noise: ticket IDs, pure-internal refactors, test-only changes, CI/build tweaks, routine dependency bumps, and implementation detail.
 - Scale the amount of detail to the volume of real user-facing work. Do not pad, and do not invent changes that are not present in the commits.
-- If there are no user-facing changes, output exactly: \`_No user-facing changes._\``;
+- If there are no user-facing changes, output exactly: \`${NO_USER_FACING_CHANGES}\``;
 
 /**
  * System prompt for `--format commit`: produce a single Conventional Commit

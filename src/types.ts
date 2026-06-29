@@ -123,6 +123,19 @@ export interface ReleaseNotesOptions {
   /** Base URL for the `local` provider (default: `GITGIST_LOCAL_ENDPOINT` or Ollama). */
   endpoint?: string;
   /**
+   * Secondary AI provider to retry with when the primary errors or returns a
+   * likely-invalid response (e.g. the empty-notes sentinel while commits are in
+   * range). When any of {@link fallbackProvider} / {@link fallbackEndpoint} /
+   * {@link fallbackModel} is set, gitgist makes one fallback attempt with that
+   * config before resorting to the deterministic changelog. Each unset field
+   * inherits the primary's value, so `fallbackModel` alone just swaps the model.
+   */
+  fallbackProvider?: ProviderName;
+  /** Base URL for the fallback `local` provider (default: inherits {@link endpoint}). */
+  fallbackEndpoint?: string;
+  /** Model id for the fallback attempt (default: inherits {@link model}). */
+  fallbackModel?: string;
+  /**
    * Language hint for the on-device `apple` provider's prompt. Defaults to the
    * detected system language; pass a language name / BCP-47 code to override, or
    * `auto` to omit the hint. Ignored by other providers.
@@ -145,6 +158,12 @@ export interface ReleaseNotesOptions {
   unstaged?: boolean;
   /** Include untracked (new) files. */
   untracked?: boolean;
+  /**
+   * Sink for non-fatal warnings (truncation, fallback notices). Receives the
+   * message without a trailing newline. Defaults to writing `gitgist: <msg>` to
+   * stderr; inject a collector in tests.
+   */
+  warn?: (message: string) => void;
 }
 
 /** Which categories of uncommitted change to read. */

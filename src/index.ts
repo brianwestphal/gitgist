@@ -25,6 +25,8 @@ export {
   cleanModelOutput,
   COMMIT_SYSTEM_PROMPT,
   commitsToMaterial,
+  isEmptyNotesSentinel,
+  NO_USER_FACING_CHANGES,
   stripCodeFences,
   SYSTEM_PROMPT,
   TEMPLATE_SYSTEM_PROMPT,

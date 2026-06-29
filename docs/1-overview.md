@@ -36,6 +36,7 @@ gitgist --no-ai         # offline Conventional Commits grouping
 - [3-requirements.md](3-requirements.md) — FR/NFR requirements with status.
 - [4-templates.md](4-templates.md) — the `--template` format reference.
 - [5-providers.md](5-providers.md) — the CLI-first agent providers reference.
+- [6-fallback.md](6-fallback.md) — fallback provider + suspect empty-notes handling.
 - [ai/code-summary.md](ai/code-summary.md) — AI-oriented code map.
 - [ai/requirements-summary.md](ai/requirements-summary.md) — AI-oriented
   requirements digest.

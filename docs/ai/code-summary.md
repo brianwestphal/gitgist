@@ -13,7 +13,7 @@ src/
   types.ts            # shared types
   git.ts              # readCommits, latestTag, resolveCommitRange, readWorkingChanges
   parse.ts            # parseCommit (Conventional Commits)
-  prompt.ts           # SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, buildUserPrompt, buildTemplatePrompt, commitsToMaterial, stripCodeFences, cleanModelOutput, workingChangesToMaterial
+  prompt.ts           # SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, NO_USER_FACING_CHANGES, isEmptyNotesSentinel, buildUserPrompt, buildTemplatePrompt, commitsToMaterial, stripCodeFences, cleanModelOutput, workingChangesToMaterial
   changelog.ts        # buildChangelog, renderMarkdown, renderWorkingChanges, DEFAULT_GROUPS  (--no-ai path)
   template.ts         # loadTemplate, parseTemplate (--template)
   releaseNotes.ts     # generateReleaseNotes (orchestrator)
@@ -39,8 +39,9 @@ tests/                # parse, changelog, prompt, cliArgs, git, template, provid
 - Working tree: `readWorkingChanges`, `renderWorkingChanges`, `workingChangesToMaterial`.
 - Changelog: `buildChangelog`, `renderMarkdown`, `DEFAULT_GROUPS`.
 - Prompt: `SYSTEM_PROMPT`, `COMMIT_SYSTEM_PROMPT`, `TEMPLATE_SYSTEM_PROMPT`,
-  `buildUserPrompt`, `buildTemplatePrompt`, `commitsToMaterial`,
-  `workingChangesToMaterial`, `stripCodeFences`, `cleanModelOutput`.
+  `NO_USER_FACING_CHANGES`, `isEmptyNotesSentinel`, `buildUserPrompt`,
+  `buildTemplatePrompt`, `commitsToMaterial`, `workingChangesToMaterial`,
+  `stripCodeFences`, `cleanModelOutput`.
 - Templates: `loadTemplate`, `parseTemplate`, type `Template`.
 - Providers: `resolveProvider`, `PROVIDERS`, `AUTO_ORDER`; `createCliProvider`,
   `claudeCliProvider`, `codexProvider`, `geminiProvider`, `opencodeProvider`;
@@ -65,5 +66,6 @@ tests/                # parse, changelog, prompt, cliArgs, git, template, provid
 | change how commits are read/parsed | `git.ts` (`readCommits`), `parse.ts` |
 | change how uncommitted changes are read | `git.ts` (`readWorkingChanges`); orchestration in `releaseNotes.ts` |
 | change deterministic (`--no-ai`) grouping | `changelog.ts` |
+| change the fallback-provider retry / suspect empty-notes handling | `releaseNotes.ts` (`generateViaAI`, `hasFallback`, `notesInvalid`); sentinel in `prompt.ts` (`NO_USER_FACING_CHANGES`, `isEmptyNotesSentinel`); spec in `docs/6-fallback.md` |
 | add/change a CLI flag | `cliArgs.ts` (+ wire in `cli.ts`, `releaseNotes.ts`) |
 | change provider selection order | `providers/index.ts` (`AUTO_ORDER`) |

@@ -61,6 +61,15 @@ intentionally **not** in `AUTO_ORDER` (opt-in via `--provider local`, so a
 normal run never probes localhost). A specific provider can be forced; if none
 is available the caller is told to use `--no-ai`.
 
+## Fallback & suspect responses
+
+`generateReleaseNotes` guards the AI path: a primary **error** or a **suspect
+empty-notes sentinel** (the model returns `_No user-facing changes._` while the
+range had commits) triggers a retry with a configured fallback provider
+(`--fallback-provider`/`--fallback-endpoint`/`--fallback-model`), then the
+deterministic changelog as a final safety net — each step warned on stderr. See
+[6-fallback.md](6-fallback.md).
+
 ## Trust boundaries
 
 - **git output** — read via `git log -z` (NUL record separator, immune to

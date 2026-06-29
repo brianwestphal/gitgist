@@ -10,6 +10,9 @@ export interface CliArgs {
   provider: ProviderName;
   model?: string;
   endpoint?: string;
+  fallbackProvider?: ProviderName;
+  fallbackEndpoint?: string;
+  fallbackModel?: string;
   language?: string;
   maxTokens?: number;
   format: OutputFormat;
@@ -51,6 +54,13 @@ Options:
   --model <id>            Model id — the anthropic-api model (default: claude-opus-4-8),
                           the CLI-provider model (codex/gemini/opencode -m <model>),
                           or the local model name (default: the endpoint's first model).
+  --fallback-provider <name>  Secondary provider to retry with when the primary
+                          errors or returns a likely-invalid response (e.g. the
+                          empty-notes sentinel on a non-empty range). Same names
+                          as --provider.
+  --fallback-endpoint <url>   --endpoint for the fallback (default: inherits --endpoint).
+  --fallback-model <id>   --model for the fallback (default: inherits --model).
+                          Set this alone to just retry with a different model.
   --language <name|auto>  Language hint for the apple provider's prompt, to satisfy
                           its on-device language guardrail (default: the system
                           language). A name or code (e.g. French, fr); auto omits it.
@@ -79,6 +89,7 @@ Examples:
   gitgist v1.4.0..HEAD --untracked       # commits plus new files
   gitgist v1.4.0..HEAD --template notes.md   # shape with a template
   gitgist v1.4.0..HEAD --provider local --model llama3.2   # local Ollama/LM Studio
+  gitgist v1.4.0..HEAD --fallback-provider anthropic-api   # retry on a bad/empty result
   gitgist --no-ai`;
 
 function parseProvider(value: string | undefined): ProviderName {
@@ -180,6 +191,15 @@ export function parseArgs(argv: string[]): CliArgs {
         break;
       case '--endpoint':
         args.endpoint = argv[++i];
+        break;
+      case '--fallback-provider':
+        args.fallbackProvider = parseProvider(argv[++i]);
+        break;
+      case '--fallback-endpoint':
+        args.fallbackEndpoint = argv[++i];
+        break;
+      case '--fallback-model':
+        args.fallbackModel = argv[++i];
         break;
       case '--language':
         args.language = argv[++i];

@@ -55,6 +55,33 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['--provider', 'bogus'])).toThrow(/Invalid --provider/);
   });
 
+  it('parses the fallback flags (provider/endpoint/model)', () => {
+    const args = parseArgs([
+      '--fallback-provider',
+      'anthropic-api',
+      '--fallback-endpoint',
+      'http://localhost:1234/v1',
+      '--fallback-model',
+      'claude-haiku-4-5',
+    ]);
+    expect(args).toMatchObject({
+      fallbackProvider: 'anthropic-api',
+      fallbackEndpoint: 'http://localhost:1234/v1',
+      fallbackModel: 'claude-haiku-4-5',
+    });
+  });
+
+  it('defaults the fallback flags to undefined', () => {
+    const args = parseArgs([]);
+    expect(args.fallbackProvider).toBeUndefined();
+    expect(args.fallbackEndpoint).toBeUndefined();
+    expect(args.fallbackModel).toBeUndefined();
+  });
+
+  it('validates --fallback-provider against the provider list', () => {
+    expect(() => parseArgs(['--fallback-provider', 'nope'])).toThrow(/Invalid --provider/);
+  });
+
   it('rejects unknown options', () => {
     expect(() => parseArgs(['--nope'])).toThrow(/Unknown option/);
   });

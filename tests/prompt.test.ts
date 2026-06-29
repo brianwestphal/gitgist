@@ -6,6 +6,8 @@ import {
   cleanModelOutput,
   COMMIT_SYSTEM_PROMPT,
   commitsToMaterial,
+  isEmptyNotesSentinel,
+  NO_USER_FACING_CHANGES,
   stripCodeFences,
   SYSTEM_PROMPT,
   workingChangesToMaterial,
@@ -93,6 +95,24 @@ describe('SYSTEM_PROMPT', () => {
   it('gives each change a single section home (helps smaller models)', () => {
     expect(SYSTEM_PROMPT).toContain('EXACTLY ONE section');
     expect(SYSTEM_PROMPT).toContain('Breaking Changes" only');
+  });
+
+  it('embeds the shared empty-notes sentinel verbatim', () => {
+    expect(SYSTEM_PROMPT).toContain(NO_USER_FACING_CHANGES);
+  });
+});
+
+describe('isEmptyNotesSentinel', () => {
+  it('matches the exact sentinel, ignoring surrounding whitespace', () => {
+    expect(isEmptyNotesSentinel(NO_USER_FACING_CHANGES)).toBe(true);
+    expect(isEmptyNotesSentinel(`\n  ${NO_USER_FACING_CHANGES}  \n`)).toBe(true);
+  });
+
+  it('does not match real notes or partial text', () => {
+    expect(isEmptyNotesSentinel('## Features\n- a')).toBe(false);
+    expect(isEmptyNotesSentinel('No user-facing changes')).toBe(false);
+    expect(isEmptyNotesSentinel(`${NO_USER_FACING_CHANGES}\n\n## Features`)).toBe(false);
+    expect(isEmptyNotesSentinel('')).toBe(false);
   });
 });
 
