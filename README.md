@@ -47,6 +47,12 @@ grouped Markdown — written by Claude, with the internal noise stripped out.
   <img src="assets/demos/ai-release-notes.svg" alt="gitgist v1.0.0..HEAD --title v1.5.0 produces grouped Markdown: Breaking Changes (Node 18 dropped), Features (--watch flag, streamed diffs), Performance (cached config ~3x faster startup), Bug Fixes (expired tokens, empty range) — refactor/test/chore commits filtered out.">
 </p>
 
+**Your house style, every release** — `gitgist v1.0.0..HEAD --template release-notes.md`
+
+<p align="center">
+  <img src="assets/demos/template.svg" alt="gitgist v1.0.0..HEAD --template release-notes.md shapes the same commits to a fixed house style: emoji sections in a set order — ⚠️ Breaking Changes (Node 18 dropped), 🚀 Features (streamed diffs, --watch), 🐛 Bug Fixes (empty range), ⚡ Performance (cached config ~3x) — with refactor/test/chore noise filtered out per the template's guidance.">
+</p>
+
 **Commit message from your staged diff** — `gitgist --staged --commit-message`
 
 <p align="center">

@@ -115,6 +115,39 @@ function seedStaged(dir) {
   git('add', 'auth.js');
 }
 
+/**
+ * A compact house-style template for the `--template` demo: a fixed section set
+ * with emoji and per-section AI guidance, plus frontmatter that tells the model
+ * to drop internal noise. Shaped to the seeded COMMITS (breaking / features /
+ * fixes / perf), so the output is the same work re-themed to a team's format.
+ */
+const TEMPLATE = `---
+audience: users upgrading the package
+tone: concise and friendly
+guidance: |
+  Exclude internal refactors, test-only changes, and CI/build tweaks.
+  Call out anything that needs action on upgrade.
+---
+
+## ⚠️ Breaking Changes
+<!-- Requires action on upgrade; add a short migration note for each. -->
+
+## 🚀 Features
+<!-- New, user-facing capabilities. One bullet each. -->
+
+## 🐛 Bug Fixes
+<!-- User-visible fixes only. -->
+
+## ⚡ Performance
+<!-- Speed or resource wins a user would notice. -->
+`;
+
+/** Seed the template demo: the standard history plus a template file to apply. */
+function seedTemplate(dir) {
+  seedRepo(dir);
+  writeFileSync(join(dir, 'release-notes.md'), TEMPLATE);
+}
+
 /** Run the built CLI in `dir` and return its transcript (stderr+stdout) as lines. */
 function runCli(dir, argv) {
   const r = spawnSync(process.execPath, [CLI, ...argv, '--cwd', dir], { encoding: 'utf8' });
@@ -132,6 +165,15 @@ const DEMOS = [
     headline: 'From raw commits to a changelog',
     cmd: 'gitgist v1.0.0..HEAD --title "v1.5.0"',
     capture: (dir) => runCli(dir, ['v1.0.0..HEAD', '--title', 'v1.5.0']),
+  },
+  {
+    slug: 'template',
+    accent: '#d2a8ff',
+    eyebrow: 'Templates',
+    headline: 'Your house style, every release',
+    cmd: 'gitgist v1.0.0..HEAD --template release-notes.md',
+    seed: seedTemplate,
+    capture: (dir) => runCli(dir, ['v1.0.0..HEAD', '--template', 'release-notes.md']),
   },
   {
     slug: 'commit-message',
