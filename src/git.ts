@@ -119,6 +119,10 @@ async function untrackedDiff(path: string, cwd: string): Promise<string> {
       ['diff', '--no-color', '--no-index', '--', '/dev/null', path],
       { cwd, maxBuffer: GIT_MAX_BUFFER },
     );
+    // Defensive: `git diff --no-index /dev/null <file>` always reports a new
+    // file (mode/index differ, even for an empty file) and so always exits
+    // non-zero — the diff arrives via the catch below, never here.
+    /* v8 ignore next */
     return stdout;
   } catch (err: unknown) {
     // `git diff --no-index` exits 1 whenever the files differ — which is always
@@ -127,6 +131,9 @@ async function untrackedDiff(path: string, cwd: string): Promise<string> {
       const { stdout } = err as { stdout?: unknown };
       if (typeof stdout === 'string') return stdout;
     }
+    // Defensive: real `git diff --no-index` always attaches the diff to the
+    // rejected call's `stdout`, so this fallback is effectively unreachable.
+    /* v8 ignore next */
     return `new file: ${path}`;
   }
 }

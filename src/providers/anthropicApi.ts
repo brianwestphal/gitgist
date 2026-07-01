@@ -51,6 +51,9 @@ export interface AnthropicApiProviderConfig {
  * for this model. The SDK is imported **lazily** so `--no-ai` and the CLI
  * provider don't pay the load cost.
  */
+/* v8 ignore start -- thin real-SDK adapter: hits the live Anthropic API, so it
+   is not exercised in unit tests; the provider's logic is covered via an
+   injected `run` (see createAnthropicApiProvider tests). */
 const defaultRun: AnthropicRunFn = async ({ model, maxTokens, system, prompt }) => {
   const { default: Anthropic } = await import('@anthropic-ai/sdk');
   const client = new Anthropic();
@@ -71,6 +74,7 @@ const defaultRun: AnthropicRunFn = async ({ model, maxTokens, system, prompt }) 
     ),
   };
 };
+/* v8 ignore stop */
 
 /**
  * Build an {@link AIProvider} backed by the **Anthropic Messages API** (official

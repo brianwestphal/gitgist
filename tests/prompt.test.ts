@@ -150,6 +150,11 @@ describe('cleanModelOutput (notes / template)', () => {
   it('leaves the _No changes_ sentinel (no heading) untouched', () => {
     expect(cleanModelOutput('_No user-facing changes._', 'notes')).toBe('_No user-facing changes._');
   });
+
+  it('returns empty for blank/whitespace-only output', () => {
+    expect(cleanModelOutput('', 'notes')).toBe('');
+    expect(cleanModelOutput('   \n  ', 'notes')).toBe('');
+  });
 });
 
 describe('cleanModelOutput (commit)', () => {

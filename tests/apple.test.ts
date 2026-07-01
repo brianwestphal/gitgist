@@ -160,4 +160,17 @@ describe('detectSystemLanguage', () => {
       expect(lang.length).toBeGreaterThan(0);
     }
   });
+
+  it('returns undefined when the Intl runtime throws (e.g. a small-ICU build)', () => {
+    const original = Intl.DateTimeFormat;
+    // Simulate a Node build without full ICU, where Intl construction throws.
+    (Intl as { DateTimeFormat: unknown }).DateTimeFormat = () => {
+      throw new Error('no ICU');
+    };
+    try {
+      expect(detectSystemLanguage()).toBeUndefined();
+    } finally {
+      (Intl as { DateTimeFormat: unknown }).DateTimeFormat = original;
+    }
+  });
 });

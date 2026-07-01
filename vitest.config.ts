@@ -13,15 +13,16 @@ export default defineConfig({
       reportsDirectory: 'coverage',
       include: ['src/**/*.ts'],
       exclude: ['src/cli.ts'],
-      // Conservative floors (well under current ~85%) so coverage can't quietly
-      // regress. The network/subprocess provider paths (anthropicApi/apple/local
-      // real I/O) keep the global ceiling modest; their logic is unit-tested via
-      // injected runners/fetch.
+      // Floors set just under the current numbers (100% lines / ~99.6% stmts /
+      // ~98.9% funcs / ~97.1% branches) so coverage can't quietly regress. The
+      // genuine live-I/O sinks (anthropicApi `defaultRun`, local `defaultFetch`)
+      // and a handful of defensive guards are `v8 ignore`-annotated at the source
+      // with a reason; everything else is unit-tested via injected runners/fetch.
       thresholds: {
-        statements: 80,
-        branches: 75,
-        functions: 72,
-        lines: 80,
+        statements: 98,
+        branches: 95,
+        functions: 97,
+        lines: 99,
       },
     },
   },

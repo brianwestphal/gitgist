@@ -77,7 +77,16 @@ export interface ResolveProviderOptions {
   language?: string;
 }
 
-function unavailableMessage(name: string, endpoint?: string): string {
+/**
+ * Build the actionable "provider unavailable" message for a resolved provider,
+ * naming the concrete fix (set the key, start a local server, or install the
+ * CLI). Exported for unit testing.
+ *
+ * @param name - The provider id (e.g. `anthropic-api`, `local`, `claude-cli`).
+ * @param endpoint - The local endpoint, included in the `local` message when set.
+ * @returns The user-facing unavailability message.
+ */
+export function unavailableMessage(name: string, endpoint?: string): string {
   if (name === 'anthropic-api') {
     return 'The anthropic-api provider is unavailable: set ANTHROPIC_API_KEY.';
   }

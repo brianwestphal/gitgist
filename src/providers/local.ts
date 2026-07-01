@@ -21,6 +21,7 @@ export type FetchLike = (
   init?: FetchInit,
 ) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
 
+/* v8 ignore next -- thin wrapper over the global fetch; tests inject fetchImpl. */
 const defaultFetch: FetchLike = (url, init) => fetch(url, init);
 
 /** Config captured by {@link createLocalProvider}. */

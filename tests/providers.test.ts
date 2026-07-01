@@ -2,7 +2,7 @@ import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   type AnthropicMessage,
@@ -13,7 +13,13 @@ import { claudeSystemArgs } from '../src/providers/claudeCli.js';
 import { createCliProvider } from '../src/providers/cli.js';
 import { codexRunArgs } from '../src/providers/codex.js';
 import { geminiRunArgs } from '../src/providers/gemini.js';
-import { anthropicApiProvider, AUTO_ORDER, PROVIDERS, resolveProvider } from '../src/providers/index.js';
+import {
+  anthropicApiProvider,
+  AUTO_ORDER,
+  PROVIDERS,
+  resolveProvider,
+  unavailableMessage,
+} from '../src/providers/index.js';
 import {
   createLocalProvider,
   extractChatContent,
@@ -195,6 +201,40 @@ describe('createCliProvider', () => {
     expect(await provider.isAvailable()).toBe(false);
   });
 
+  it('reports available when the version probe exits 0', async () => {
+    // `node --version` exits 0, so the probe succeeds.
+    const provider = createCliProvider({
+      name: 'node-cli',
+      command: process.execPath,
+      versionArgs: ['--version'],
+      runArgs: [],
+    });
+    expect(await provider.isAvailable()).toBe(true);
+  });
+
+  it('generate() rejects when the command cannot be spawned', async () => {
+    const provider = createCliProvider({
+      name: 'unspawnable-cli',
+      command: 'definitely-not-a-real-binary-xyz',
+      runArgs: [],
+      input: 'arg',
+    });
+    await expect(provider.generate({ system: '', prompt: '' })).rejects.toThrow();
+  });
+
+  it('generate() rejects (with the hint) when the CLI exits 0 but prints nothing', async () => {
+    const provider = createCliProvider({
+      name: 'silent-cli',
+      command: process.execPath,
+      runArgs: ['-e', 'process.exit(0)'],
+      input: 'arg',
+      hint: 'sign in first',
+    });
+    await expect(provider.generate({ system: 's', prompt: 'p' })).rejects.toThrow(
+      /returned no output \(sign in first\)/,
+    );
+  });
+
   it('generate() pipes the prompt and returns the CLI output', async () => {
     // A node stub that echoes whatever it reads on stdin.
     const provider = createCliProvider({
@@ -216,6 +256,30 @@ describe('createCliProvider', () => {
     });
     await expect(provider.generate({ system: '', prompt: '' })).rejects.toThrow(
       /exited with code 1: auth failed: bad token/,
+    );
+  });
+
+  it('generate() reports a bare exit code when the CLI fails without stderr', async () => {
+    const provider = createCliProvider({
+      name: 'silent-fail-cli',
+      command: process.execPath,
+      runArgs: ['-e', 'process.exit(3)'],
+      input: 'arg',
+    });
+    await expect(provider.generate({ system: '', prompt: '' })).rejects.toThrow(
+      /exited with code 3$/,
+    );
+  });
+
+  it('generate() rejects without a hint when none is configured and output is empty', async () => {
+    const provider = createCliProvider({
+      name: 'silent-nohint-cli',
+      command: process.execPath,
+      runArgs: ['-e', 'process.exit(0)'],
+      input: 'arg',
+    });
+    await expect(provider.generate({ system: 's', prompt: 'p' })).rejects.toThrow(
+      /returned no output$/,
     );
   });
 
@@ -242,12 +306,28 @@ describe('local provider helpers', () => {
     expect(parseModelList(null)).toEqual([]);
   });
 
+  it('parseModelList skips null / non-object / id-less entries', () => {
+    expect(parseModelList({ data: [null, 'nope', { id: 42 }, { id: '' }, { id: 'ok' }] })).toEqual([
+      'ok',
+    ]);
+    expect(parseModelList({ data: 'not-an-array' })).toEqual([]);
+  });
+
   it('extractChatContent pulls choices[0].message.content', () => {
     expect(extractChatContent({ choices: [{ message: { content: '## Features' } }] })).toBe(
       '## Features',
     );
     expect(extractChatContent({ choices: [] })).toBe('');
     expect(extractChatContent({})).toBe('');
+  });
+
+  it('extractChatContent returns empty for malformed shapes at every level', () => {
+    expect(extractChatContent(null)).toBe('');
+    expect(extractChatContent('a string')).toBe('');
+    expect(extractChatContent({ choices: [null] })).toBe('');
+    expect(extractChatContent({ choices: [{}] })).toBe('');
+    expect(extractChatContent({ choices: [{ message: null }] })).toBe('');
+    expect(extractChatContent({ choices: [{ message: { content: 123 } }] })).toBe('');
   });
 });
 
@@ -280,6 +360,13 @@ describe('createLocalProvider', () => {
     expect(await p.isAvailable()).toBe(false);
   });
 
+  it('isAvailable() is false when the /models probe returns a non-OK status', async () => {
+    const fetchImpl: FetchLike = () =>
+      Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({}) });
+    const p = createLocalProvider({ fetchImpl });
+    expect(await p.isAvailable()).toBe(false);
+  });
+
   it('isAvailable() is false when the endpoint is unreachable', async () => {
     const p = createLocalProvider({
       fetchImpl: () => Promise.reject(new Error('ECONNREFUSED')),
@@ -293,6 +380,28 @@ describe('createLocalProvider', () => {
       fetchImpl: fakeFetch(['llama3.2'], '## Features\n- a'),
     });
     expect(await p.generate({ system: 's', prompt: 'p' })).toBe('## Features\n- a');
+  });
+
+  it('resolves the endpoint from GITGIST_LOCAL_ENDPOINT when none is configured', async () => {
+    const original = process.env.GITGIST_LOCAL_ENDPOINT;
+    process.env.GITGIST_LOCAL_ENDPOINT = 'http://env-host:9999/v1';
+    const urls: string[] = [];
+    const fetchImpl: FetchLike = (url) => {
+      urls.push(url);
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ choices: [{ message: { content: 'ok' } }] }),
+      });
+    };
+    try {
+      const p = createLocalProvider({ model: 'm', fetchImpl });
+      await p.generate({ system: 's', prompt: 'p' });
+      expect(urls[0]).toBe('http://env-host:9999/v1/chat/completions');
+    } finally {
+      if (original === undefined) delete process.env.GITGIST_LOCAL_ENDPOINT;
+      else process.env.GITGIST_LOCAL_ENDPOINT = original;
+    }
   });
 
   it('generate() discovers the first model when none is configured', async () => {
@@ -315,6 +424,39 @@ describe('createLocalProvider', () => {
     } finally {
       if (original !== undefined) process.env.GITGIST_LOCAL_MODEL = original;
     }
+  });
+
+  it('generate() aborts and reports unreachable when the request exceeds the timeout', async () => {
+    // The chat fetch only settles when the timeout fires the abort signal, so
+    // this deterministically exercises the AbortController timer + catch path.
+    const fetchImpl: FetchLike = (_url, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(new Error('aborted'));
+        });
+      });
+    const p = createLocalProvider({ model: 'llama3.2', fetchImpl });
+    await expect(p.generate({ system: 's', prompt: 'p', timeoutMs: 10 })).rejects.toThrow(
+      /not reachable/,
+    );
+  });
+
+  it('generate() throws on a non-OK HTTP status', async () => {
+    const fetchImpl: FetchLike = () =>
+      Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+    const p = createLocalProvider({ model: 'llama3.2', fetchImpl });
+    await expect(p.generate({ system: 's', prompt: 'p' })).rejects.toThrow(/returned HTTP 500/);
+  });
+
+  it('generate() throws when the endpoint returns empty content', async () => {
+    const fetchImpl: FetchLike = () =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ choices: [{ message: { content: '   ' } }] }),
+      });
+    const p = createLocalProvider({ model: 'llama3.2', fetchImpl });
+    await expect(p.generate({ system: 's', prompt: 'p' })).rejects.toThrow(/empty response/);
   });
 });
 
@@ -416,6 +558,20 @@ describe('createAnthropicApiProvider.generate', () => {
     expect(await createAnthropicApiProvider({ hasApiKey: () => true }).isAvailable()).toBe(true);
     expect(await createAnthropicApiProvider({ hasApiKey: () => false }).isAvailable()).toBe(false);
   });
+
+  it('defaults the warn sink to process.stderr', async () => {
+    const spy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+    try {
+      // No `warn` injected → the default stderr sink fires on the max_tokens warning.
+      const provider = createAnthropicApiProvider({
+        run: () => Promise.resolve({ stopReason: 'max_tokens', content: [textBlock('partial')] }),
+      });
+      await provider.generate({ system: 's', prompt: 'p' });
+      expect(spy).toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
 
 describe('resolveProvider', () => {
@@ -434,6 +590,14 @@ describe('resolveProvider', () => {
   it('throws when the requested provider is unavailable', async () => {
     delete process.env.ANTHROPIC_API_KEY;
     await expect(resolveProvider('anthropic-api')).rejects.toThrow(/ANTHROPIC_API_KEY/);
+  });
+
+  it('builds the local provider for an explicit --provider local and reports it unreachable', async () => {
+    // A dead endpoint makes isAvailable() fail fast, exercising the `local`
+    // resolution branch and its endpoint-aware unavailable message.
+    await expect(
+      resolveProvider('local', { endpoint: 'http://127.0.0.1:1/v1' }),
+    ).rejects.toThrow(/local provider is unavailable.*127\.0\.0\.1:1/s);
   });
 
   it('auto-selects the first available provider in order', async () => {
@@ -464,5 +628,31 @@ describe('resolveProvider', () => {
       'anthropic-api',
       'apple',
     ]);
+  });
+
+  it('auto rebuilds the apple provider with the language hint without probing an earlier winner', async () => {
+    // A `language` override rebuilds the `apple` entry in the order; the earlier
+    // available CLI still wins, so the map ran but apple was never probed.
+    const order = [fakeProvider('cli', true), fakeProvider('apple', true)];
+    const provider = await resolveProvider('auto', { order, language: 'French' });
+    expect(provider.name).toBe('cli');
+  });
+});
+
+describe('unavailableMessage', () => {
+  it('names ANTHROPIC_API_KEY for the anthropic-api provider', () => {
+    expect(unavailableMessage('anthropic-api')).toMatch(/ANTHROPIC_API_KEY/);
+  });
+
+  it('includes the endpoint for the local provider when set, and omits it when not', () => {
+    expect(unavailableMessage('local', 'http://localhost:1234/v1')).toContain(
+      'at http://localhost:1234/v1',
+    );
+    expect(unavailableMessage('local')).toMatch(/no OpenAI-compatible server reachable\b/);
+    expect(unavailableMessage('local')).not.toContain(' at ');
+  });
+
+  it('falls back to the install-the-CLI message for a CLI provider', () => {
+    expect(unavailableMessage('claude-cli')).toMatch(/install the `claude` CLI/);
   });
 });

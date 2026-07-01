@@ -103,6 +103,27 @@ describe('generateReleaseNotes AI branches (mocked provider)', () => {
     const out = await generateReleaseNotes({ range: 'HEAD', cwd: repo, title: 'v1.2.3' });
     expect(out.startsWith('# v1.2.3\n\n')).toBe(true);
   });
+
+  it('warns via the default stderr sink when notes are suspect and no warn is injected', async () => {
+    // No `warn` option → the default `process.stderr` sink fires, and the
+    // suspect sentinel falls back to the deterministic changelog.
+    const spy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+    try {
+      h.setResponder(() => NO_USER_FACING_CHANGES);
+      const out = await generateReleaseNotes({ range: 'HEAD', cwd: repo });
+      expect(spy).toHaveBeenCalled();
+      expect(out).toContain('## Features');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('defaults cwd to process.cwd() when none is given', async () => {
+    // Omitting cwd exercises the `?? process.cwd()` default against this repo;
+    // an empty range keeps it fast and deterministic.
+    const out = await generateReleaseNotes({ range: 'HEAD..HEAD' });
+    expect(out.trim()).toBe('_No changes in `HEAD..HEAD`._');
+  });
 });
 
 describe('generateReleaseNotes empty-notes sentinel + fallback (GG-39)', () => {
@@ -186,6 +207,34 @@ describe('generateReleaseNotes empty-notes sentinel + fallback (GG-39)', () => {
     });
     expect(out).toBe('## Features\n- recovered after error\n');
     expect(warnings.some((w) => w.includes('primary provider failed'))).toBe(true);
+  });
+
+  it('uses the singular "commit" noun when a single-commit range is suspect', async () => {
+    h.setResponder(() => NO_USER_FACING_CHANGES);
+    // HEAD~1..HEAD spans exactly one commit (`fix: thing two`) → singular
+    // warning, no fallback, deterministic changelog.
+    const out = await generateReleaseNotes({ range: 'HEAD~1..HEAD', cwd: repo, warn });
+    expect(out).toContain('## Bug Fixes');
+    expect(warnings.some((w) => /\b1 commit\b/.test(w))).toBe(true);
+  });
+
+  it('formats a non-Error thrown value in the retry warning', async () => {
+    // The primary rejects with a bare string (not an Error), exercising the
+    // `String(error)` branch of the warning formatter.
+    h.setResponder((ctx) => {
+      // Intentionally a non-Error to exercise the String(error) fallback.
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      if (ctx.provider !== 'anthropic-api') throw 'plain string failure';
+      return '## Features\n- recovered';
+    });
+    const out = await generateReleaseNotes({
+      range: 'HEAD',
+      cwd: repo,
+      fallbackProvider: 'anthropic-api',
+      warn,
+    });
+    expect(out).toBe('## Features\n- recovered\n');
+    expect(warnings.some((w) => w.includes('plain string failure'))).toBe(true);
   });
 
   it('propagates the error when the primary fails and no fallback is configured', async () => {

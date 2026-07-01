@@ -39,6 +39,12 @@ describe('parseArgs', () => {
     expect(parseArgs(['--provider', 'claude-cli']).provider).toBe('claude-cli');
   });
 
+  it('parses --endpoint and --language', () => {
+    const args = parseArgs(['--endpoint', 'http://localhost:11434/v1', '--language', 'French']);
+    expect(args.endpoint).toBe('http://localhost:11434/v1');
+    expect(args.language).toBe('French');
+  });
+
   it('parses a valid --max-tokens', () => {
     expect(parseArgs(['--max-tokens', '8000']).maxTokens).toBe(8000);
   });

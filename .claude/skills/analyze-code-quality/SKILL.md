@@ -14,8 +14,8 @@ report.
    npm test
    ```
    Report total tests, pass/fail, and coverage per file. The thresholds in
-   `vitest.config.ts` are the floor — currently **statements 80 / branches 75 /
-   functions 72 / lines 80**, with `src/cli.ts` excluded as the thin bin. Flag
+   `vitest.config.ts` are the floor — currently **statements 98 / branches 95 /
+   functions 97 / lines 99**, with `src/cli.ts` excluded as the thin bin. Flag
    any file that drags the suite toward those floors. The real-I/O provider paths
    (`anthropicApi.ts`, `apple.ts`, `local.ts`) are expected to show lower line
    coverage because their network/subprocess calls aren't exercised live; what

@@ -82,6 +82,14 @@ describe('git + orchestration integration', () => {
     expect(notes).not.toContain('bravo');
   });
 
+  it('generateReleaseNotes resolves the range itself when none is given', async () => {
+    // No `range`/`from`/`to`: it must auto-resolve (untagged repo → full history)
+    // rather than requiring an explicit range.
+    const notes = await generateReleaseNotes({ ai: false, cwd: untagged });
+    expect(notes).toContain('## Features');
+    expect(notes).toContain('only commit');
+  });
+
   it('generateReleaseNotes reports an empty range cleanly', async () => {
     const notes = await generateReleaseNotes({ range: 'HEAD..HEAD', ai: false, cwd: tagged });
     expect(notes.trim()).toBe('_No changes in `HEAD..HEAD`._');
@@ -116,6 +124,10 @@ describe('working-tree changes integration', () => {
 
     // Untracked: a new file never added.
     writeFileSync(join(repo, 'untracked.txt'), 'brand new\n');
+
+    // Untracked but empty: git still reports it as a new file, so the diff must
+    // surface it even with zero content.
+    writeFileSync(join(repo, 'empty.txt'), '');
   });
 
   afterAll(() => {
@@ -133,6 +145,7 @@ describe('working-tree changes integration', () => {
     expect(wc.staged).toContain('staged.txt');
     expect(wc.unstaged).toContain('tracked.txt');
     expect(wc.untracked).toContain('untracked.txt');
+    expect(wc.untracked).toContain('empty.txt');
     expect(wc.diff).toContain('### Staged changes');
     expect(wc.diff).toContain('### Unstaged changes');
     expect(wc.diff).toContain('### New (untracked) files');
@@ -144,6 +157,31 @@ describe('working-tree changes integration', () => {
     expect(wc.staged).toContain('staged.txt');
     expect(wc.unstaged).toEqual([]);
     expect(wc.untracked).toEqual([]);
+  });
+
+  it('readWorkingChanges emits no sections when every requested category is empty', async () => {
+    const clean = initRepo();
+    try {
+      writeFileSync(join(clean, 'committed.txt'), 'x\n');
+      git(clean, 'add', 'committed.txt');
+      commit(clean, 'feat: only commit');
+      const wc = await readWorkingChanges({
+        cwd: clean,
+        staged: true,
+        unstaged: true,
+        untracked: true,
+      });
+      expect(wc.isEmpty).toBe(true);
+      expect(wc.diff).toBe('');
+    } finally {
+      rmSync(clean, { recursive: true, force: true });
+    }
+  });
+
+  it('readWorkingChanges defaults cwd and returns empty when nothing is requested', async () => {
+    // No options: cwd falls back to process.cwd() and no git category runs.
+    const wc = await readWorkingChanges();
+    expect(wc).toMatchObject({ staged: [], unstaged: [], untracked: [], isEmpty: true });
   });
 
   it('generateReleaseNotes (--no-ai) renders an Uncommitted changes section', async () => {

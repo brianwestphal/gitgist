@@ -46,6 +46,13 @@ describe('loadTemplate', () => {
   it('throws a clear error when the file is missing', async () => {
     await expect(loadTemplate('nope.md', dir)).rejects.toThrow(/Template file not found/);
   });
+
+  it('re-throws a non-ENOENT read error unchanged', async () => {
+    // Reading a directory as a file fails with EISDIR, not ENOENT — so it must
+    // propagate rather than be reported as "not found".
+    await expect(loadTemplate('.', dir)).rejects.not.toThrow(/Template file not found/);
+    await expect(loadTemplate('.', dir)).rejects.toThrow();
+  });
 });
 
 describe('buildTemplatePrompt', () => {
