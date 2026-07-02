@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { parseArgs } from '../src/cliArgs.js';
 
+// @covers FR-9
 describe('parseArgs', () => {
   it('defaults to AI, auto provider, no positionals', () => {
     const args = parseArgs([]);

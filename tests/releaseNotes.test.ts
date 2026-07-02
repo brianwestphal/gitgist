@@ -58,6 +58,7 @@ function git(cwd: string, ...args: string[]): void {
   execFileSync('git', args, { cwd, stdio: 'ignore' });
 }
 
+// @covers FR-4, FR-12, FR-13
 describe('generateReleaseNotes AI branches (mocked provider)', () => {
   let repo: string;
 
@@ -126,6 +127,7 @@ describe('generateReleaseNotes AI branches (mocked provider)', () => {
   });
 });
 
+// @covers FR-22, FR-23, T-2, T-3, T-4
 describe('generateReleaseNotes empty-notes sentinel + fallback (GG-39)', () => {
   let repo: string;
   const warnings: string[] = [];

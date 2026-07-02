@@ -45,6 +45,7 @@
     "diagram": "node scripts/diagram.mjs",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
+    "check:features": "node scripts/check-features.mjs",
     "lint": "eslint src/ tests/",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist coverage node_modules/.cache",

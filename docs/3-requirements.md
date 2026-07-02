@@ -43,6 +43,23 @@ gaps noted), **Deferred** (planned, tracked by a ticket).
 | NFR-6 | Surface AI output truncation | **Partial** | API provider warns on `stop_reason === 'max_tokens'` (GG-12); `--max-tokens` exposed. |
 | NFR-7 | Clean AI output | **Shipped** | `cleanModelOutput` (`prompt.ts`) strips conversational preamble/postamble the agentic `claude-cli` provider can add (GG-18); format-aware, no-op on clean output. |
 
+## State transitions
+
+Line/branch coverage is structurally blind to a missing **state transition**: a
+multi-step sequence can be wrong even when every individual line runs under an
+isolated, single-operation test. These are the transitions across the project's
+stateful paths (the provider fall-through chain and the AI-generation state
+machine in `releaseNotes.ts`); each must be exercised by a test that *walks the
+sequence*, not just each state from a clean start. They are tracked as first-class
+requirements (`T-N`) and enforced by `npm run check:features`.
+
+| ID | Transition | Status | Notes |
+| --- | --- | --- | --- |
+| T-1 | Provider auto fall-through | **Shipped** | `resolveProvider('auto')` skips an *unavailable* provider and returns the next available one in `AUTO_ORDER`; errors only when **all** are unavailable. Walk: unavailable → next → none. |
+| T-2 | Primary error → fallback → deterministic | **Shipped** | `generateViaAI`: primary provider throws → configured fallback is tried → (fallback recovers ⇒ its notes) or (fallback also throws ⇒ warn + keep primary / deterministic changelog); no fallback ⇒ the error propagates. |
+| T-3 | Suspect empty-notes → deterministic | **Shipped** | Notes path: AI returns the empty-notes sentinel **with** commits in range ⇒ suspect ⇒ (fallback, then) deterministic changelog; the **same** sentinel with a working-tree-only run (no commits) is **trusted** and returned as-is. |
+| T-4 | Fallback config inheritance | **Shipped** | `runFallback`: the provider-specific model/endpoint are inherited from the primary only when the fallback is the **same** provider; a **different** fallback provider uses its own default unless an explicit `--fallback-model`/`--fallback-endpoint` is given. |
+
 ## Open items
 
 - AI output quality depends on the backend; the `claude -p` agentic CLI can

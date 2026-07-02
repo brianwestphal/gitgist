@@ -3,6 +3,14 @@
 Compact digest of [../3-requirements.md](../3-requirements.md) for AI agents.
 Keep status markers in sync with the implementation.
 
+> **Feature coverage (GG-45).** Every Shipped/Partial requirement AND every state
+> transition (`T-N`) has an asserting test, linked by a `// @covers <ID>` tag next
+> to that test. `npm run check:features` (`scripts/check-features.mjs`) and
+> `tests/conventions.test.ts` fail if a documented behavior has no `@covers` test,
+> or a tag names an unknown id — an axis the v8 line/branch report is blind to.
+> When you add/change a requirement, add its row here + in `3-requirements.md` and
+> a `@covers` tag on the test.
+
 ## Functional
 
 - **FR-1 Read commits in a range** — Shipped. `git.ts:readCommits` (`git log -z`).
@@ -28,6 +36,17 @@ Keep status markers in sync with the implementation.
 - **FR-21 `--model` for CLI agents** — Shipped. `providers/cli.ts` `CliProviderSpec.runArgs` accepts a `model`-function form so `codex`/`gemini`/`opencode` place `-m <model>` correctly.
 - **FR-22 Suspect empty-notes handling** — Shipped. `releaseNotes.ts`: a returned `_No user-facing changes._` sentinel (`prompt.ts:NO_USER_FACING_CHANGES`/`isEmptyNotesSentinel`) is suspect when commits were in range → warn + deterministic changelog (notes only; working-tree-only sentinel trusted). Spec: `docs/6-fallback.md`. Follows GG-38.
 - **FR-23 Configurable fallback provider** — Shipped. `--fallback-provider/--fallback-endpoint/--fallback-model` retry with a secondary config on a primary error or suspect response, before the deterministic changelog. The provider-specific model/endpoint inherit the primary's only when the fallback is the **same** provider (else that provider's own default). `releaseNotes.ts` (`hasFallback`/`runFallback`/`generateViaAI`) + `ReleaseNotesOptions.fallback*`/`warn`. Spec: `docs/6-fallback.md`.
+
+## State transitions (T-N)
+
+Multi-step sequences across the stateful paths — the exact gap line coverage
+misses. Each is walked by a test in `tests/releaseNotes.test.ts` /
+`tests/providers.test.ts` (see `@covers`).
+
+- **T-1 Provider auto fall-through** — `resolveProvider('auto')` skips an unavailable provider → next available; all unavailable → error. `providers/index.ts`.
+- **T-2 Primary error → fallback → deterministic** — `releaseNotes.ts:generateViaAI` (recover, or fallback error → keep primary / deterministic; no fallback → propagate).
+- **T-3 Suspect empty-notes → deterministic** — sentinel **with** commits is suspect → deterministic; **without** commits (working-tree-only) is trusted.
+- **T-4 Fallback config inheritance** — same-provider fallback inherits model/endpoint; different provider uses its own default unless overridden.
 
 ## Non-functional
 

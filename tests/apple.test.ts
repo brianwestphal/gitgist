@@ -22,6 +22,7 @@ function fakeGenerate(output: string): AppleGenerateFn {
   return () => Promise.resolve(output);
 }
 
+// @covers FR-15, FR-17
 describe('createAppleProvider', () => {
   it('is unavailable off macOS regardless of the probe', async () => {
     const p = createAppleProvider({ isDarwin: false, probe: fakeProbe(true) });
@@ -151,6 +152,7 @@ describe('createAppleProvider', () => {
   });
 });
 
+// @covers FR-17
 describe('detectSystemLanguage', () => {
   it('returns an English display name (or undefined), never a bare code', () => {
     const lang = detectSystemLanguage();

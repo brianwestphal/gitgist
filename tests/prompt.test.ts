@@ -70,6 +70,7 @@ describe('buildUserPrompt', () => {
   });
 });
 
+// @covers FR-11
 describe('workingChangesToMaterial', () => {
   it('labels the diff as uncommitted changes', () => {
     const working: WorkingChanges = {
@@ -85,6 +86,7 @@ describe('workingChangesToMaterial', () => {
   });
 });
 
+// @covers FR-4
 describe('SYSTEM_PROMPT', () => {
   it('instructs markdown-only, themed sections, and mentions diffs', () => {
     expect(SYSTEM_PROMPT).toContain('Markdown');
@@ -102,6 +104,7 @@ describe('SYSTEM_PROMPT', () => {
   });
 });
 
+// @covers FR-22
 describe('isEmptyNotesSentinel', () => {
   it('matches the exact sentinel, ignoring surrounding whitespace', () => {
     expect(isEmptyNotesSentinel(NO_USER_FACING_CHANGES)).toBe(true);
@@ -116,6 +119,7 @@ describe('isEmptyNotesSentinel', () => {
   });
 });
 
+// @covers FR-12
 describe('COMMIT_SYSTEM_PROMPT', () => {
   it('asks for a Conventional Commit message, not grouped notes', () => {
     expect(COMMIT_SYSTEM_PROMPT).toContain('Conventional Commits');
@@ -124,6 +128,7 @@ describe('COMMIT_SYSTEM_PROMPT', () => {
   });
 });
 
+// @covers NFR-7
 describe('cleanModelOutput (notes / template)', () => {
   it('strips a conversational preamble before the first heading', () => {
     // The exact wrapper observed from `claude -p` during GG-8 testing.

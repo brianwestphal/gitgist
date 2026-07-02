@@ -12,6 +12,7 @@ function raw(subject: string, body = ''): RawCommit {
   };
 }
 
+// @covers FR-3
 describe('parseCommit', () => {
   it('parses type, scope, and description', () => {
     const commit = parseCommit(raw('feat(cli): add --title flag'));

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { resolveCommitRange } from '../src/git.js';
 
+// @covers FR-2
 describe('resolveCommitRange', () => {
   it('builds from..to when both are given', async () => {
     expect(await resolveCommitRange('v1.0.0', 'HEAD')).toBe('v1.0.0..HEAD');

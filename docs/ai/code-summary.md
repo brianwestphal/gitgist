@@ -28,7 +28,11 @@ src/
     local.ts          # createLocalProvider (Ollama / OpenAI-compatible; opt-in)
     apple.ts          # createAppleProvider (macOS Apple Foundation Models via the apple-fm npm package)
     index.ts          # PROVIDERS, AUTO_ORDER, resolveProvider
-tests/                # parse, changelog, prompt, cliArgs, git, template, providers, apple, integration
+tests/                # parse, changelog, prompt, cliArgs, git, template, providers, apple, integration, docs
+  conventions.test.ts # requirement-level guards line coverage can't express (feature coverage, export surface, dep allow-list, module structure)
+scripts/
+  check-features.mjs  # `npm run check:features` — feature/requirement coverage report (FR/NFR/T ↔ @covers)
+  lib/features.mjs    # shared traceability parser (parseRequirements, collectCovers, computeCoverage)
 ```
 
 ## Public API (`src/index.ts`)
@@ -69,3 +73,5 @@ tests/                # parse, changelog, prompt, cliArgs, git, template, provid
 | change the fallback-provider retry / suspect empty-notes handling | `releaseNotes.ts` (`generateViaAI`, `hasFallback`, `notesInvalid`); sentinel in `prompt.ts` (`NO_USER_FACING_CHANGES`, `isEmptyNotesSentinel`); spec in `docs/6-fallback.md` |
 | add/change a CLI flag | `cliArgs.ts` (+ wire in `cli.ts`, `releaseNotes.ts`) |
 | change provider selection order | `providers/index.ts` (`AUTO_ORDER`) |
+| add a requirement/behavior + its test link | add an FR/NFR/T row to `docs/3-requirements.md`, add a `// @covers <ID>` tag on the asserting test; verify with `npm run check:features` |
+| check every documented behavior is tested (not just every line) | `scripts/check-features.mjs` (`npm run check:features`) + `tests/conventions.test.ts` (enforced in `npm test`); index in `docs/3-requirements.md` |

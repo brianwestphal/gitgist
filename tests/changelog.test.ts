@@ -9,6 +9,7 @@ function commit(subject: string, body = '', hash = 'abcdef1234567890'): Commit {
   return parseCommit(r);
 }
 
+// @covers FR-8
 describe('buildChangelog', () => {
   it('groups commits by conventional type and omits empty sections', () => {
     const changelog = buildChangelog('v1..HEAD', [
@@ -59,6 +60,7 @@ describe('renderMarkdown', () => {
   });
 });
 
+// @covers FR-11
 describe('renderWorkingChanges', () => {
   it('lists changed files grouped by category', () => {
     const working: WorkingChanges = {

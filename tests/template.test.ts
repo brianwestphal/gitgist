@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildTemplatePrompt, TEMPLATE_SYSTEM_PROMPT } from '../src/prompt.js';
 import { loadTemplate, parseTemplate } from '../src/template.js';
 
+// @covers FR-13
 describe('parseTemplate', () => {
   it('splits YAML frontmatter from the body', () => {
     const tpl = parseTemplate('---\naudience: devs\ntone: terse\n---\n\n## Features\n<!-- new stuff -->');

@@ -48,6 +48,7 @@ describe('provider registry', () => {
   });
 });
 
+// @covers FR-5, FR-18, FR-19, FR-20
 describe('CLI agent provider arg builders', () => {
   it('codex: `exec`, with `-m <model>` after the subcommand', () => {
     expect(codexRunArgs({})).toEqual(['exec']);
@@ -80,6 +81,7 @@ const ARG_ECHO =
   "process.stdin.on('end',()=>process.stdout.write(" +
   "JSON.stringify({argv:process.argv.slice(1),stdin:c.join('')})));";
 
+// @covers FR-21
 describe('createCliProvider model threading (runArgs function)', () => {
   // Non-dash sentinels (`MODEL <id>`) so the `node` stub doesn't intercept them
   // as its own options; the real CLIs parse their `-m`/`-p` flags themselves.
@@ -190,6 +192,7 @@ describe('createCliProvider systemArgs (system-prompt flag)', () => {
   });
 });
 
+// @covers NFR-2
 describe('createCliProvider', () => {
   it('reports unavailable when the command is missing', async () => {
     const provider = createCliProvider({
@@ -349,6 +352,7 @@ function fakeFetch(models: string[], content: string): FetchLike {
   };
 }
 
+// @covers FR-14
 describe('createLocalProvider', () => {
   it('isAvailable() is true when the endpoint lists ≥1 model', async () => {
     const p = createLocalProvider({ fetchImpl: fakeFetch(['llama3.2'], '') });
@@ -488,6 +492,7 @@ function textBlock(text: string): AnthropicMessage['content'][number] {
   return { type: 'text', text };
 }
 
+// @covers FR-6, NFR-6
 describe('createAnthropicApiProvider.generate', () => {
   it('concatenates text blocks and strips a wrapping code fence', async () => {
     const provider = createAnthropicApiProvider({
@@ -574,6 +579,7 @@ describe('createAnthropicApiProvider.generate', () => {
   });
 });
 
+// @covers FR-7, T-1
 describe('resolveProvider', () => {
   const original = process.env.ANTHROPIC_API_KEY;
   afterEach(() => {

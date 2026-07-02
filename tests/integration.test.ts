@@ -28,6 +28,7 @@ function initRepo(): string {
   return dir;
 }
 
+// @covers FR-1, FR-8, NFR-3, NFR-5
 describe('git + orchestration integration', () => {
   let tagged: string;
   let untagged: string;
@@ -105,6 +106,7 @@ describe('git + orchestration integration', () => {
   });
 });
 
+// @covers FR-11
 describe('working-tree changes integration', () => {
   let repo: string;
 
