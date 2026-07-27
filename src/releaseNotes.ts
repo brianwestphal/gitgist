@@ -74,6 +74,8 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
       unstaged: options.unstaged,
       untracked: options.untracked,
       maxChars: options.maxDiffChars,
+      exclude: options.exclude,
+      defaultExcludes: options.defaultExcludes,
     });
   }
 
@@ -88,7 +90,12 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
   let rangeDiff: RangeDiff | undefined;
   if (options.ai !== false && options.diff !== false && haveCommits) {
     try {
-      rangeDiff = await readRangeDiff(range, { cwd, maxChars: options.maxDiffChars });
+      rangeDiff = await readRangeDiff(range, {
+        cwd,
+        maxChars: options.maxDiffChars,
+        exclude: options.exclude,
+        defaultExcludes: options.defaultExcludes,
+      });
     } catch (error) {
       warn(
         `could not read the code diff for \`${range}\` (${errorMessage(error)}); summarizing from commit messages only.`,

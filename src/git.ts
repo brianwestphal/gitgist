@@ -36,25 +36,57 @@ const MAX_STAT_CHARS = 4000;
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 /**
- * Paths whose diff *content* is noise in release notes: lockfiles, build
- * output, vendored dependencies, and generated assets. They are excluded from
- * the patch body so the character budget goes to real source, but they stay in
+ * Path patterns whose diff *content* is noise in release notes: lockfiles,
+ * build output, vendored dependencies, and generated assets. Their patch body
+ * is held back so the character budget goes to real source, but they stay in
  * the changed-file list and the stat — the model still learns that they changed
  * (and is told which ones were held back), just not line by line.
+ *
+ * These defaults lean JS/TS. Projects add their own with `--exclude`, or drop
+ * the list entirely with `--no-default-excludes` (e.g. a repo that ships `dist/`
+ * as its product, or a Go module whose `vendor/` is the change). See
+ * `docs/8-exclusions.md`.
+ *
+ * Bare git pathspec patterns — the `:(exclude)` magic is applied by
+ * {@link buildExcludePathspecs}.
  */
-const NOISE_PATHSPECS = [
-  ':(exclude)*.lock',
-  ':(exclude)*lock.json',
-  ':(exclude)*lock.yaml',
-  ':(exclude)*.min.js',
-  ':(exclude)*.min.css',
-  ':(exclude)*.map',
-  ':(exclude)*.snap',
-  ':(exclude)dist/*',
-  ':(exclude)build/*',
-  ':(exclude)vendor/*',
-  ':(exclude)node_modules/*',
+export const DEFAULT_EXCLUDES = [
+  '*.lock',
+  '*lock.json',
+  '*lock.yaml',
+  '*.min.js',
+  '*.min.css',
+  '*.map',
+  '*.snap',
+  'dist/*',
+  'build/*',
+  'vendor/*',
+  'node_modules/*',
 ];
+
+/**
+ * Build the `:(exclude)` pathspec arguments for a diff command.
+ *
+ * @param exclude - Extra patterns from `--exclude` / the `exclude` option.
+ * @param useDefaults - Whether to include {@link DEFAULT_EXCLUDES} (default: `true`).
+ * @returns Pathspec arguments, or `[]` when nothing is excluded at all.
+ */
+export function buildExcludePathspecs(
+  exclude: string[] = [],
+  useDefaults = true,
+): string[] {
+  const patterns = [...(useDefaults ? DEFAULT_EXCLUDES : []), ...exclude].filter(
+    (pattern) => pattern.trim() !== '',
+  );
+  // De-duplicate so a pattern repeated across the defaults and `--exclude`
+  // doesn't appear twice in the git invocation.
+  return [...new Set(patterns)].map((pattern) => `:(exclude)${pattern}`);
+}
+
+/** Append the pathspec separator + patterns, or nothing when none are set. */
+function withPathspecs(args: string[], pathspecs: string[]): string[] {
+  return pathspecs.length > 0 ? [...args, '--', ...pathspecs] : args;
+}
 
 /**
  * Field separator for the `git log` pretty format — a control character that is
@@ -204,7 +236,7 @@ function rangeToDiffArgs(range: string): string[] {
  * file that changed, and as much of the diff as fits" rather than to nothing.
  *
  * @param range - A git revision range, e.g. `v1.0.0..HEAD`, or a bare revision.
- * @param options - Repository location and the patch char budget.
+ * @param options - Repository location, the patch char budget, and exclusions.
  * @returns The changed files, stat, capped patch, and what was held back.
  */
 export async function readRangeDiff(
@@ -213,6 +245,7 @@ export async function readRangeDiff(
 ): Promise<RangeDiff> {
   const cwd = options.cwd ?? process.cwd();
   const maxChars = options.maxChars ?? DEFAULT_MAX_DIFF_CHARS;
+  const excludes = buildExcludePathspecs(options.exclude, options.defaultExcludes);
   const revs = rangeToDiffArgs(range);
 
   const files = await gitNames(['diff', '--name-only', '-z', ...revs], cwd);
@@ -227,13 +260,13 @@ export async function readRangeDiff(
   );
   const { stdout: patchOut } = await execFileAsync(
     'git',
-    ['diff', '--no-color', ...revs, '--', ...NOISE_PATHSPECS],
+    withPathspecs(['diff', '--no-color', ...revs], excludes),
     { cwd, maxBuffer: GIT_MAX_BUFFER },
   );
-  // Which files survived the noise pathspecs — the rest changed but contribute
-  // no patch text, and the material says so explicitly.
+  // Which files survived the exclusion pathspecs — the rest changed but
+  // contribute no patch text, and the material says so explicitly.
   const patched = new Set(
-    await gitNames(['diff', '--name-only', '-z', ...revs, '--', ...NOISE_PATHSPECS], cwd),
+    await gitNames(withPathspecs(['diff', '--name-only', '-z', ...revs], excludes), cwd),
   );
 
   const stat = capText(statOut, MAX_STAT_CHARS, 'file list truncated');
@@ -296,6 +329,7 @@ async function untrackedDiff(path: string, cwd: string): Promise<string> {
 export async function readWorkingChanges(options: WorkingChangeOptions = {}): Promise<WorkingChanges> {
   const cwd = options.cwd ?? process.cwd();
   const budget = options.maxChars ?? DEFAULT_MAX_DIFF_CHARS;
+  const excludes = buildExcludePathspecs(options.exclude, options.defaultExcludes);
   const staged: string[] = [];
   const unstaged: string[] = [];
   const untracked: string[] = [];
@@ -312,12 +346,12 @@ export async function readWorkingChanges(options: WorkingChangeOptions = {}): Pr
   ): Promise<void> => {
     into.push(...(await gitNames([...diffArgs, '--name-only', '-z'], cwd)));
     const kept = new Set(
-      await gitNames([...diffArgs, '--name-only', '-z', '--', ...NOISE_PATHSPECS], cwd),
+      await gitNames(withPathspecs([...diffArgs, '--name-only', '-z'], excludes), cwd),
     );
     excluded.push(...into.filter((file) => !kept.has(file)));
     const { stdout } = await execFileAsync(
       'git',
-      [...diffArgs, '--no-color', '--', ...NOISE_PATHSPECS],
+      withPathspecs([...diffArgs, '--no-color'], excludes),
       { cwd, maxBuffer: GIT_MAX_BUFFER },
     );
     if (stdout.trim() !== '') raw.push({ title, diff: stdout });
@@ -334,7 +368,7 @@ export async function readWorkingChanges(options: WorkingChangeOptions = {}): Pr
   if (options.untracked === true) {
     const lsArgs = ['ls-files', '--others', '--exclude-standard', '-z'];
     untracked.push(...(await gitNames(lsArgs, cwd)));
-    const kept = new Set(await gitNames([...lsArgs, '--', ...NOISE_PATHSPECS], cwd));
+    const kept = new Set(await gitNames(withPathspecs(lsArgs, excludes), cwd));
     excluded.push(...untracked.filter((file) => !kept.has(file)));
     const parts: string[] = [];
     for (const path of untracked) {

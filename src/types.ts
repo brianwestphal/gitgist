@@ -186,6 +186,17 @@ export interface ReleaseNotesOptions {
    */
   maxDiffChars?: number;
   /**
+   * Extra git pathspec patterns whose diff body to hold back, on top of
+   * `DEFAULT_EXCLUDES` (`--exclude`). Excluded files stay visible in the
+   * changed-file lists and are named in the prompt.
+   */
+  exclude?: string[];
+  /**
+   * Whether to apply the built-in `DEFAULT_EXCLUDES` list (default: `true`;
+   * `--no-default-excludes` turns it off).
+   */
+  defaultExcludes?: boolean;
+  /**
    * Sink for non-fatal warnings (truncation, fallback notices). Receives the
    * message without a trailing newline. Defaults to writing `gitgist: <msg>` to
    * stderr; inject a collector in tests.
@@ -193,8 +204,28 @@ export interface ReleaseNotesOptions {
   warn?: (message: string) => void;
 }
 
+/**
+ * Which paths to hold back from a diff body. Shared by the commit-range and
+ * working-tree readers so both exclude the same things. Excluded files stay in
+ * the changed-file lists and are reported as held back — never silently hidden.
+ */
+export interface DiffExcludeOptions {
+  /**
+   * Extra git pathspec patterns whose diff body to hold back, on top of
+   * `DEFAULT_EXCLUDES` (e.g. `['*.pb.py', 'migrations/*']`). Bare patterns —
+   * the `:(exclude)` magic is applied for you.
+   */
+  exclude?: string[];
+  /**
+   * Whether to apply the built-in `DEFAULT_EXCLUDES` list (default: `true`).
+   * Set `false` when a default is wrong for the project — a repo that ships
+   * `dist/` as its product, or a Go module whose `vendor/` is the change.
+   */
+  defaultExcludes?: boolean;
+}
+
 /** Options controlling how the code diff for a commit range is read. */
-export interface RangeDiffOptions {
+export interface RangeDiffOptions extends DiffExcludeOptions {
   /** Repository directory (default: `process.cwd()`). */
   cwd?: string;
   /**
@@ -232,7 +263,7 @@ export interface RangeDiff {
 }
 
 /** Which categories of uncommitted change to read. */
-export interface WorkingChangeOptions {
+export interface WorkingChangeOptions extends DiffExcludeOptions {
   /** Repository directory (default: `process.cwd()`). */
   cwd?: string;
   /** Include staged (indexed) changes. */

@@ -23,6 +23,8 @@ export interface CliArgs {
   ai: boolean;
   diff: boolean;
   maxDiffChars?: number;
+  exclude: string[];
+  defaultExcludes: boolean;
   help: boolean;
 }
 
@@ -55,6 +57,11 @@ Options:
   --max-diff-chars <n>    Character budget for the diff material (default: 24000),
                           applied to the range patch and to the working-tree
                           diffs alike. The changed-file list is never dropped.
+  --exclude <pathspec>    Hold this path's diff body back from the model, on top
+                          of the built-in list (lockfiles, dist/, vendor/, …).
+                          Repeatable. Excluded files still appear as changed.
+  --no-default-excludes   Drop the built-in exclude list, keeping only your own
+                          --exclude patterns (e.g. a repo that ships dist/).
   --provider <name>       AI backend: auto | claude-cli | codex | gemini | opencode |
                           anthropic-api | local | apple (default: auto).
   --endpoint <url>        Base URL for --provider local (default: $GITGIST_LOCAL_ENDPOINT
@@ -99,6 +106,8 @@ Examples:
   gitgist --working                      # all uncommitted work
   gitgist v1.4.0..HEAD --untracked       # commits plus new files
   gitgist v1.4.0..HEAD --template notes.md   # shape with a template
+  gitgist v1.4.0..HEAD --exclude 'migrations/*' --exclude '*.pb.py'
+  gitgist v1.4.0..HEAD --no-default-excludes --exclude 'testdata/*'  # dist/ is the product
   gitgist v1.4.0..HEAD --provider local --model llama3.2   # local Ollama/LM Studio
   gitgist v1.4.0..HEAD --fallback-provider anthropic-api   # retry on a bad/empty result
   gitgist --no-ai`;
@@ -129,6 +138,13 @@ function parsePositiveInt(flag: string, value: string | undefined): number {
   return n;
 }
 
+function parseExclude(value: string | undefined): string {
+  if (value === undefined || value.trim() === '') {
+    throw new Error('Invalid --exclude: (missing) (expected a git pathspec, e.g. "migrations/*")');
+  }
+  return value;
+}
+
 function parseFormat(value: string | undefined): OutputFormat {
   if (value === 'notes' || value === 'commit') return value;
   throw new Error(`Invalid --format: ${value ?? '(missing)'} (expected notes or commit)`);
@@ -149,6 +165,8 @@ export function parseArgs(argv: string[]): CliArgs {
     provider: 'auto',
     ai: true,
     diff: true,
+    exclude: [],
+    defaultExcludes: true,
     help: false,
     format: 'notes',
     staged: false,
@@ -194,6 +212,12 @@ export function parseArgs(argv: string[]): CliArgs {
         break;
       case '--no-diff':
         args.diff = false;
+        break;
+      case '--exclude':
+        args.exclude.push(parseExclude(argv[++i]));
+        break;
+      case '--no-default-excludes':
+        args.defaultExcludes = false;
         break;
       case '--max-diff-chars':
         args.maxDiffChars = parsePositiveInt('--max-diff-chars', argv[++i]);

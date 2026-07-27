@@ -204,6 +204,33 @@ describe('readRangeDiff — the actual code diff for a range (GG-50)', () => {
     expect(diff.isEmpty).toBe(true);
   });
 
+  // @covers FR-27
+  it('--exclude adds to the defaults; --no-default-excludes drops them', async () => {
+    // Extra pattern on top of the built-ins: src.ts joins the lockfile in the
+    // held-back set, while both stay listed as changed.
+    const added = await readRangeDiff('v1.0.0..HEAD', { cwd: repo, exclude: ['src.ts'] });
+    expect(added.excluded).toContain('src.ts');
+    expect(added.excluded).toContain('package-lock.json');
+    expect(added.files).toContain('src.ts');
+    expect(added.patch).not.toContain('export function shipped()');
+
+    // Built-ins dropped: the lockfile's diff is now wanted (the "my dist/ is the
+    // product" case), so nothing is held back at all.
+    const raw = await readRangeDiff('v1.0.0..HEAD', { cwd: repo, defaultExcludes: false });
+    expect(raw.excluded).toEqual([]);
+    expect(raw.patch).toContain('xxxxxxxxxx');
+    expect(raw.patch).toContain('export function shipped()');
+
+    // Dropped built-ins + an explicit pattern: only that pattern applies.
+    const custom = await readRangeDiff('v1.0.0..HEAD', {
+      cwd: repo,
+      defaultExcludes: false,
+      exclude: ['src.ts'],
+    });
+    expect(custom.excluded).toEqual(['src.ts']);
+    expect(custom.patch).toContain('xxxxxxxxxx');
+  });
+
   it('reports an empty range without running the patch commands', async () => {
     const diff = await readRangeDiff('HEAD..HEAD', { cwd: repo });
     expect(diff).toMatchObject({ isEmpty: true, files: [], stat: '', patch: '', truncated: false });

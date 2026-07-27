@@ -38,6 +38,7 @@ gitgist --no-ai         # offline Conventional Commits grouping
 - [5-providers.md](5-providers.md) — the CLI-first agent providers reference.
 - [6-fallback.md](6-fallback.md) — fallback provider + suspect empty-notes handling.
 - [7-diff-grounding.md](7-diff-grounding.md) — grounding the notes in the real code diff.
+- [8-exclusions.md](8-exclusions.md) — which files' diff content is held back, and how to configure it.
 - [ai/code-summary.md](ai/code-summary.md) — AI-oriented code map.
 - [ai/requirements-summary.md](ai/requirements-summary.md) — AI-oriented
   requirements digest.

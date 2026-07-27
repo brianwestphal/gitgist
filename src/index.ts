@@ -18,6 +18,8 @@ export {
   renderWorkingChanges,
 } from './changelog.js';
 export {
+  buildExcludePathspecs,
+  DEFAULT_EXCLUDES,
   latestTag,
   readCommits,
   readRangeDiff,
@@ -73,6 +75,7 @@ export type {
   ChangelogOptions,
   ChangelogSection,
   Commit,
+  DiffExcludeOptions,
   OutputFormat,
   ProviderName,
   RangeDiff,

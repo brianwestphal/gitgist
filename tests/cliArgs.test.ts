@@ -72,6 +72,22 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['--max-diff-chars', 'big'])).toThrow(/Invalid --max-diff-chars/);
   });
 
+  // @covers FR-27
+  it('collects repeated --exclude patterns and honors --no-default-excludes', () => {
+    const args = parseArgs(['--exclude', 'migrations/*', '--exclude', '*.pb.py']);
+    expect(args.exclude).toEqual(['migrations/*', '*.pb.py']);
+    expect(args.defaultExcludes).toBe(true);
+
+    expect(parseArgs([]).exclude).toEqual([]);
+    expect(parseArgs(['--no-default-excludes']).defaultExcludes).toBe(false);
+  });
+
+  // @covers FR-27
+  it('rejects a missing or blank --exclude pathspec', () => {
+    expect(() => parseArgs(['--exclude'])).toThrow(/Invalid --exclude/);
+    expect(() => parseArgs(['--exclude', '  '])).toThrow(/Invalid --exclude/);
+  });
+
   it('rejects an invalid --provider', () => {
     expect(() => parseArgs(['--provider', 'bogus'])).toThrow(/Invalid --provider/);
   });
