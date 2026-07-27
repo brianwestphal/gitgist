@@ -37,6 +37,7 @@ gitgist --no-ai         # offline Conventional Commits grouping
 - [4-templates.md](4-templates.md) — the `--template` format reference.
 - [5-providers.md](5-providers.md) — the CLI-first agent providers reference.
 - [6-fallback.md](6-fallback.md) — fallback provider + suspect empty-notes handling.
+- [7-diff-grounding.md](7-diff-grounding.md) — grounding the notes in the real code diff.
 - [ai/code-summary.md](ai/code-summary.md) — AI-oriented code map.
 - [ai/requirements-summary.md](ai/requirements-summary.md) — AI-oriented
   requirements digest.

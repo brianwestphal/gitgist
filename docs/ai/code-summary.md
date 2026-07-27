@@ -11,9 +11,9 @@ src/
   cliArgs.ts          # parseArgs() + USAGE
   index.ts            # public API surface + generateChangelog()
   types.ts            # shared types
-  git.ts              # readCommits, latestTag, resolveCommitRange, readWorkingChanges
+  git.ts              # readCommits, latestTag, resolveCommitRange, readRangeDiff, readWorkingChanges
   parse.ts            # parseCommit (Conventional Commits)
-  prompt.ts           # SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, NO_CROSS_REFERENCE_RULES, NO_USER_FACING_CHANGES, isEmptyNotesSentinel, buildUserPrompt, buildTemplatePrompt, commitsToMaterial, stripCodeFences, cleanModelOutput, workingChangesToMaterial
+  prompt.ts           # SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, DIFF_IS_SOURCE_OF_TRUTH_RULES, NO_CROSS_REFERENCE_RULES, NO_USER_FACING_CHANGES, rangeDiffToMaterial, isEmptyNotesSentinel, buildUserPrompt, buildTemplatePrompt, commitsToMaterial, stripCodeFences, cleanModelOutput, workingChangesToMaterial
   changelog.ts        # buildChangelog, renderMarkdown, renderWorkingChanges, DEFAULT_GROUPS  (--no-ai path)
   template.ts         # loadTemplate, parseTemplate (--template)
   releaseNotes.ts     # generateReleaseNotes (orchestrator)
@@ -40,10 +40,13 @@ scripts/
 - `generateReleaseNotes(options)` — main entry (AI or `ai:false` offline; commits and/or working-tree changes; `format`/`template`).
 - `generateChangelog(range, options)` — deterministic-only convenience wrapper.
 - Commits/range: `readCommits`, `latestTag`, `resolveCommitRange`, `parseCommit`.
+- Diff grounding: `readRangeDiff`, `rangeDiffToMaterial`, `DIFF_IS_SOURCE_OF_TRUTH_RULES`,
+  types `RangeDiff` / `RangeDiffOptions` (see `docs/7-diff-grounding.md`).
 - Working tree: `readWorkingChanges`, `renderWorkingChanges`, `workingChangesToMaterial`.
 - Changelog: `buildChangelog`, `renderMarkdown`, `DEFAULT_GROUPS`.
 - Prompt: `SYSTEM_PROMPT`, `COMMIT_SYSTEM_PROMPT`, `TEMPLATE_SYSTEM_PROMPT`,
   `NO_CROSS_REFERENCE_RULES`, `NO_USER_FACING_CHANGES`, `isEmptyNotesSentinel`, `buildUserPrompt`,
+  `DIFF_IS_SOURCE_OF_TRUTH_RULES`, `rangeDiffToMaterial`,
   `buildTemplatePrompt`, `commitsToMaterial`, `workingChangesToMaterial`,
   `stripCodeFences`, `cleanModelOutput`.
 - Templates: `loadTemplate`, `parseTemplate`, type `Template`.
@@ -69,6 +72,7 @@ scripts/
 | change how the git range is resolved | `git.ts` (`resolveCommitRange`, `latestTag`) |
 | change how commits are read/parsed | `git.ts` (`readCommits`), `parse.ts` |
 | change how uncommitted changes are read | `git.ts` (`readWorkingChanges`); orchestration in `releaseNotes.ts` |
+| change what code diff the model sees / the noise + budget rules | `git.ts` (`readRangeDiff`, `NOISE_PATHSPECS`, `DEFAULT_MAX_RANGE_DIFF_CHARS`); `prompt.ts` (`rangeDiffToMaterial`, `DIFF_IS_SOURCE_OF_TRUTH_RULES`); spec in `docs/7-diff-grounding.md` |
 | change deterministic (`--no-ai`) grouping | `changelog.ts` |
 | change the fallback-provider retry / suspect empty-notes handling | `releaseNotes.ts` (`generateViaAI`, `hasFallback`, `notesInvalid`); sentinel in `prompt.ts` (`NO_USER_FACING_CHANGES`, `isEmptyNotesSentinel`); spec in `docs/6-fallback.md` |
 | add/change a CLI flag | `cliArgs.ts` (+ wire in `cli.ts`, `releaseNotes.ts`) |

@@ -21,6 +21,8 @@ export interface CliArgs {
   unstaged: boolean;
   untracked: boolean;
   ai: boolean;
+  diff: boolean;
+  maxDiffChars?: number;
   help: boolean;
 }
 
@@ -47,6 +49,11 @@ Options:
                           order, and AI guidance). Requires AI. See docs/4-templates.md.
   --no-ai                 Group commits by Conventional Commit type instead of
                           using AI (works offline, no API key needed).
+  --no-diff               Summarize from commit messages alone, without reading
+                          the range's actual code diff. Smaller prompts, but the
+                          notes can only repeat what the commit log claims.
+  --max-diff-chars <n>    Character budget for the range patch (default: 24000).
+                          The changed-file list is never dropped.
   --provider <name>       AI backend: auto | claude-cli | codex | gemini | opencode |
                           anthropic-api | local | apple (default: auto).
   --endpoint <url>        Base URL for --provider local (default: $GITGIST_LOCAL_ENDPOINT
@@ -113,10 +120,10 @@ function parseProvider(value: string | undefined): ProviderName {
   );
 }
 
-function parseMaxTokens(value: string | undefined): number {
+function parsePositiveInt(flag: string, value: string | undefined): number {
   const n = Number(value);
   if (value === undefined || !Number.isInteger(n) || n <= 0) {
-    throw new Error(`Invalid --max-tokens: ${value ?? '(missing)'} (expected a positive integer)`);
+    throw new Error(`Invalid ${flag}: ${value ?? '(missing)'} (expected a positive integer)`);
   }
   return n;
 }
@@ -140,6 +147,7 @@ export function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
     provider: 'auto',
     ai: true,
+    diff: true,
     help: false,
     format: 'notes',
     staged: false,
@@ -183,6 +191,12 @@ export function parseArgs(argv: string[]): CliArgs {
       case '--no-ai':
         args.ai = false;
         break;
+      case '--no-diff':
+        args.diff = false;
+        break;
+      case '--max-diff-chars':
+        args.maxDiffChars = parsePositiveInt('--max-diff-chars', argv[++i]);
+        break;
       case '--title':
         args.title = argv[++i];
         break;
@@ -208,7 +222,7 @@ export function parseArgs(argv: string[]): CliArgs {
         args.language = argv[++i];
         break;
       case '--max-tokens':
-        args.maxTokens = parseMaxTokens(argv[++i]);
+        args.maxTokens = parsePositiveInt('--max-tokens', argv[++i]);
         break;
       case '--provider':
         args.provider = parseProvider(argv[++i]);

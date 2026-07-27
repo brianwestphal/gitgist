@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { readCommits, readWorkingChanges, resolveCommitRange } from '../src/git.js';
+import { readCommits, readRangeDiff, readWorkingChanges, resolveCommitRange } from '../src/git.js';
 import { generateChangelog } from '../src/index.js';
 import { generateReleaseNotes } from '../src/releaseNotes.js';
 
@@ -103,6 +103,114 @@ describe('git + orchestration integration', () => {
     expect(md).toContain('charlie');
     expect(md).toContain('## Documentation');
     expect(md).not.toContain('bravo');
+  });
+});
+
+// @covers FR-25, FR-26
+describe('readRangeDiff — the actual code diff for a range (GG-50)', () => {
+  let repo: string;
+  let untagged: string;
+
+  beforeAll(() => {
+    repo = initRepo();
+    // Pre-tag history: content that must NOT leak into the post-tag range diff.
+    writeFileSync(join(repo, 'old.ts'), 'export const beforeTheTag = 1;\n');
+    git(repo, 'add', '.');
+    commit(repo, 'feat: pre-tag work');
+    git(repo, 'tag', 'v1.0.0');
+
+    // Post-tag: a real source change, plus two kinds of noise whose diff body
+    // must be held back (lockfile + build output) but whose *existence* must not.
+    writeFileSync(join(repo, 'src.ts'), 'export function shipped(): string {\n  return "hi";\n}\n');
+    writeFileSync(join(repo, 'package-lock.json'), `{"noise": "${'x'.repeat(400)}"}\n`);
+    mkdirSync(join(repo, 'dist'));
+    writeFileSync(join(repo, 'dist', 'bundle.js'), `const generated=${'0'.repeat(200)};\n`);
+    git(repo, 'add', '.');
+    commit(repo, 'feat: post-tag work');
+
+    untagged = initRepo();
+    writeFileSync(join(untagged, 'only.ts'), 'export const only = true;\n');
+    git(untagged, 'add', '.');
+    commit(untagged, 'feat: first ever commit');
+  });
+
+  afterAll(() => {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(untagged, { recursive: true, force: true });
+  });
+
+  it('returns the real patch text for the range, scoped to it', async () => {
+    const diff = await readRangeDiff('v1.0.0..HEAD', { cwd: repo });
+    expect(diff.isEmpty).toBe(false);
+    expect(diff.range).toBe('v1.0.0..HEAD');
+    expect(diff.files).toContain('src.ts');
+    // The actual added source line — this is the whole point of GG-50: the
+    // summary can be grounded in code, not just in "feat: post-tag work".
+    expect(diff.patch).toContain('export function shipped()');
+    expect(diff.stat).toContain('src.ts');
+    // Pre-tag content is outside the range and must not appear.
+    expect(diff.patch).not.toContain('beforeTheTag');
+    expect(diff.files).not.toContain('old.ts');
+  });
+
+  it('lists generated/lockfile noise but holds back its diff body', async () => {
+    const diff = await readRangeDiff('v1.0.0..HEAD', { cwd: repo });
+    // Still visible as changed files — the model learns they changed…
+    expect(diff.files).toContain('package-lock.json');
+    expect(diff.files).toContain('dist/bundle.js');
+    expect(diff.stat).toContain('package-lock.json');
+    // …but their content never reaches the patch body, and is reported as held back.
+    expect(diff.patch).not.toContain('xxxxxxxxxx');
+    expect(diff.excluded).toContain('package-lock.json');
+    expect(diff.excluded).toContain('dist/bundle.js');
+    expect(diff.excluded).not.toContain('src.ts');
+  });
+
+  it('caps the patch at the char budget while keeping the file list complete', async () => {
+    const diff = await readRangeDiff('v1.0.0..HEAD', { cwd: repo, maxChars: 40 });
+    expect(diff.truncated).toBe(true);
+    expect(diff.patch).toContain('patch truncated at 40 characters');
+    // The budget trims the patch only — knowing *which* files changed is never
+    // sacrificed, so a huge range degrades gracefully instead of to nothing.
+    expect(diff.files).toContain('src.ts');
+    expect(diff.stat).toContain('src.ts');
+  });
+
+  it('diffs a bare revision against the empty tree (untagged repo, full history)', async () => {
+    // `resolveCommitRange` yields a bare `HEAD` when there is no tag; the whole
+    // tree is the change, so the empty tree is the only correct base.
+    const diff = await readRangeDiff('HEAD', { cwd: untagged });
+    expect(diff.isEmpty).toBe(false);
+    expect(diff.files).toEqual(['only.ts']);
+    expect(diff.patch).toContain('export const only = true;');
+  });
+
+  it('accepts the merge-base and open-ended range forms', async () => {
+    // `a...b` passes straight through; `a..` means "…to HEAD". All three forms
+    // must resolve to the same diff as the plain two-dot range.
+    const [twoDot, threeDot, openEnded] = await Promise.all([
+      readRangeDiff('v1.0.0..HEAD', { cwd: repo }),
+      readRangeDiff('v1.0.0...HEAD', { cwd: repo }),
+      readRangeDiff('v1.0.0..', { cwd: repo }),
+    ]);
+    expect(threeDot.files).toEqual(twoDot.files);
+    expect(openEnded.files).toEqual(twoDot.files);
+    expect(openEnded.patch).toContain('export function shipped()');
+  });
+
+  it('defaults cwd to process.cwd()', async () => {
+    // An empty range keeps this fast and deterministic against the real repo.
+    const diff = await readRangeDiff('HEAD..HEAD');
+    expect(diff.isEmpty).toBe(true);
+  });
+
+  it('reports an empty range without running the patch commands', async () => {
+    const diff = await readRangeDiff('HEAD..HEAD', { cwd: repo });
+    expect(diff).toMatchObject({ isEmpty: true, files: [], stat: '', patch: '', truncated: false });
+  });
+
+  it('rejects on a revision git cannot resolve (so the caller can degrade)', async () => {
+    await expect(readRangeDiff('no-such-tag..HEAD', { cwd: repo })).rejects.toThrow();
   });
 });
 

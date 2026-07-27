@@ -29,9 +29,9 @@ generateReleaseNotes (releaseNotes.ts)
 
 | File | Responsibility |
 | --- | --- |
-| `git.ts` | `readCommits(range)` (NUL-delimited `git log -z`), `latestTag()`, `resolveCommitRange(from, to)`. |
+| `git.ts` | `readCommits(range)` (NUL-delimited `git log -z`), `latestTag()`, `resolveCommitRange(from, to)`, `readRangeDiff(range)` (the range's real code diff), `readWorkingChanges(opts)`. |
 | `parse.ts` | `parseCommit(raw)` — Conventional Commit subject + breaking-change parsing. |
-| `prompt.ts` | `SYSTEM_PROMPT` / `COMMIT_SYSTEM_PROMPT` / `TEMPLATE_SYSTEM_PROMPT`, `buildUserPrompt`, `buildTemplatePrompt`, `commitsToMaterial`, `workingChangesToMaterial`, `stripCodeFences`, `cleanModelOutput`. |
+| `prompt.ts` | `SYSTEM_PROMPT` / `COMMIT_SYSTEM_PROMPT` / `TEMPLATE_SYSTEM_PROMPT`, the shared `DIFF_IS_SOURCE_OF_TRUTH_RULES` / `NO_CROSS_REFERENCE_RULES` rule blocks, `rangeDiffToMaterial`, `buildUserPrompt`, `buildTemplatePrompt`, `commitsToMaterial`, `workingChangesToMaterial`, `stripCodeFences`, `cleanModelOutput`. |
 | `changelog.ts` | Deterministic grouping (`buildChangelog`) + Markdown rendering (`renderMarkdown`, `renderWorkingChanges`) — the `--no-ai` path. |
 | `template.ts` | `loadTemplate` / `parseTemplate` for `--template` (Markdown + YAML frontmatter). |
 | `providers/types.ts` | `AIProvider` / `GenerateRequest` interfaces. |
@@ -60,6 +60,17 @@ no-op when the device/model isn't available). The `local` provider is
 intentionally **not** in `AUTO_ORDER` (opt-in via `--provider local`, so a
 normal run never probes localhost). A specific provider can be forced; if none
 is available the caller is told to use `--no-ai`.
+
+## Diff grounding
+
+Every AI run over a commit range also reads the **actual code diff**
+(`readRangeDiff`) and feeds it to the model as the authoritative record of what
+changed — commit subjects, bodies, and any changelog text in the range are
+secondary. The patch is capped and noise-filtered (lockfiles, `dist/`, vendored
+code) while the changed-file list always survives, and whatever was held back is
+stated in the prompt. `--no-diff` opts out; a failed diff read warns and degrades
+to commit messages rather than failing the run. See
+[7-diff-grounding.md](7-diff-grounding.md).
 
 ## Fallback & suspect responses
 

@@ -16,6 +16,8 @@ async function main(): Promise<void> {
     range: args.range,
     cwd: args.cwd,
     ai: args.ai,
+    diff: args.diff,
+    maxDiffChars: args.maxDiffChars,
     provider: args.provider,
     model: args.model,
     endpoint: args.endpoint,

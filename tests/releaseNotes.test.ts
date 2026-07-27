@@ -21,14 +21,27 @@ const h = vi.hoisted(() => {
     endpoint?: string;
   }[] = [];
   let responder: (ctx: Ctx) => string = () => DEFAULT_NOTES;
+  // Range-diff reads (GG-50): counted so a test can assert the diff was never
+  // read, and optionally forced to fail so the degrade path (T-5) can be walked.
+  const diffReads: unknown[][] = [];
+  let rangeDiffError: Error | null = null;
   return {
     DEFAULT_NOTES,
     calls,
+    diffReads,
     setResponder(fn: (ctx: Ctx) => string): void {
       responder = fn;
     },
+    failRangeDiff(error: Error): void {
+      rangeDiffError = error;
+    },
+    takeRangeDiffError(): Error | null {
+      return rangeDiffError;
+    },
     reset(): void {
       calls.length = 0;
+      diffReads.length = 0;
+      rangeDiffError = null;
       responder = () => DEFAULT_NOTES;
     },
     resolveProvider: (provider: unknown, opts?: { endpoint?: string }) =>
@@ -48,6 +61,21 @@ const h = vi.hoisted(() => {
 vi.mock('../src/providers/index.js', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, resolveProvider: h.resolveProvider };
+});
+
+// The real `readRangeDiff` runs (so the prompt carries genuine patch text); the
+// wrapper only records that it was called and lets a test force it to fail.
+vi.mock('../src/git.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  const real = actual.readRangeDiff as (...args: unknown[]) => Promise<unknown>;
+  return {
+    ...actual,
+    readRangeDiff: (...args: unknown[]): Promise<unknown> => {
+      h.diffReads.push(args);
+      const error = h.takeRangeDiffError();
+      return error !== null ? Promise.reject(error) : real(...args);
+    },
+  };
 });
 
 const { COMMIT_SYSTEM_PROMPT, NO_USER_FACING_CHANGES, SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT } =
@@ -124,6 +152,102 @@ describe('generateReleaseNotes AI branches (mocked provider)', () => {
     // an empty range keeps it fast and deterministic.
     const out = await generateReleaseNotes({ range: 'HEAD..HEAD' });
     expect(out.trim()).toBe('_No changes in `HEAD..HEAD`._');
+  });
+});
+
+// @covers FR-25, FR-26, T-5
+describe('diff-grounded generation (GG-50)', () => {
+  let repo: string;
+  const warnings: string[] = [];
+  const warn = (m: string): void => void warnings.push(m);
+
+  beforeAll(() => {
+    repo = mkdtempSync(join(tmpdir(), 'gitgist-diff-'));
+    git(repo, 'init', '-q');
+    git(repo, 'config', 'user.email', 'a@b.c');
+    git(repo, 'config', 'user.name', 'T');
+    git(repo, 'config', 'commit.gpgsign', 'false');
+    writeFileSync(join(repo, 'base.ts'), 'export const base = 1;\n');
+    git(repo, 'add', '.');
+    git(repo, 'commit', '-q', '-m', 'feat: base');
+    git(repo, 'tag', 'v1.0.0');
+    // The commit subject deliberately understates the change: only the diff
+    // reveals `retryForever`. That gap is exactly what GG-50 closes.
+    writeFileSync(join(repo, 'retry.ts'), 'export function retryForever(): void {}\n');
+    git(repo, 'add', '.');
+    git(repo, 'commit', '-q', '-m', 'chore: tidy up');
+  });
+  afterAll(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
+  beforeEach(() => {
+    h.reset();
+    warnings.length = 0;
+  });
+
+  it('sends the real patch to the model alongside the commit messages', async () => {
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, warn });
+    const { prompt } = h.calls[0];
+    // Commit prose is still there…
+    expect(prompt).toContain('chore: tidy up');
+    // …but so is the code the prose never mentions.
+    expect(prompt).toContain('Code diff for `v1.0.0..HEAD`');
+    expect(prompt).toContain('export function retryForever(): void {}');
+    expect(prompt).toContain('authoritative record');
+  });
+
+  it('grounds the commit and template formats in the diff too', async () => {
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, format: 'commit', warn });
+    expect(h.calls[0].prompt).toContain('retryForever');
+
+    const tpl = join(repo, 'tpl.md');
+    writeFileSync(tpl, '## Highlights\n');
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, template: tpl, warn });
+    expect(h.calls[1].prompt).toContain('retryForever');
+  });
+
+  it('diff: false sends commit messages only, and never reads the diff', async () => {
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, diff: false, warn });
+    expect(h.diffReads).toHaveLength(0);
+    expect(h.calls[0].prompt).toContain('chore: tidy up');
+    expect(h.calls[0].prompt).not.toContain('retryForever');
+  });
+
+  it('ai: false never reads the diff (the deterministic path groups subjects)', async () => {
+    const out = await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, ai: false, warn });
+    expect(h.diffReads).toHaveLength(0);
+    expect(out).toContain('tidy up');
+  });
+
+  it('threads maxDiffChars through and tells the model the patch was cut', async () => {
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, maxDiffChars: 30, warn });
+    expect(h.diffReads[0][1]).toMatchObject({ maxChars: 30 });
+    expect(h.calls[0].prompt).toContain('patch truncated at 30 characters');
+    expect(h.calls[0].prompt).toContain('do not speculate about the omitted portion');
+  });
+
+  // T-5: read commits → diff read fails → warn → generate anyway from prose.
+  it('degrades to commit messages when the diff cannot be read, and still generates', async () => {
+    h.failRangeDiff(new Error('fatal: bad revision'));
+    const out = await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, warn });
+    // Non-fatal: the run completes with notes rather than throwing.
+    expect(out).toBe('## Features\n- did a thing\n');
+    expect(warnings.join('\n')).toContain('could not read the code diff');
+    expect(warnings.join('\n')).toContain('summarizing from commit messages only');
+    // The prompt fell back to prose alone — no diff section.
+    expect(h.calls[0].prompt).toContain('chore: tidy up');
+    expect(h.calls[0].prompt).not.toContain('Code diff for');
+  });
+
+  it('warns about an unreadable diff via the default stderr sink', async () => {
+    const spy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+    try {
+      h.failRangeDiff(new Error('fatal: bad revision'));
+      await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo });
+      expect(spy).toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

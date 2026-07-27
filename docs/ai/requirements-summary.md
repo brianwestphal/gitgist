@@ -21,7 +21,7 @@ Keep status markers in sync with the implementation.
 - **FR-6 Anthropic API provider** — Shipped. `providers/anthropicApi.ts`.
 - **FR-7 CLI-first auto-selection** — Shipped. `providers/index.ts`.
 - **FR-8 Offline `--no-ai` fallback** — Shipped. `changelog.ts`.
-- **FR-9 CLI flags** — Shipped. `cliArgs.ts` (`--no-ai/--provider/--model/--endpoint/--fallback-provider/--fallback-endpoint/--fallback-model/--max-tokens/--title/--cwd/--help` + format, template, language, and working-tree flags).
+- **FR-9 CLI flags** — Shipped. `cliArgs.ts` (`--no-ai/--provider/--model/--endpoint/--fallback-provider/--fallback-endpoint/--fallback-model/--max-tokens/--no-diff/--max-diff-chars/--title/--cwd/--help` + format, template, language, and working-tree flags).
 - **FR-10 More providers** — Deferred. GG-7 (Cursor); API-key fallbacks for the agent CLIs (OpenAI/Codex, Gemini API) as follow-ups. (Codex/Gemini/OpenCode CLI providers shipped — FR-18/19/20.)
 - **FR-11 Uncommitted working-tree changes** — Shipped. `git.ts:readWorkingChanges` + `--staged`/`--cached`/`--unstaged`/`--untracked`/`--working`; standalone (no range) summarizes only pending changes (commit-message draft). Deterministic listing via `changelog.ts:renderWorkingChanges`.
 - **FR-12 Output format** — Shipped. `--format notes` (default) or `--format commit` / `--commit-message` → a Conventional Commit message via `prompt.ts:COMMIT_SYSTEM_PROMPT` (requires AI; `--title` ignored).
@@ -36,8 +36,9 @@ Keep status markers in sync with the implementation.
 - **FR-21 `--model` for CLI agents** — Shipped. `providers/cli.ts` `CliProviderSpec.runArgs` accepts a `model`-function form so `codex`/`gemini`/`opencode` place `-m <model>` correctly.
 - **FR-22 Suspect empty-notes handling** — Shipped. `releaseNotes.ts`: a returned `_No user-facing changes._` sentinel (`prompt.ts:NO_USER_FACING_CHANGES`/`isEmptyNotesSentinel`) is suspect when commits were in range → warn + deterministic changelog (notes only; working-tree-only sentinel trusted). Spec: `docs/6-fallback.md`. Follows GG-38.
 - **FR-23 Configurable fallback provider** — Shipped. `--fallback-provider/--fallback-endpoint/--fallback-model` retry with a secondary config on a primary error or suspect response, before the deterministic changelog. The provider-specific model/endpoint inherit the primary's only when the fallback is the **same** provider (else that provider's own default). `releaseNotes.ts` (`hasFallback`/`runFallback`/`generateViaAI`) + `ReleaseNotesOptions.fallback*`/`warn`. Spec: `docs/6-fallback.md`.
-
 - **FR-24 Self-contained output (no cross-reference/dedupe)** — Shipped. Shared `NO_CROSS_REFERENCE_RULES` block in `prompt.ts`, interpolated verbatim into all three system prompts: never emit "Carried over from … — dedupe against the draft above" / "already in the changelog" / "see also" or any reconcile-two-documents instruction. A changelog `Unreleased` entry in the input is *evidence of what changed* — describe it in full, never defer to it. Changelog de-duplication is an external tool's job (GG-51).
+- **FR-25 Diff-grounded generation** — Shipped, **default on**. Every AI run over a range also reads the real code diff (`git.ts:readRangeDiff`) and feeds it as the authority: `prompt.ts:rangeDiffToMaterial` + `DIFF_IS_SOURCE_OF_TRUTH_RULES` (in all three system prompts) tell the model the diff outranks commit prose and changelog text, to report diff-only changes, and to drop unsupported claims. `--no-diff`/`diff:false` opts out; `--no-ai` never reads a diff. Spec: `docs/7-diff-grounding.md` (GG-50).
+- **FR-26 Bounded, noise-filtered diff** — Shipped. Patch capped (default 24000 chars, `--max-diff-chars`), lockfile/build/vendored paths excluded from the patch body via git `:(exclude)` pathspecs; the changed-file list + stat always survive. Held-back files and truncation are stated in the prompt (`RangeDiff.excluded`/`truncated`), never hidden.
 
 ## State transitions (T-N)
 
@@ -49,6 +50,7 @@ misses. Each is walked by a test in `tests/releaseNotes.test.ts` /
 - **T-2 Primary error → fallback → deterministic** — `releaseNotes.ts:generateViaAI` (recover, or fallback error → keep primary / deterministic; no fallback → propagate).
 - **T-3 Suspect empty-notes → deterministic** — sentinel **with** commits is suspect → deterministic; **without** commits (working-tree-only) is trusted.
 - **T-4 Fallback config inheritance** — same-provider fallback inherits model/endpoint; different provider uses its own default unless overridden.
+- **T-5 Diff read fails → degrade to prose** — `readRangeDiff` throws (bad rev, shallow clone) → warn, don't fail → generation continues from commit messages alone and still returns notes. `releaseNotes.ts`.
 
 ## Non-functional
 

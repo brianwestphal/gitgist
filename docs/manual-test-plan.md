@@ -38,6 +38,30 @@ For each, also verify:
 - With none available and no `ANTHROPIC_API_KEY`, gitgist instructs the user to
   use `--no-ai` (or install/sign in to a CLI).
 
+## Diff grounding (FR-25) — output quality
+
+The wiring is automated (the diff reaches the prompt, the budget and noise rules
+hold, a failed read degrades). What needs a live model is whether grounding
+actually **changes the notes for the better**. See
+[7-diff-grounding.md](7-diff-grounding.md).
+
+Set up a range where the commit log *understates* the work — e.g. commit a real
+user-facing change under a vague subject (`chore: tidy up`), then:
+
+- **The change is described anyway.** `gitgist <range>` names the behavior that
+  only the diff reveals. Compare against `gitgist <range> --no-diff`, which can
+  only repeat "tidy up" — the difference is the feature working.
+- **Unsupported claims are dropped.** Commit something whose subject overstates
+  it (`feat: add caching` for a one-line rename) and confirm the notes describe
+  what the diff shows, not the subject's claim.
+- **Held-back files aren't invented.** On a range that touches
+  `package-lock.json` or `dist/`, confirm the notes don't describe their
+  contents (the patch body never included them) and don't hallucinate a
+  dependency story from the file name alone.
+- **A truncated patch stays honest.** `--max-diff-chars 500` on a large range:
+  the notes should summarize what fits, without confidently describing files
+  whose diff was cut.
+
 ## Provider comparison
 
 - `npm run compare` runs the fixed sample history through every backend available

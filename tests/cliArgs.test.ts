@@ -58,6 +58,20 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['--max-tokens', '0'])).toThrow(/Invalid --max-tokens/);
   });
 
+  // @covers FR-25, FR-26
+  it('reads the code diff by default and lets --no-diff opt out', () => {
+    expect(parseArgs([]).diff).toBe(true);
+    expect(parseArgs(['--no-diff']).diff).toBe(false);
+  });
+
+  // @covers FR-26
+  it('parses --max-diff-chars and rejects a non-positive value', () => {
+    expect(parseArgs(['--max-diff-chars', '5000']).maxDiffChars).toBe(5000);
+    expect(parseArgs([]).maxDiffChars).toBeUndefined();
+    expect(() => parseArgs(['--max-diff-chars', '0'])).toThrow(/Invalid --max-diff-chars/);
+    expect(() => parseArgs(['--max-diff-chars', 'big'])).toThrow(/Invalid --max-diff-chars/);
+  });
+
   it('rejects an invalid --provider', () => {
     expect(() => parseArgs(['--provider', 'bogus'])).toThrow(/Invalid --provider/);
   });

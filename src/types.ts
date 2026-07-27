@@ -171,11 +171,63 @@ export interface ReleaseNotesOptions {
   /** Include untracked (new) files. */
   untracked?: boolean;
   /**
+   * Read the range's actual code diff and feed it to the model alongside the
+   * commit messages (default: `true`). Summaries are grounded in what the code
+   * does rather than in what the commit log and changelog *claim* it does. Set
+   * `false` to fall back to commit messages only (smaller prompts, weaker
+   * accuracy). Ignored when `ai` is `false` — the deterministic path never reads
+   * a diff.
+   */
+  diff?: boolean;
+  /**
+   * Character budget for the range patch body (default: 24000). The changed-file
+   * list and stat are never dropped.
+   */
+  maxDiffChars?: number;
+  /**
    * Sink for non-fatal warnings (truncation, fallback notices). Receives the
    * message without a trailing newline. Defaults to writing `gitgist: <msg>` to
    * stderr; inject a collector in tests.
    */
   warn?: (message: string) => void;
+}
+
+/** Options controlling how the code diff for a commit range is read. */
+export interface RangeDiffOptions {
+  /** Repository directory (default: `process.cwd()`). */
+  cwd?: string;
+  /**
+   * Character budget for the patch body (default: 24000). The file-level stat
+   * and the complete changed-file list are always kept — only the patch text is
+   * trimmed, so the model never loses sight of *which* files changed.
+   */
+  maxChars?: number;
+}
+
+/**
+ * The actual code change for a commit range, read by `readRangeDiff` — the
+ * evidence gitgist grounds its summaries in, as opposed to what the commit
+ * messages claim.
+ */
+export interface RangeDiff {
+  /** The git range the diff was taken over (e.g. `v1.0.0..HEAD`). */
+  range: string;
+  /** Every changed path in the range. Always complete, even when the patch is trimmed. */
+  files: string[];
+  /** `git diff --stat` output (per-file line deltas), capped. */
+  stat: string;
+  /** The unified diff, minus generated/lockfile noise, capped to the char budget. */
+  patch: string;
+  /**
+   * Paths that changed but whose patch text was omitted as noise (lockfiles,
+   * build output, vendored code). They remain listed in {@link files} and
+   * {@link stat} so the change is still visible to the model.
+   */
+  excluded: string[];
+  /** True when the stat or patch was trimmed to fit the budget. */
+  truncated: boolean;
+  /** True when the range changed no files at all. */
+  isEmpty: boolean;
 }
 
 /** Which categories of uncommitted change to read. */

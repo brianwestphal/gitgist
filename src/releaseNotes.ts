@@ -1,18 +1,25 @@
 import { buildChangelog, renderMarkdown, renderWorkingChanges } from './changelog.js';
-import { readCommits, readWorkingChanges, resolveCommitRange } from './git.js';
+import { readCommits, readRangeDiff, readWorkingChanges, resolveCommitRange } from './git.js';
 import {
   buildTemplatePrompt,
   buildUserPrompt,
   cleanModelOutput,
   COMMIT_SYSTEM_PROMPT,
   isEmptyNotesSentinel,
+  rangeDiffToMaterial,
   SYSTEM_PROMPT,
   TEMPLATE_SYSTEM_PROMPT,
   workingChangesToMaterial,
 } from './prompt.js';
 import { resolveProvider } from './providers/index.js';
 import { loadTemplate } from './template.js';
-import type { Commit, ProviderName, ReleaseNotesOptions, WorkingChanges } from './types.js';
+import type {
+  Commit,
+  ProviderName,
+  RangeDiff,
+  ReleaseNotesOptions,
+  WorkingChanges,
+} from './types.js';
 
 /** Format an unknown thrown value as a short message for a warning line. */
 function errorMessage(error: unknown): string {
@@ -43,6 +50,7 @@ function isSet(value: string | undefined): boolean {
  */
 export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): Promise<string> {
   const cwd = options.cwd ?? process.cwd();
+  const warn = options.warn ?? ((m: string): void => void process.stderr.write(`gitgist: ${m}\n`));
 
   const wantWorking =
     options.staged === true || options.unstaged === true || options.untracked === true;
@@ -72,15 +80,29 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
   const haveWorking = working !== undefined && !working.isEmpty;
   const format = options.format ?? 'notes';
 
-  // Build the AI material (commit messages + working-tree diffs) once.
+  // Read the range's actual code diff so the model summarizes what the code
+  // does, not what the commit log and changelog claim it does (GG-50). Only the
+  // AI paths use it — the deterministic renderer groups commit subjects — and a
+  // git failure here is non-fatal: warn and degrade to commit messages alone.
+  let rangeDiff: RangeDiff | undefined;
+  if (options.ai !== false && options.diff !== false && haveCommits) {
+    try {
+      rangeDiff = await readRangeDiff(range, { cwd, maxChars: options.maxDiffChars });
+    } catch (error) {
+      warn(
+        `could not read the code diff for \`${range}\` (${errorMessage(error)}); summarizing from commit messages only.`,
+      );
+    }
+  }
+
+  // Build the AI material (commit messages + range diff + working-tree diffs) once.
   const buildPromptMaterial = (commitList: Commit[], wc: WorkingChanges | undefined): string => {
     const parts: string[] = [];
     if (commitList.length > 0) parts.push(buildUserPrompt(range, commitList));
+    if (rangeDiff !== undefined && !rangeDiff.isEmpty) parts.push(rangeDiffToMaterial(rangeDiff));
     if (wc !== undefined && !wc.isEmpty) parts.push(workingChangesToMaterial(wc));
     return parts.join('\n\n');
   };
-
-  const warn = options.warn ?? ((m: string): void => void process.stderr.write(`gitgist: ${m}\n`));
 
   // A configured secondary provider/endpoint/model to retry with on a primary
   // error or likely-invalid response. Each unset field inherits the primary's.

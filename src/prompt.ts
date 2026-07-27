@@ -1,5 +1,5 @@
 import type { Template } from './template.js';
-import type { Commit, OutputFormat, WorkingChanges } from './types.js';
+import type { Commit, OutputFormat, RangeDiff, WorkingChanges } from './types.js';
 
 /**
  * The exact sentinel the model is told to emit when a range has no user-facing
@@ -19,6 +19,22 @@ export const NO_USER_FACING_CHANGES = '_No user-facing changes._';
 export function isEmptyNotesSentinel(text: string): boolean {
   return text.trim() === NO_USER_FACING_CHANGES;
 }
+
+/**
+ * Shared rule block making the code diff — not the prose around it — the
+ * authority for what changed (GG-50).
+ *
+ * Commit subjects, commit bodies, and changelog/documentation files in a range
+ * describe what someone *intended*; only the patch shows what the code actually
+ * does. gitgist feeds both, so the model needs an explicit precedence rule:
+ * read the diff, and treat the prose as a hint that can be incomplete or wrong.
+ *
+ * Embedded verbatim in {@link SYSTEM_PROMPT}, {@link TEMPLATE_SYSTEM_PROMPT},
+ * and {@link COMMIT_SYSTEM_PROMPT} so the rule can never drift between formats.
+ */
+export const DIFF_IS_SOURCE_OF_TRUTH_RULES = `- When a code diff is included below, it is the authoritative record of what changed. Commit subjects, commit bodies, and any changelog or documentation text are secondary — they state what someone intended or claimed, and can be incomplete, stale, or wrong. Read the diff and ground every statement in it.
+- Report what the code actually does: describe user-facing changes that are visible in the diff even when no commit message mentions them, and drop or correct any claim the diff does not support. Where the diff and the prose disagree, the diff wins.
+- Never describe a change you cannot point to in the material you were given. If the patch was truncated or some files were listed without their diff, summarize what you can see and say nothing about the parts you cannot.`;
 
 /**
  * Shared rule block forbidding meta / cross-reference output (GG-51).
@@ -52,6 +68,7 @@ Rules:
 - Each change is a single \`-\` bullet on one short, user-facing line. Combine several related commits into one bullet where that reads better.
 - INCLUDE user-visible changes: new features, bug fixes, performance, UX, breaking changes, and notable behavior changes.
 - EXCLUDE noise: ticket IDs, pure-internal refactors, test-only changes, CI/build tweaks, routine dependency bumps, and implementation detail.
+${DIFF_IS_SOURCE_OF_TRUTH_RULES}
 ${NO_CROSS_REFERENCE_RULES}
 - Scale the amount of detail to the volume of real user-facing work. Do not pad, and do not invent changes that are not present in the commits.
 - If there are no user-facing changes, output exactly: \`${NO_USER_FACING_CHANGES}\``;
@@ -68,6 +85,7 @@ Rules:
 - Choose one type: feat, fix, docs, style, refactor, perf, test, build, ci, chore.
 - If the change is breaking, append \`!\` after the type/scope (e.g. \`feat!:\`) and add a \`BREAKING CHANGE: <what broke>\` footer.
 - For anything beyond a trivial one-liner, add a blank line then a body: a few short bullet points or sentences explaining what changed and why. Wrap body lines at about 72 characters.
+${DIFF_IS_SOURCE_OF_TRUTH_RULES}
 ${NO_CROSS_REFERENCE_RULES}
 - Summarize the actual changes; do not invent anything not present in the input.`;
 
@@ -83,6 +101,7 @@ Template rules:
 - Text inside HTML comments (\`<!-- ... -->\`) is guidance for the section directly above it: follow it to decide that section's content, but do NOT include the comments in your output.
 - If the template has YAML frontmatter (a \`---\`-fenced block at the top), treat it as global directives — audience, tone, and what to include or exclude. Apply it, but do NOT output the frontmatter.
 - Under each section, write concise, user-facing bullet points. Filter out noise (internal refactors, tests, CI tweaks, ticket IDs) unless the template's guidance says otherwise. Summarize the actual changes; do not invent anything.
+${DIFF_IS_SOURCE_OF_TRUTH_RULES}
 ${NO_CROSS_REFERENCE_RULES}
 - Output ONLY the rendered Markdown — no preamble, no surrounding code fence, no leftover template comments or frontmatter.`;
 
@@ -195,6 +214,41 @@ export function buildUserPrompt(range: string, commits: Commit[]): string {
   const count = commits.length;
   const noun = count === 1 ? 'commit' : 'commits';
   return `Here ${count === 1 ? 'is' : 'are'} the ${String(count)} ${noun} in \`${range}\`:\n\n${commitsToMaterial(commits)}`;
+}
+
+/**
+ * Build the prompt fragment carrying the range's actual code diff — the
+ * evidence the summary must be grounded in (GG-50).
+ *
+ * The complete changed-file list and stat come first (they always survive the
+ * char budget), then the patch. Anything held back — a truncated patch, or
+ * files whose diff was dropped as generated/lockfile noise — is stated
+ * explicitly, so the model knows the boundary of what it can claim rather than
+ * guessing past it.
+ *
+ * @param diff - The range diff from `readRangeDiff`.
+ * @returns A labeled block of diff material, or `''` when nothing changed.
+ */
+export function rangeDiffToMaterial(diff: RangeDiff): string {
+  if (diff.isEmpty) return '';
+  const count = diff.files.length;
+  const noun = count === 1 ? 'file' : 'files';
+  const parts = [
+    `Code diff for \`${diff.range}\` — the authoritative record of what actually changed. Ground the summary in this, not in the commit messages above:`,
+    `### Changed ${noun} (${String(count)})\n${diff.stat}`,
+  ];
+  if (diff.patch !== '') parts.push(`### Patch\n${diff.patch}`);
+  if (diff.excluded.length > 0) {
+    parts.push(
+      `Note: these changed files are listed above but their diff was omitted as generated/lockfile noise — do not describe their contents: ${diff.excluded.join(', ')}`,
+    );
+  }
+  if (diff.truncated) {
+    parts.push(
+      'Note: the patch above was truncated to fit. Summarize only what is visible in it; do not speculate about the omitted portion.',
+    );
+  }
+  return parts.join('\n\n');
 }
 
 /**

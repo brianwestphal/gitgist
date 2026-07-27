@@ -13,8 +13,14 @@ grouped Markdown — written by Claude, with the internal noise stripped out.
 - **AI-written, sections that adapt.** Claude groups commits into whatever
   sections fit the actual work — Features, Bug Fixes, Performance, Breaking
   Changes, … — and rewrites terse commit subjects into user-facing lines.
+- **Grounded in the real diff, not the commit log.** gitgist reads the actual
+  code change for the range and treats it as the source of truth — so a feature
+  buried under `chore: tidy up` still gets described, and a claim the code
+  doesn't support gets dropped ([how it works](docs/7-diff-grounding.md)).
 - **Noise filtered automatically.** Refactors, test-only changes, CI tweaks,
-  dependency bumps, and ticket IDs don't make the cut.
+  dependency bumps, and ticket IDs don't make the cut. Lockfiles and build
+  output are kept out of the model's diff budget without hiding that they
+  changed.
 - **No API key required.** By default gitgist runs on your signed-in
   [`claude`](https://www.npmjs.com/package/@anthropic-ai/claude-code) CLI — zero
   config. Prefer the API? Set `ANTHROPIC_API_KEY`.
@@ -121,6 +127,8 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 | `--commit-message`         | Shorthand for `--format commit` (requires AI).                      |
 | `--template <file>`        | Shape the notes with a Markdown template ([docs](docs/4-templates.md)). |
 | `--no-ai`                  | Group commits by Conventional Commit type instead (offline).        |
+| `--no-diff`                | Skip reading the range's code diff; summarize from commit messages alone ([docs](docs/7-diff-grounding.md)). |
+| `--max-diff-chars <n>`     | Character budget for the range patch (default: 24000).              |
 | `--provider <name>`        | `auto` \| `claude-cli` \| `codex` \| `gemini` \| `opencode` \| `anthropic-api` \| `local` \| `apple` (default: `auto`). |
 | `--endpoint <url>`         | Base URL for `--provider local` (default: Ollama's `…:11434/v1`).   |
 | `--model <id>`             | `anthropic-api` model (default `claude-opus-4-8`), or the `local` model name. |

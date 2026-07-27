@@ -134,6 +134,7 @@ npm run build         # tsup → dist/ (index + cli, with .d.ts)
 - [docs/4-templates.md](docs/4-templates.md) — the `--template` format reference.
 - [docs/5-providers.md](docs/5-providers.md) — the CLI-first agent providers (codex/gemini/opencode) reference.
 - [docs/6-fallback.md](docs/6-fallback.md) — fallback provider + suspect empty-notes (`--fallback-*`) handling.
+- [docs/7-diff-grounding.md](docs/7-diff-grounding.md) — grounding notes in the real code diff (`--no-diff`, `--max-diff-chars`).
 - [docs/manual-test-plan.md](docs/manual-test-plan.md) — manual checks (CLI-provider output quality).
 - [docs/ai/code-summary.md](docs/ai/code-summary.md) — AI-oriented code map.
 - [docs/ai/requirements-summary.md](docs/ai/requirements-summary.md) — AI-oriented requirements digest.

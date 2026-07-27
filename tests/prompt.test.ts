@@ -6,15 +6,17 @@ import {
   cleanModelOutput,
   COMMIT_SYSTEM_PROMPT,
   commitsToMaterial,
+  DIFF_IS_SOURCE_OF_TRUTH_RULES,
   isEmptyNotesSentinel,
   NO_CROSS_REFERENCE_RULES,
   NO_USER_FACING_CHANGES,
+  rangeDiffToMaterial,
   stripCodeFences,
   SYSTEM_PROMPT,
   TEMPLATE_SYSTEM_PROMPT,
   workingChangesToMaterial,
 } from '../src/prompt.js';
-import type { Commit, WorkingChanges } from '../src/types.js';
+import type { Commit, RangeDiff, WorkingChanges } from '../src/types.js';
 
 function commit(subject: string, body = '', hash = 'abcdef1234567890'): Commit {
   const raw: RawCommit = { hash, subject, body, author: 'A', date: '2026-01-01T00:00:00Z' };
@@ -127,6 +129,91 @@ describe('COMMIT_SYSTEM_PROMPT', () => {
     expect(COMMIT_SYSTEM_PROMPT).toContain('Conventional Commits');
     expect(COMMIT_SYSTEM_PROMPT).toContain('type(scope): description');
     expect(COMMIT_SYSTEM_PROMPT).toContain('BREAKING CHANGE');
+  });
+});
+
+// @covers FR-25
+describe('DIFF_IS_SOURCE_OF_TRUTH_RULES (GG-50)', () => {
+  it('makes the diff outrank commit messages and changelog prose', () => {
+    expect(DIFF_IS_SOURCE_OF_TRUTH_RULES).toContain('authoritative record');
+    expect(DIFF_IS_SOURCE_OF_TRUTH_RULES).toContain('the diff wins');
+    expect(DIFF_IS_SOURCE_OF_TRUTH_RULES).toContain('secondary');
+  });
+
+  it('requires reporting diff-only changes and dropping unsupported claims', () => {
+    expect(DIFF_IS_SOURCE_OF_TRUTH_RULES).toContain('even when no commit message mentions them');
+    expect(DIFF_IS_SOURCE_OF_TRUTH_RULES).toContain('the diff does not support');
+  });
+
+  it('forbids speculating past a truncated patch', () => {
+    expect(DIFF_IS_SOURCE_OF_TRUTH_RULES).toContain('truncated');
+    expect(DIFF_IS_SOURCE_OF_TRUTH_RULES).toContain('cannot point to');
+  });
+
+  it('is embedded verbatim in every output format, so the rule cannot drift', () => {
+    for (const prompt of [SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT]) {
+      expect(prompt).toContain(DIFF_IS_SOURCE_OF_TRUTH_RULES);
+    }
+  });
+});
+
+// @covers FR-25, FR-26
+describe('rangeDiffToMaterial', () => {
+  const base: RangeDiff = {
+    range: 'v1.0.0..HEAD',
+    files: ['src/a.ts'],
+    stat: ' src/a.ts | 2 +-',
+    patch: 'diff --git a/src/a.ts b/src/a.ts\n+export const added = 1;',
+    excluded: [],
+    truncated: false,
+    isEmpty: false,
+  };
+
+  it('labels the diff as authoritative and carries the stat plus the patch', () => {
+    const material = rangeDiffToMaterial(base);
+    expect(material).toContain('Code diff for `v1.0.0..HEAD`');
+    expect(material).toContain('authoritative record');
+    expect(material).toContain('### Changed file (1)');
+    expect(material).toContain(' src/a.ts | 2 +-');
+    expect(material).toContain('### Patch');
+    expect(material).toContain('+export const added = 1;');
+  });
+
+  it('pluralizes the changed-file count', () => {
+    const material = rangeDiffToMaterial({ ...base, files: ['a.ts', 'b.ts'] });
+    expect(material).toContain('### Changed files (2)');
+  });
+
+  it('names files whose diff was held back as noise, so nothing is silently hidden', () => {
+    const material = rangeDiffToMaterial({
+      ...base,
+      files: ['src/a.ts', 'package-lock.json'],
+      excluded: ['package-lock.json'],
+    });
+    expect(material).toContain('omitted as generated/lockfile noise');
+    expect(material).toContain('package-lock.json');
+    expect(material).toContain('do not describe their contents');
+  });
+
+  it('flags a truncated patch and bounds what may be claimed', () => {
+    const material = rangeDiffToMaterial({ ...base, truncated: true });
+    expect(material).toContain('truncated to fit');
+    expect(material).toContain('do not speculate about the omitted portion');
+  });
+
+  it('omits the Patch heading when every changed file was noise', () => {
+    const material = rangeDiffToMaterial({
+      ...base,
+      files: ['package-lock.json'],
+      patch: '',
+      excluded: ['package-lock.json'],
+    });
+    expect(material).not.toContain('### Patch');
+    expect(material).toContain('### Changed file (1)');
+  });
+
+  it('renders nothing for an empty range', () => {
+    expect(rangeDiffToMaterial({ ...base, isEmpty: true })).toBe('');
   });
 });
 

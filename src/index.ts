@@ -17,7 +17,13 @@ export {
   renderMarkdown,
   renderWorkingChanges,
 } from './changelog.js';
-export { latestTag, readCommits, readWorkingChanges, resolveCommitRange } from './git.js';
+export {
+  latestTag,
+  readCommits,
+  readRangeDiff,
+  readWorkingChanges,
+  resolveCommitRange,
+} from './git.js';
 export { parseCommit, type RawCommit } from './parse.js';
 export {
   buildTemplatePrompt,
@@ -25,9 +31,11 @@ export {
   cleanModelOutput,
   COMMIT_SYSTEM_PROMPT,
   commitsToMaterial,
+  DIFF_IS_SOURCE_OF_TRUTH_RULES,
   isEmptyNotesSentinel,
   NO_CROSS_REFERENCE_RULES,
   NO_USER_FACING_CHANGES,
+  rangeDiffToMaterial,
   stripCodeFences,
   SYSTEM_PROMPT,
   TEMPLATE_SYSTEM_PROMPT,
@@ -67,6 +75,8 @@ export type {
   Commit,
   OutputFormat,
   ProviderName,
+  RangeDiff,
+  RangeDiffOptions,
   ReadCommitsOptions,
   ReleaseNotesOptions,
   WorkingChangeOptions,
