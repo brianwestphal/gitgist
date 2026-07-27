@@ -186,6 +186,13 @@ export interface ReleaseNotesOptions {
    */
   maxDiffChars?: number;
   /**
+   * Feed the model which files each commit touched, so it can attribute a change
+   * to a commit, group changes that touch the same files, and read the order
+   * they landed in (default: `true`). Costs a small share of the diff budget.
+   * Ignored when `ai` is `false`, and when there are no commits.
+   */
+  attribution?: boolean;
+  /**
    * Extra git pathspec patterns whose diff body to hold back, on top of
    * `DEFAULT_EXCLUDES` (`--exclude`). Excluded files stay visible in the
    * changed-file lists and are named in the prompt.

@@ -11,7 +11,7 @@ src/
   cliArgs.ts          # parseArgs() + USAGE
   index.ts            # public API surface + generateChangelog()
   types.ts            # shared types
-  git.ts              # readCommits, latestTag, resolveCommitRange, readRangeDiff, readWorkingChanges, DEFAULT_EXCLUDES, buildExcludePathspecs
+  git.ts              # readCommits, readCommitFiles, latestTag, resolveCommitRange, readRangeDiff, readWorkingChanges, DEFAULT_EXCLUDES, buildExcludePathspecs
   parse.ts            # parseCommit (Conventional Commits)
   prompt.ts           # SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, DIFF_IS_SOURCE_OF_TRUTH_RULES, NO_CROSS_REFERENCE_RULES, NO_USER_FACING_CHANGES, rangeDiffToMaterial, isEmptyNotesSentinel, buildUserPrompt, buildTemplatePrompt, commitsToMaterial, stripCodeFences, cleanModelOutput, workingChangesToMaterial
   changelog.ts        # buildChangelog, renderMarkdown, renderWorkingChanges, DEFAULT_GROUPS  (--no-ai path)
@@ -45,6 +45,8 @@ scripts/
   types `RangeDiff` / `RangeDiffOptions` (see `docs/7-diff-grounding.md`).
 - Diff exclusions: `DEFAULT_EXCLUDES`, `buildExcludePathspecs`, type `DiffExcludeOptions`
   (see `docs/8-exclusions.md`).
+- Commit attribution: `readCommitFiles`, `ATTRIBUTION_RULES`, `attributionFilesPerCommit`,
+  type `CommitAttribution` (see `docs/10-attribution.md`).
 - Working tree: `readWorkingChanges`, `renderWorkingChanges`, `workingChangesToMaterial`.
 - Changelog: `buildChangelog`, `renderMarkdown`, `DEFAULT_GROUPS`.
 - Prompt: `SYSTEM_PROMPT`, `COMMIT_SYSTEM_PROMPT`, `TEMPLATE_SYSTEM_PROMPT`,
@@ -77,6 +79,7 @@ scripts/
 | change how uncommitted changes are read | `git.ts` (`readWorkingChanges`); orchestration in `releaseNotes.ts` |
 | change what code diff the model sees / the budget rules | `git.ts` (`readRangeDiff`, `readWorkingChanges`, `DEFAULT_MAX_DIFF_CHARS`, `shareBudget`); `prompt.ts` (`rangeDiffToMaterial`, `DIFF_IS_SOURCE_OF_TRUTH_RULES`); spec in `docs/7-diff-grounding.md` |
 | change which files' diff content is held back | `git.ts` (`DEFAULT_EXCLUDES`, `buildExcludePathspecs`); `--exclude`/`--no-default-excludes` in `cliArgs.ts`; spec in `docs/8-exclusions.md` |
+| change what the model knows about which commit did what | `git.ts` (`readCommitFiles`); `prompt.ts` (`commitsToMaterial`, `ATTRIBUTION_RULES`, `attributionFilesPerCommit`); spec in `docs/10-attribution.md` |
 | change how the diff budget is spent across files | `git.ts` (`capPatch`, `splitPatchByFile`, `sliceToLine`) — max-min fair allocation, FR-29 |
 | change how much diff a provider gets | `AIProvider.diffBudgetChars` (`providers/types.ts`) + the per-provider constants; precedence in `releaseNotes.ts`; spec in `docs/9-provider-budgets.md` |
 | change deterministic (`--no-ai`) grouping | `changelog.ts` |

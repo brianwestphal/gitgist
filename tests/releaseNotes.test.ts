@@ -25,6 +25,10 @@ const h = vi.hoisted(() => {
   // read, and optionally forced to fail so the degrade path (T-5) can be walked.
   const diffReads: unknown[][] = [];
   let rangeDiffError: Error | null = null;
+  // Attribution-map reads (GG-58): counted, and optionally forced to fail so the
+  // degrade path can be walked.
+  const attributionReads: unknown[][] = [];
+  let attributionError: Error | null = null;
   // Provider resolution (GG-52): budget advertised by the resolved provider, a
   // count of how many times resolution ran, and an optional forced failure.
   let diffBudgetChars: number | undefined;
@@ -40,6 +44,13 @@ const h = vi.hoisted(() => {
     failRangeDiff(error: Error): void {
       rangeDiffError = error;
     },
+    attributionReads,
+    failAttribution(error: Error): void {
+      attributionError = error;
+    },
+    takeAttributionError(): Error | null {
+      return attributionError;
+    },
     resolves,
     setDiffBudget(chars: number | undefined): void {
       diffBudgetChars = chars;
@@ -54,6 +65,8 @@ const h = vi.hoisted(() => {
       calls.length = 0;
       diffReads.length = 0;
       rangeDiffError = null;
+      attributionReads.length = 0;
+      attributionError = null;
       resolves.length = 0;
       diffBudgetChars = undefined;
       resolveError = undefined;
@@ -96,6 +109,13 @@ vi.mock('../src/git.js', async (importOriginal) => {
       h.diffReads.push(args);
       const error = h.takeRangeDiffError();
       return error !== null ? Promise.reject(error) : real(...args);
+    },
+    readCommitFiles: (...args: unknown[]): Promise<unknown> => {
+      h.attributionReads.push(args);
+      const error = h.takeAttributionError();
+      return error !== null
+        ? Promise.reject(error)
+        : (actual.readCommitFiles as (...a: unknown[]) => Promise<unknown>)(...args);
     },
   };
 });
@@ -319,6 +339,56 @@ describe('diff-grounded generation (GG-50)', () => {
     await expect(
       generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, warn }),
     ).rejects.toThrow(/provider blew up/);
+  });
+
+  // @covers FR-30
+  it('feeds per-commit file lists and short hashes to the model', async () => {
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, warn });
+    const { prompt } = h.calls[0];
+    expect(h.attributionReads).toHaveLength(1);
+    expect(prompt).toContain('newest first');
+    expect(prompt).toContain('files: retry.ts');
+    // The short hash rides along so the model has something to attribute to.
+    expect(prompt).toMatch(/- chore: tidy up \([0-9a-f]{7}\)/);
+  });
+
+  // @covers FR-30
+  it('attribution: false skips the read entirely', async () => {
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, attribution: false, warn });
+    expect(h.attributionReads).toHaveLength(0);
+    expect(h.calls[0].prompt).not.toContain('files: ');
+    // Still diff-grounded — only the attribution map is gone.
+    expect(h.calls[0].prompt).toContain('retryForever');
+  });
+
+  it('ai: false never reads the attribution map', async () => {
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, ai: false, warn });
+    expect(h.attributionReads).toHaveLength(0);
+  });
+
+  // @covers FR-30
+  it('degrades without attribution when the map cannot be read, and still generates', async () => {
+    // Same contract as the diff read (T-5): a missing map costs quality, never
+    // the run.
+    h.failAttribution(new Error('fatal: bad revision'));
+    const out = await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, warn });
+    expect(out).toBe('## Features\n- did a thing\n');
+    expect(warnings.join('\n')).toContain('could not read per-commit file lists');
+    expect(warnings.join('\n')).toContain('continuing without commit attribution');
+    expect(h.calls[0].prompt).not.toContain('files: ');
+    // The diff still made it — only attribution was lost.
+    expect(h.calls[0].prompt).toContain('retryForever');
+  });
+
+  // @covers FR-30
+  it('drops the map when the provider budget cannot afford even one path each', async () => {
+    h.setDiffBudget(10);
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, warn });
+    // Read happened, but the rendered material omits it rather than crowding
+    // out the diff — and no warning, since nothing went wrong.
+    expect(h.attributionReads).toHaveLength(1);
+    expect(h.calls[0].prompt).not.toContain('files: ');
+    expect(warnings).toEqual([]);
   });
 
   it('warns about an unreadable diff via the default stderr sink', async () => {

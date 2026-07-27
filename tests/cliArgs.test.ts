@@ -88,6 +88,12 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['--exclude', '  '])).toThrow(/Invalid --exclude/);
   });
 
+  // @covers FR-30
+  it('reads per-commit file lists by default and lets --no-attribution opt out', () => {
+    expect(parseArgs([]).attribution).toBe(true);
+    expect(parseArgs(['--no-attribution']).attribution).toBe(false);
+  });
+
   it('rejects an invalid --provider', () => {
     expect(() => parseArgs(['--provider', 'bogus'])).toThrow(/Invalid --provider/);
   });

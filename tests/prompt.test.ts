@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { parseCommit, type RawCommit } from '../src/parse.js';
 import {
+  ATTRIBUTION_RULES,
+  attributionFilesPerCommit,
   buildUserPrompt,
   cleanModelOutput,
   COMMIT_SYSTEM_PROMPT,
@@ -124,6 +126,94 @@ describe('workingChangesToMaterial', () => {
   it('stays silent when nothing was held back', () => {
     const material = workingChangesToMaterial(base);
     expect(material).not.toContain('Note:');
+  });
+});
+
+// @covers FR-30
+describe('commit attribution (GG-58)', () => {
+  const c1 = commit('feat: alpha', '', 'aaaaaaa1111111111111111111111111111111111');
+  const c2 = commit('fix: bravo', '', 'bbbbbbb2222222222222222222222222222222222');
+
+  it('adds the short hash and file list under each commit', () => {
+    const files = new Map([
+      [c1.hash, ['src/a.ts', 'src/b.ts']],
+      [c2.hash, ['src/c.ts']],
+    ]);
+    const material = commitsToMaterial([c1, c2], { files });
+    expect(material).toContain(`- feat: alpha (${c1.shortHash})`);
+    expect(material).toContain('  files: src/a.ts, src/b.ts');
+    expect(material).toContain(`- fix: bravo (${c2.shortHash})`);
+    expect(material).toContain('  files: src/c.ts');
+  });
+
+  it('leaves the material untouched when no map is supplied', () => {
+    // Without attribution there is nothing to attribute to, so the hash — which
+    // the model could otherwise cite — is deliberately absent.
+    const material = commitsToMaterial([c1]);
+    expect(material).toBe('- feat: alpha');
+    expect(material).not.toContain(c1.shortHash);
+  });
+
+  it('caps the per-commit list and says how many were held back', () => {
+    const many = Array.from({ length: 25 }, (_, i) => `src/f${String(i)}.ts`);
+    const material = commitsToMaterial([c1], { files: new Map([[c1.hash, many]]), maxFilesPerCommit: 3 });
+    expect(material).toContain('files: src/f0.ts, src/f1.ts, src/f2.ts, +22 more');
+    expect(material).not.toContain('src/f3.ts');
+  });
+
+  it('omits the file line for a commit with no mapped files', () => {
+    const material = commitsToMaterial([c1, c2], { files: new Map([[c1.hash, ['src/a.ts']]]) });
+    expect(material).toContain('files: src/a.ts');
+    // c2 has no entry — it still gets its hash, just no file line.
+    expect(material).toContain(`- fix: bravo (${c2.shortHash})`);
+    expect(material.match(/files:/g)).toHaveLength(1);
+  });
+
+  it('buildUserPrompt threads the map and states the ordering', () => {
+    const prompt = buildUserPrompt('v1..HEAD', [c1], { files: new Map([[c1.hash, ['src/a.ts']]]) });
+    expect(prompt).toContain('newest first');
+    expect(prompt).toContain('files: src/a.ts');
+  });
+});
+
+// @covers FR-30
+describe('attributionFilesPerCommit (GG-58)', () => {
+  it('shrinks the per-commit list as the budget tightens', () => {
+    // A large agent-CLI budget affords the full default…
+    expect(attributionFilesPerCommit(120_000, 12)).toBe(10);
+    // …a small on-device one only a path or two.
+    expect(attributionFilesPerCommit(4_000, 12)).toBe(1);
+  });
+
+  it('shrinks as the range grows, for a fixed budget', () => {
+    expect(attributionFilesPerCommit(24_000, 5)).toBeGreaterThan(
+      attributionFilesPerCommit(24_000, 100),
+    );
+  });
+
+  it('returns 0 when not even one path per commit fits, so the map is dropped', () => {
+    expect(attributionFilesPerCommit(1_000, 500)).toBe(0);
+    expect(attributionFilesPerCommit(24_000, 0)).toBe(0);
+  });
+});
+
+// @covers FR-30
+describe('ATTRIBUTION_RULES (GG-58)', () => {
+  it('forbids inventing a hash the model cannot see', () => {
+    expect(ATTRIBUTION_RULES).toContain('appears verbatim');
+    expect(ATTRIBUTION_RULES).toContain('Never guess, reconstruct, or invent a hash');
+    expect(ATTRIBUTION_RULES).toContain('describe the change without a hash');
+  });
+
+  it('explains what the file lists are for', () => {
+    expect(ATTRIBUTION_RULES).toContain('group changes');
+    expect(ATTRIBUTION_RULES).toContain('order they landed');
+  });
+
+  it('is embedded verbatim in every output format, so the rule cannot drift', () => {
+    for (const prompt of [SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT]) {
+      expect(prompt).toContain(ATTRIBUTION_RULES);
+    }
   });
 });
 

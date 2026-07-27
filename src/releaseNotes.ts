@@ -1,6 +1,13 @@
 import { buildChangelog, renderMarkdown, renderWorkingChanges } from './changelog.js';
-import { readCommits, readRangeDiff, readWorkingChanges, resolveCommitRange } from './git.js';
 import {
+  readCommitFiles,
+  readCommits,
+  readRangeDiff,
+  readWorkingChanges,
+  resolveCommitRange,
+} from './git.js';
+import {
+  attributionFilesPerCommit,
   buildTemplatePrompt,
   buildUserPrompt,
   cleanModelOutput,
@@ -21,6 +28,12 @@ import type {
   ReleaseNotesOptions,
   WorkingChanges,
 } from './types.js';
+
+/**
+ * Budget assumed when sizing the attribution map and no provider advertises one
+ * — mirrors `git.ts`'s `DEFAULT_MAX_DIFF_CHARS`, which is what the readers apply.
+ */
+const DEFAULT_DIFF_BUDGET_FALLBACK = 24000;
 
 /** Format an unknown thrown value as a short message for a warning line. */
 function errorMessage(error: unknown): string {
@@ -128,10 +141,44 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     }
   }
 
+  // Which files each commit touched (GG-58) — lets the model attribute a change
+  // to a commit and group changes that land together, for a fraction of what
+  // per-commit patches would cost. Non-fatal like the diff read.
+  let attribution: Map<string, string[]> | undefined;
+  if (options.ai !== false && options.attribution !== false && haveCommits) {
+    try {
+      attribution = await readCommitFiles(range, {
+        cwd,
+        exclude: options.exclude,
+        defaultExcludes: options.defaultExcludes,
+      });
+    } catch (error) {
+      warn(
+        `could not read per-commit file lists for \`${range}\` (${errorMessage(error)}); continuing without commit attribution.`,
+      );
+    }
+  }
+
   // Build the AI material (commit messages + range diff + working-tree diffs) once.
   const buildPromptMaterial = (commitList: Commit[], wc: WorkingChanges | undefined): string => {
     const parts: string[] = [];
-    if (commitList.length > 0) parts.push(buildUserPrompt(range, commitList));
+    if (commitList.length > 0) {
+      // Size the map to the budget it shares with the diff: on a small-context
+      // provider it shrinks to a path or two per commit, and below that it is
+      // dropped entirely rather than crowding out the patch.
+      const perCommit = attributionFilesPerCommit(
+        maxDiffChars ?? DEFAULT_DIFF_BUDGET_FALLBACK,
+        commitList.length,
+      );
+      const files = attribution !== undefined && perCommit > 0 ? attribution : undefined;
+      parts.push(
+        buildUserPrompt(
+          range,
+          commitList,
+          files === undefined ? undefined : { files, maxFilesPerCommit: perCommit },
+        ),
+      );
+    }
     if (rangeDiff !== undefined && !rangeDiff.isEmpty) parts.push(rangeDiffToMaterial(rangeDiff));
     if (wc !== undefined && !wc.isEmpty) parts.push(workingChangesToMaterial(wc));
     return parts.join('\n\n');

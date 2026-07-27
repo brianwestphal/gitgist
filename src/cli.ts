@@ -18,6 +18,7 @@ async function main(): Promise<void> {
     ai: args.ai,
     diff: args.diff,
     maxDiffChars: args.maxDiffChars,
+    attribution: args.attribution,
     exclude: args.exclude,
     defaultExcludes: args.defaultExcludes,
     provider: args.provider,

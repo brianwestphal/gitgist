@@ -5,7 +5,13 @@ import { join } from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { readCommits, readRangeDiff, readWorkingChanges, resolveCommitRange } from '../src/git.js';
+import {
+  readCommitFiles,
+  readCommits,
+  readRangeDiff,
+  readWorkingChanges,
+  resolveCommitRange,
+} from '../src/git.js';
 import { generateChangelog } from '../src/index.js';
 import { generateReleaseNotes } from '../src/releaseNotes.js';
 
@@ -358,6 +364,61 @@ describe('readRangeDiff — the actual code diff for a range (GG-50)', () => {
 
   it('rejects on a revision git cannot resolve (so the caller can degrade)', async () => {
     await expect(readRangeDiff('no-such-tag..HEAD', { cwd: repo })).rejects.toThrow();
+  });
+});
+
+// @covers FR-30
+describe('readCommitFiles — the attribution map (GG-58)', () => {
+  let repo: string;
+
+  beforeAll(() => {
+    repo = initRepo();
+    writeFileSync(join(repo, 'seed.txt'), 'seed\n');
+    git(repo, 'add', '.');
+    commit(repo, 'feat: seed');
+    git(repo, 'tag', 'v1.0.0');
+
+    writeFileSync(join(repo, 'alpha.ts'), 'export const alpha = 1;\n');
+    writeFileSync(join(repo, 'package-lock.json'), '{"noise": 1}\n');
+    git(repo, 'add', '.');
+    commit(repo, 'feat: alpha plus a lockfile');
+
+    writeFileSync(join(repo, 'bravo.ts'), 'export const bravo = 2;\n');
+    git(repo, 'add', '.');
+    commit(repo, 'fix: bravo');
+  });
+
+  afterAll(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
+
+  it('maps each commit to the files it touched, newest first', async () => {
+    const commits = await readCommits('v1.0.0..HEAD', { cwd: repo });
+    const map = await readCommitFiles('v1.0.0..HEAD', { cwd: repo });
+    expect(map.size).toBe(commits.length);
+    // Keys are full hashes, matching `readCommits` — so the two line up.
+    expect(map.get(commits[0].hash)).toEqual(['bravo.ts']);
+    expect(map.get(commits[1].hash)).toContain('alpha.ts');
+    // `git log` order is landing order, newest first.
+    expect(commits[0].subject).toBe('fix: bravo');
+  });
+
+  it('honours the exclusions, so it never advertises a file the diff hid', async () => {
+    const commits = await readCommits('v1.0.0..HEAD', { cwd: repo });
+    const withDefaults = await readCommitFiles('v1.0.0..HEAD', { cwd: repo });
+    expect(withDefaults.get(commits[1].hash)).not.toContain('package-lock.json');
+
+    // Dropping the built-ins brings it back — the map follows FR-27 exactly.
+    const raw = await readCommitFiles('v1.0.0..HEAD', { cwd: repo, defaultExcludes: false });
+    expect(raw.get(commits[1].hash)).toContain('package-lock.json');
+
+    // An explicit --exclude applies here too.
+    const custom = await readCommitFiles('v1.0.0..HEAD', { cwd: repo, exclude: ['bravo.ts'] });
+    expect(custom.get(commits[0].hash) ?? []).toEqual([]);
+  });
+
+  it('returns an empty map for a range with no commits', async () => {
+    expect((await readCommitFiles('HEAD..HEAD', { cwd: repo })).size).toBe(0);
   });
 });
 

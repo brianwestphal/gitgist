@@ -102,6 +102,7 @@ describe('feature coverage — every documented behavior has an asserting test (
 describe('public API surface (FR-10 programmatic API)', () => {
   it('exports exactly the documented runtime surface', () => {
     expect(Object.keys(api).sort()).toEqual([
+      'ATTRIBUTION_RULES',
       'AUTO_LANGUAGE',
       'AUTO_ORDER',
       'COMMIT_SYSTEM_PROMPT',
@@ -116,6 +117,7 @@ describe('public API surface (FR-10 programmatic API)', () => {
       'TEMPLATE_SYSTEM_PROMPT',
       'anthropicApiProvider',
       'appleProvider',
+      'attributionFilesPerCommit',
       'buildChangelog',
       'buildExcludePathspecs',
       'buildTemplatePrompt',
@@ -140,6 +142,7 @@ describe('public API surface (FR-10 programmatic API)', () => {
       'parseCommit',
       'parseTemplate',
       'rangeDiffToMaterial',
+      'readCommitFiles',
       'readCommits',
       'readRangeDiff',
       'readWorkingChanges',

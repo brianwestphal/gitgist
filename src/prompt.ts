@@ -37,6 +37,21 @@ export const DIFF_IS_SOURCE_OF_TRUTH_RULES = `- When a code diff is included bel
 - Never describe a change you cannot point to in the material you were given. If the patch was truncated or some files were listed without their diff, summarize what you can see and say nothing about the parts you cannot.`;
 
 /**
+ * Shared rule block governing commit attribution (GG-58).
+ *
+ * When the commit list carries per-commit file lists, the model can tie a change
+ * to the commit that made it. The risk is the obvious one: a model that knows
+ * hashes exist will happily invent one. This says it may only use a hash it can
+ * actually see.
+ *
+ * Embedded verbatim in {@link SYSTEM_PROMPT}, {@link TEMPLATE_SYSTEM_PROMPT},
+ * and {@link COMMIT_SYSTEM_PROMPT} so the rule can never drift between formats.
+ */
+export const ATTRIBUTION_RULES = `- Each commit above may list the files it touched. Use that to work out which commit made a change, to group changes that touch the same files into one theme, and to read the order they landed in — commits are listed newest first.
+- Only ever cite a commit hash that appears verbatim in the material above. Never guess, reconstruct, or invent a hash, and never cite one for a change you cannot tie to that commit's file list. If you are unsure which commit made a change, describe the change without a hash.
+- Do not add hashes to the output unless the requested format asks for them; the file lists are there to help you reason, not to be echoed back.`;
+
+/**
  * Shared rule block forbidding meta / cross-reference output (GG-51).
  *
  * Whenever a changelog or release-notes file is part of the input — an
@@ -69,6 +84,7 @@ Rules:
 - INCLUDE user-visible changes: new features, bug fixes, performance, UX, breaking changes, and notable behavior changes.
 - EXCLUDE noise: ticket IDs, pure-internal refactors, test-only changes, CI/build tweaks, routine dependency bumps, and implementation detail.
 ${DIFF_IS_SOURCE_OF_TRUTH_RULES}
+${ATTRIBUTION_RULES}
 ${NO_CROSS_REFERENCE_RULES}
 - Scale the amount of detail to the volume of real user-facing work. Do not pad, and do not invent changes that are not present in the commits.
 - If there are no user-facing changes, output exactly: \`${NO_USER_FACING_CHANGES}\``;
@@ -86,6 +102,7 @@ Rules:
 - If the change is breaking, append \`!\` after the type/scope (e.g. \`feat!:\`) and add a \`BREAKING CHANGE: <what broke>\` footer.
 - For anything beyond a trivial one-liner, add a blank line then a body: a few short bullet points or sentences explaining what changed and why. Wrap body lines at about 72 characters.
 ${DIFF_IS_SOURCE_OF_TRUTH_RULES}
+${ATTRIBUTION_RULES}
 ${NO_CROSS_REFERENCE_RULES}
 - Summarize the actual changes; do not invent anything not present in the input.`;
 
@@ -102,6 +119,7 @@ Template rules:
 - If the template has YAML frontmatter (a \`---\`-fenced block at the top), treat it as global directives — audience, tone, and what to include or exclude. Apply it, but do NOT output the frontmatter.
 - Under each section, write concise, user-facing bullet points. Filter out noise (internal refactors, tests, CI tweaks, ticket IDs) unless the template's guidance says otherwise. Summarize the actual changes; do not invent anything.
 ${DIFF_IS_SOURCE_OF_TRUTH_RULES}
+${ATTRIBUTION_RULES}
 ${NO_CROSS_REFERENCE_RULES}
 - Output ONLY the rendered Markdown — no preamble, no surrounding code fence, no leftover template comments or frontmatter.`;
 
@@ -179,16 +197,61 @@ export function cleanModelOutput(text: string, format: OutputFormat): string {
 }
 
 /**
+ * Default cap on how many paths are listed per commit in the attribution map.
+ * A commit that touches fifty files says "broad change" just as well with ten
+ * paths and a `+40 more` — and the remaining budget is better spent on the diff.
+ */
+const DEFAULT_MAX_ATTRIBUTED_FILES = 10;
+
+/** Share of the diff budget the attribution map is allowed to consume. */
+const ATTRIBUTION_BUDGET_SHARE = 0.15;
+
+/** Rough chars per rendered path (`src/providers/anthropicApi.ts, `). */
+const APPROX_PATH_CHARS = 30;
+
+/**
+ * How many paths to list per commit, given the diff budget the material has to
+ * share (GG-58).
+ *
+ * The map is cheap but not free — on a 4000-char on-device budget the full
+ * form would eat the entire allowance the diff needs. This keeps it to roughly
+ * {@link ATTRIBUTION_BUDGET_SHARE} of the budget, shrinking the per-commit list
+ * as the budget tightens or the range grows.
+ *
+ * @param budget - Char budget the diff material is working within.
+ * @param commitCount - Commits in the range.
+ * @returns Paths to list per commit, or `0` when even one per commit won't fit.
+ */
+export function attributionFilesPerCommit(budget: number, commitCount: number): number {
+  if (commitCount <= 0) return 0;
+  const allowance = budget * ATTRIBUTION_BUDGET_SHARE;
+  const perCommit = Math.floor(allowance / (commitCount * APPROX_PATH_CHARS));
+  return Math.min(perCommit, DEFAULT_MAX_ATTRIBUTED_FILES);
+}
+
+/** Which files each commit touched, for {@link commitsToMaterial} (GG-58). */
+export interface CommitAttribution {
+  /** Full commit hash → the paths it touched (`readCommitFiles`). */
+  files: Map<string, string[]>;
+  /** Max paths listed per commit before a `+N more` (default: 10). */
+  maxFilesPerCommit?: number;
+}
+
+/**
  * Render commits as the material fed to the model: one bullet per commit
  * subject, with a truncated body indented beneath it when present.
  *
  * @param commits - The commits to format.
  * @returns The Markdown-ish material block.
  */
-export function commitsToMaterial(commits: Commit[]): string {
+export function commitsToMaterial(commits: Commit[], attribution?: CommitAttribution): string {
+  const perCommit = attribution?.files;
+  const maxFiles = attribution?.maxFilesPerCommit ?? DEFAULT_MAX_ATTRIBUTED_FILES;
   return commits
     .map((commit) => {
-      let entry = `- ${commit.subject}`;
+      // The short hash rides along whenever an attribution map is present —
+      // without it the model has no handle to attribute a change to (GG-58).
+      let entry = perCommit === undefined ? `- ${commit.subject}` : `- ${commit.subject} (${commit.shortHash})`;
       const body = commit.body.trim();
       if (body.length > 0) {
         const snippet = body.length > 500 ? `${body.slice(0, 500)}…` : body;
@@ -197,6 +260,13 @@ export function commitsToMaterial(commits: Commit[]): string {
           .map((line) => `  ${line}`)
           .join('\n');
         entry += `\n${indented}`;
+      }
+      const files = perCommit?.get(commit.hash);
+      if (files !== undefined && files.length > 0) {
+        const shown = files.slice(0, maxFiles);
+        const overflow = files.length - shown.length;
+        const more = overflow > 0 ? `, +${String(overflow)} more` : '';
+        entry += `\n  files: ${shown.join(', ')}${more}`;
       }
       return entry;
     })
@@ -210,10 +280,14 @@ export function commitsToMaterial(commits: Commit[]): string {
  * @param commits - The commits to summarize.
  * @returns The user-turn prompt string.
  */
-export function buildUserPrompt(range: string, commits: Commit[]): string {
+export function buildUserPrompt(
+  range: string,
+  commits: Commit[],
+  attribution?: CommitAttribution,
+): string {
   const count = commits.length;
   const noun = count === 1 ? 'commit' : 'commits';
-  return `Here ${count === 1 ? 'is' : 'are'} the ${String(count)} ${noun} in \`${range}\`:\n\n${commitsToMaterial(commits)}`;
+  return `Here ${count === 1 ? 'is' : 'are'} the ${String(count)} ${noun} in \`${range}\` (newest first):\n\n${commitsToMaterial(commits, attribution)}`;
 }
 
 /**

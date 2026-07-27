@@ -40,6 +40,7 @@ gitgist --no-ai         # offline Conventional Commits grouping
 - [7-diff-grounding.md](7-diff-grounding.md) — grounding the notes in the real code diff.
 - [8-exclusions.md](8-exclusions.md) — which files' diff content is held back, and how to configure it.
 - [9-provider-budgets.md](9-provider-budgets.md) — how much diff each AI backend gets, sized to its context window.
+- [10-attribution.md](10-attribution.md) — how the model knows which commit made which change.
 - [ai/code-summary.md](ai/code-summary.md) — AI-oriented code map.
 - [ai/requirements-summary.md](ai/requirements-summary.md) — AI-oriented
   requirements digest.

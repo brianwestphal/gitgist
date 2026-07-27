@@ -136,6 +136,56 @@ export async function readCommits(range: string, options: ReadCommitsOptions = {
 }
 
 /**
+ * Marks the start of a commit record in {@link readCommitFiles} output. Distinct
+ * from {@link FIELD_SEP} (0x1F) so the two parsers can never be confused, and a
+ * control character git guarantees won't appear in a path.
+ */
+const COMMIT_MARKER = '';
+
+/**
+ * Read which files each commit in a range touched — the **attribution map**.
+ *
+ * This is the cheap answer to "which commit introduced this change?" (GG-58).
+ * The net range diff shows *what* changed but has no notion of which commit did
+ * it or in what order; segmenting the patch per commit would cost 1.2–1.7× the
+ * whole diff to re-send hunks the model already has. A file list per commit
+ * costs a fraction of that and adds information rather than repeating it.
+ *
+ * Honors the same exclusions as the diff (FR-27), so the map never advertises a
+ * lockfile the model was told to ignore.
+ *
+ * @param range - A git revision range, e.g. `v1.0.0..HEAD`.
+ * @param options - Repository location and exclusions (`maxChars` is unused).
+ * @returns Full commit hash → the paths it touched, in `git log` order.
+ */
+export async function readCommitFiles(
+  range: string,
+  options: RangeDiffOptions = {},
+): Promise<Map<string, string[]>> {
+  const cwd = options.cwd ?? process.cwd();
+  const excludes = buildExcludePathspecs(options.exclude, options.defaultExcludes);
+  const { stdout } = await execFileAsync(
+    'git',
+    withPathspecs(['log', '-z', `--format=${COMMIT_MARKER}%H`, '--name-only', range], excludes),
+    { cwd, maxBuffer: GIT_MAX_BUFFER },
+  );
+
+  const byCommit = new Map<string, string[]>();
+  let current: string[] | undefined;
+  for (const raw of stdout.split('\0')) {
+    const token = raw.trim();
+    if (token === '') continue;
+    if (token.startsWith(COMMIT_MARKER)) {
+      current = [];
+      byCommit.set(token.slice(COMMIT_MARKER.length), current);
+    } else if (current !== undefined) {
+      current.push(token);
+    }
+  }
+  return byCommit;
+}
+
+/**
  * Find the most recent tag reachable from `HEAD`.
  *
  * @param cwd - Repository directory (default: `process.cwd()`).

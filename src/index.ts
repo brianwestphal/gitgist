@@ -21,6 +21,7 @@ export {
   buildExcludePathspecs,
   DEFAULT_EXCLUDES,
   latestTag,
+  readCommitFiles,
   readCommits,
   readRangeDiff,
   readWorkingChanges,
@@ -28,10 +29,13 @@ export {
 } from './git.js';
 export { parseCommit, type RawCommit } from './parse.js';
 export {
+  ATTRIBUTION_RULES,
+  attributionFilesPerCommit,
   buildTemplatePrompt,
   buildUserPrompt,
   cleanModelOutput,
   COMMIT_SYSTEM_PROMPT,
+  type CommitAttribution,
   commitsToMaterial,
   DIFF_IS_SOURCE_OF_TRUTH_RULES,
   isEmptyNotesSentinel,

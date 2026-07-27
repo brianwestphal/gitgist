@@ -137,6 +137,7 @@ npm run build         # tsup → dist/ (index + cli, with .d.ts)
 - [docs/7-diff-grounding.md](docs/7-diff-grounding.md) — grounding notes in the real code diff (`--no-diff`, `--max-diff-chars`).
 - [docs/8-exclusions.md](docs/8-exclusions.md) — diff exclusions (`--exclude`, `--no-default-excludes`) and the default noise list.
 - [docs/9-provider-budgets.md](docs/9-provider-budgets.md) — per-provider diff budgets (`AIProvider.diffBudgetChars`) sized to each model's context window.
+- [docs/10-attribution.md](docs/10-attribution.md) — per-commit file lists (`--no-attribution`) so the model can attribute, group, and order changes.
 - [docs/manual-test-plan.md](docs/manual-test-plan.md) — manual checks (CLI-provider output quality).
 - `docs/technical-changelog/` — per-release, diff-grounded technical reports (written by the `technical-changelog` skill; `scripts/changelog-analysis.mjs` does the git analysis).
 - [docs/ai/code-summary.md](docs/ai/code-summary.md) — AI-oriented code map.

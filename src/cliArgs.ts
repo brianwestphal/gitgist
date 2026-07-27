@@ -22,6 +22,7 @@ export interface CliArgs {
   untracked: boolean;
   ai: boolean;
   diff: boolean;
+  attribution: boolean;
   maxDiffChars?: number;
   exclude: string[];
   defaultExcludes: boolean;
@@ -59,6 +60,9 @@ Options:
                           Defaults to the provider's own budget, sized to its
                           context window (apple 4k … anthropic-api 200k). The
                           changed-file list is never dropped.
+  --no-attribution        Skip the per-commit file lists. They let the model tie
+                          a change to the commit that made it and group changes
+                          that land together, for a small share of the budget.
   --exclude <pathspec>    Hold this path's diff body back from the model, on top
                           of the built-in list (lockfiles, dist/, vendor/, …).
                           Repeatable. Excluded files still appear as changed.
@@ -167,6 +171,7 @@ export function parseArgs(argv: string[]): CliArgs {
     provider: 'auto',
     ai: true,
     diff: true,
+    attribution: true,
     exclude: [],
     defaultExcludes: true,
     help: false,
@@ -214,6 +219,9 @@ export function parseArgs(argv: string[]): CliArgs {
         break;
       case '--no-diff':
         args.diff = false;
+        break;
+      case '--no-attribution':
+        args.attribution = false;
         break;
       case '--exclude':
         args.exclude.push(parseExclude(argv[++i]));
