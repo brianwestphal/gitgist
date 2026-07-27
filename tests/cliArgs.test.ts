@@ -109,6 +109,21 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['--commit-url'])).toThrow(/Invalid --commit-url/);
   });
 
+  // @covers FR-32
+  it('loads the project config by default and lets --no-config skip it', () => {
+    expect(parseArgs([]).config).toBe(true);
+    expect(parseArgs(['--no-config']).config).toBe(false);
+  });
+
+  // @covers FR-32
+  it('records which options were passed explicitly, so config can defer to them', () => {
+    expect(parseArgs([]).explicit.size).toBe(0);
+    const args = parseArgs(['--no-diff', '--provider', 'codex', '--max-diff-chars', '99']);
+    expect([...args.explicit].sort()).toEqual(['diff', 'maxDiffChars', 'provider']);
+    // --commit-message sets format, so it counts as explicit too.
+    expect(parseArgs(['--commit-message']).explicit.has('format')).toBe(true);
+  });
+
   it('rejects an invalid --provider', () => {
     expect(() => parseArgs(['--provider', 'bogus'])).toThrow(/Invalid --provider/);
   });

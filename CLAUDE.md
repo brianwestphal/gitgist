@@ -139,6 +139,7 @@ npm run build         # tsup → dist/ (index + cli, with .d.ts)
 - [docs/9-provider-budgets.md](docs/9-provider-budgets.md) — per-provider diff budgets (`AIProvider.diffBudgetChars`) sized to each model's context window.
 - [docs/10-attribution.md](docs/10-attribution.md) — per-commit file lists (`--no-attribution`) so the model can attribute, group, and order changes.
 - [docs/11-commit-links.md](docs/11-commit-links.md) — bullets that cite/link their commit (`--link-commits`, `--commit-url`).
+- [docs/12-config.md](docs/12-config.md) — project config (`gitgist.config.json`, `package.json#gitgist`) and flag-over-config precedence.
 - [docs/manual-test-plan.md](docs/manual-test-plan.md) — manual checks (CLI-provider output quality).
 - `docs/technical-changelog/` — per-release, diff-grounded technical reports (written by the `technical-changelog` skill; `scripts/changelog-analysis.mjs` does the git analysis).
 - [docs/ai/code-summary.md](docs/ai/code-summary.md) — AI-oriented code map.

@@ -42,6 +42,7 @@ gitgist --no-ai         # offline Conventional Commits grouping
 - [9-provider-budgets.md](9-provider-budgets.md) — how much diff each AI backend gets, sized to its context window.
 - [10-attribution.md](10-attribution.md) — how the model knows which commit made which change.
 - [11-commit-links.md](11-commit-links.md) — making bullets cite/link their commit (`--link-commits`).
+- [12-config.md](12-config.md) — `gitgist.config.json` so a project pins its settings once.
 - [ai/code-summary.md](ai/code-summary.md) — AI-oriented code map.
 - [ai/requirements-summary.md](ai/requirements-summary.md) — AI-oriented
   requirements digest.

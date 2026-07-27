@@ -17,6 +17,16 @@ export {
   renderMarkdown,
   renderWorkingChanges,
 } from './changelog.js';
+export { type CliArgs, parseArgs, USAGE } from './cliArgs.js';
+export {
+  applyConfig,
+  CONFIG_FILENAME,
+  type GitgistConfig,
+  loadConfig,
+  type LoadedConfig,
+  PACKAGE_JSON_KEY,
+  parseConfig,
+} from './config.js';
 export {
   buildExcludePathspecs,
   commitUrlFromRemote,
@@ -93,6 +103,7 @@ export type {
   WorkingChangeOptions,
   WorkingChanges,
 } from './types.js';
+export { PROVIDER_NAMES } from './types.js';
 
 /**
  * Read a git range and render it directly to a deterministic Markdown changelog

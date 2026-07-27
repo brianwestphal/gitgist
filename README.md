@@ -134,6 +134,7 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 | `--no-attribution`         | Skip the per-commit file lists that let the model attribute and group changes ([docs](docs/10-attribution.md)). |
 | `--link-commits`           | End each bullet with the commit it came from — linked when the remote host is known ([docs](docs/11-commit-links.md)). |
 | `--commit-url <template>`  | URL for `--link-commits`, containing `{hash}`. Overrides the auto-detected one. |
+| `--no-config`              | Ignore `gitgist.config.json` / `package.json#gitgist` ([docs](docs/12-config.md)). |
 | `--provider <name>`        | `auto` \| `claude-cli` \| `codex` \| `gemini` \| `opencode` \| `anthropic-api` \| `local` \| `apple` (default: `auto`). |
 | `--endpoint <url>`         | Base URL for `--provider local` (default: Ollama's `…:11434/v1`).   |
 | `--model <id>`             | `anthropic-api` model (default `claude-opus-4-8`), or the `local` model name. |
@@ -149,6 +150,26 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 > **Working-tree flags** summarize uncommitted changes. With no range they
 > summarize only the pending changes (great for a commit message); with a range
 > they're folded in alongside the commits.
+
+## Project config
+
+Pin the settings that belong to the repository instead of repeating flags in
+every CI job — `gitgist.config.json` at the repo root, or a `gitgist` key in
+`package.json`:
+
+```json
+{
+  "exclude": ["*.pb.py", "migrations/*"],
+  "provider": "claude-cli",
+  "maxDiffChars": 150000,
+  "linkCommits": true
+}
+```
+
+Command-line flags win over the file; `--exclude` patterns are **appended** to
+its list rather than replacing them. `--no-config` ignores it. Unknown keys are
+rejected rather than silently dropped. Full reference:
+[docs/12-config.md](docs/12-config.md).
 
 ## AI providers & API keys
 

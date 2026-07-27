@@ -9,6 +9,7 @@ changes.
 src/
   cli.ts              # gitgist bin (thin)
   cliArgs.ts          # parseArgs() + USAGE
+  config.ts           # loadConfig / parseConfig / applyConfig (gitgist.config.json, package.json#gitgist)
   index.ts            # public API surface + generateChangelog()
   types.ts            # shared types
   git.ts              # readCommits, readCommitFiles, latestTag, resolveCommitRange, readRangeDiff, readWorkingChanges, DEFAULT_EXCLUDES, buildExcludePathspecs, commitUrlFromRemote, detectCommitUrl
@@ -57,6 +58,9 @@ scripts/
   `buildTemplatePrompt`, `commitsToMaterial`, `workingChangesToMaterial`,
   `stripCodeFences`, `cleanModelOutput`.
 - Templates: `loadTemplate`, `parseTemplate`, type `Template`.
+- Config + CLI args: `loadConfig`, `parseConfig`, `applyConfig`, `CONFIG_FILENAME`,
+  `PACKAGE_JSON_KEY`, `parseArgs`, `USAGE`, types `GitgistConfig` / `LoadedConfig` /
+  `CliArgs` (see `docs/12-config.md`).
 - Providers: `resolveProvider`, `PROVIDERS`, `AUTO_ORDER`; `createCliProvider`,
   `claudeCliProvider`, `codexProvider`, `geminiProvider`, `opencodeProvider`;
   `createAnthropicApiProvider`, `anthropicApiProvider`; `createLocalProvider`,
@@ -65,7 +69,7 @@ scripts/
   `GenerateRequest`, `CliProviderSpec`, `AnthropicApiProviderConfig`,
   `LocalProviderConfig`, `AppleProviderConfig`.
 - Types: `Commit`, `Changelog`, `ChangelogSection`, `ChangelogOptions`,
-  `ReadCommitsOptions`, `ReleaseNotesOptions`, `ProviderName`, `OutputFormat`,
+  `ReadCommitsOptions`, `ReleaseNotesOptions`, `ProviderName`, `PROVIDER_NAMES`, `OutputFormat`,
   `WorkingChanges`, `WorkingChangeOptions`, `RawCommit`.
 
 ## Where do I look to…
@@ -87,7 +91,8 @@ scripts/
 | change how much diff a provider gets | `AIProvider.diffBudgetChars` (`providers/types.ts`) + the per-provider constants; precedence in `releaseNotes.ts`; spec in `docs/9-provider-budgets.md` |
 | change deterministic (`--no-ai`) grouping | `changelog.ts` |
 | change the fallback-provider retry / suspect empty-notes handling | `releaseNotes.ts` (`generateViaAI`, `hasFallback`, `notesInvalid`); sentinel in `prompt.ts` (`NO_USER_FACING_CHANGES`, `isEmptyNotesSentinel`); spec in `docs/6-fallback.md` |
-| add/change a CLI flag | `cliArgs.ts` (+ wire in `cli.ts`, `releaseNotes.ts`) |
+| add/change a CLI flag | `cliArgs.ts` (+ wire in `cli.ts`, `releaseNotes.ts`); add it to `config.ts` too if it's a project-level setting |
+| change the project config file / its precedence | `config.ts`; spec in `docs/12-config.md` |
 | change provider selection order | `providers/index.ts` (`AUTO_ORDER`) |
 | add a requirement/behavior + its test link | add an FR/NFR/T row to `docs/3-requirements.md`, add a `// @covers <ID>` tag on the asserting test; verify with `npm run check:features` |
 | write a diff-grounded technical changelog for a release | the `technical-changelog` skill + `scripts/changelog-analysis.mjs`; reports land in `docs/technical-changelog/` |

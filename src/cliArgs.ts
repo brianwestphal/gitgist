@@ -1,4 +1,5 @@
 import type { OutputFormat, ProviderName } from './types.js';
+import { PROVIDER_NAMES } from './types.js';
 
 /** Parsed command-line arguments. */
 export interface CliArgs {
@@ -25,6 +26,13 @@ export interface CliArgs {
   attribution: boolean;
   linkCommits: boolean;
   commitUrl?: string;
+  config: boolean;
+  /**
+   * Option names the user passed explicitly. Needed because booleans carry a
+   * concrete default, so `diff: true` alone can't distinguish "not passed" from
+   * "passed" — and a config value must only lose to a flag actually given.
+   */
+  explicit: Set<keyof CliArgs>;
   maxDiffChars?: number;
   exclude: string[];
   defaultExcludes: boolean;
@@ -67,6 +75,7 @@ Options:
                           host (GitHub/GitLab/Bitbucket), else a bare hash.
   --commit-url <template> URL for --link-commits, containing {hash}. Overrides
                           the auto-detected one, e.g. for a self-hosted host.
+  --no-config             Ignore gitgist.config.json / package.json#gitgist.
   --no-attribution        Skip the per-commit file lists. They let the model tie
                           a change to the commit that made it and group changes
                           that land together, for a small share of the budget.
@@ -127,20 +136,11 @@ Examples:
   gitgist --no-ai`;
 
 function parseProvider(value: string | undefined): ProviderName {
-  if (
-    value === 'auto' ||
-    value === 'anthropic-api' ||
-    value === 'claude-cli' ||
-    value === 'codex' ||
-    value === 'gemini' ||
-    value === 'opencode' ||
-    value === 'local' ||
-    value === 'apple'
-  ) {
-    return value;
+  if (value !== undefined && (PROVIDER_NAMES as readonly string[]).includes(value)) {
+    return value as ProviderName;
   }
   throw new Error(
-    `Invalid --provider: ${value ?? '(missing)'} (expected auto, claude-cli, codex, gemini, opencode, anthropic-api, local, or apple)`,
+    `Invalid --provider: ${value ?? '(missing)'} (expected ${PROVIDER_NAMES.join(', ')})`,
   );
 }
 
@@ -190,6 +190,8 @@ export function parseArgs(argv: string[]): CliArgs {
     diff: true,
     attribution: true,
     linkCommits: false,
+    config: true,
+    explicit: new Set(),
     exclude: [],
     defaultExcludes: true,
     help: false,
@@ -225,36 +227,48 @@ export function parseArgs(argv: string[]): CliArgs {
         break;
       case '--format':
         args.format = parseFormat(argv[++i]);
+        args.explicit.add('format');
         break;
       case '--commit-message':
         args.format = 'commit';
+        args.explicit.add('format');
         break;
       case '--template':
         args.template = argv[++i];
+        args.explicit.add('template');
         break;
       case '--no-ai':
         args.ai = false;
         break;
       case '--no-diff':
         args.diff = false;
+        args.explicit.add('diff');
         break;
       case '--no-attribution':
         args.attribution = false;
+        args.explicit.add('attribution');
         break;
       case '--link-commits':
         args.linkCommits = true;
+        args.explicit.add('linkCommits');
+        break;
+      case '--no-config':
+        args.config = false;
         break;
       case '--commit-url':
         args.commitUrl = parseCommitUrl(argv[++i]);
+        args.explicit.add('commitUrl');
         break;
       case '--exclude':
         args.exclude.push(parseExclude(argv[++i]));
         break;
       case '--no-default-excludes':
         args.defaultExcludes = false;
+        args.explicit.add('defaultExcludes');
         break;
       case '--max-diff-chars':
         args.maxDiffChars = parsePositiveInt('--max-diff-chars', argv[++i]);
+        args.explicit.add('maxDiffChars');
         break;
       case '--title':
         args.title = argv[++i];
@@ -264,27 +278,35 @@ export function parseArgs(argv: string[]): CliArgs {
         break;
       case '--model':
         args.model = argv[++i];
+        args.explicit.add('model');
         break;
       case '--endpoint':
         args.endpoint = argv[++i];
+        args.explicit.add('endpoint');
         break;
       case '--fallback-provider':
         args.fallbackProvider = parseProvider(argv[++i]);
+        args.explicit.add('fallbackProvider');
         break;
       case '--fallback-endpoint':
         args.fallbackEndpoint = argv[++i];
+        args.explicit.add('fallbackEndpoint');
         break;
       case '--fallback-model':
         args.fallbackModel = argv[++i];
+        args.explicit.add('fallbackModel');
         break;
       case '--language':
         args.language = argv[++i];
+        args.explicit.add('language');
         break;
       case '--max-tokens':
         args.maxTokens = parsePositiveInt('--max-tokens', argv[++i]);
+        args.explicit.add('maxTokens');
         break;
       case '--provider':
         args.provider = parseProvider(argv[++i]);
+        args.explicit.add('provider');
         break;
       default:
         if (arg.startsWith('-')) {

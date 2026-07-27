@@ -45,7 +45,8 @@ generateReleaseNotes (releaseNotes.ts)
 | `providers/apple.ts` | `createAppleProvider()` — on-device Apple Foundation Models via the `apple-fm` package. |
 | `providers/index.ts` | `PROVIDERS`, `AUTO_ORDER`, `resolveProvider(requested, opts?)`. |
 | `releaseNotes.ts` | `generateReleaseNotes()` — orchestrates the whole flow. |
-| `cliArgs.ts` | `parseArgs()` + `USAGE` (pure, testable). |
+| `cliArgs.ts` | `parseArgs()` + `USAGE` (pure, testable); `explicit` records which flags were passed. |
+| `config.ts` | `loadConfig` / `parseConfig` / `applyConfig` — `gitgist.config.json` or `package.json#gitgist`, merged flag-over-config ([12-config.md](12-config.md)). |
 | `cli.ts` | The `gitgist` bin (thin wrapper). |
 | `index.ts` | Public API surface + `generateChangelog()` convenience wrapper. |
 | `types.ts` | Shared types (`Commit`, `Changelog`, `ReleaseNotesOptions`, `ProviderName`, …). |

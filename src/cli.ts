@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 import { parseArgs, USAGE } from './cliArgs.js';
+import { applyConfig, loadConfig } from './config.js';
 import { generateReleaseNotes } from './index.js';
 
 async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+  const raw = parseArgs(process.argv.slice(2));
 
-  if (args.help) {
+  if (raw.help) {
     console.log(USAGE);
     return;
   }
+
+  // Project config fills in whatever this invocation didn't specify (FR-32).
+  const loaded = raw.config ? await loadConfig(raw.cwd) : null;
+  const args = applyConfig(raw, loaded?.config ?? null);
 
   const markdown = await generateReleaseNotes({
     from: args.from,

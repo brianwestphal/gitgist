@@ -80,15 +80,18 @@ export interface ChangelogOptions {
  * - `apple` — on-device macOS Apple Foundation Models (a free, private
  *   fallback when no Claude backend is available).
  */
-export type ProviderName =
-  | 'auto'
-  | 'anthropic-api'
-  | 'claude-cli'
-  | 'codex'
-  | 'gemini'
-  | 'opencode'
-  | 'local'
-  | 'apple';
+export const PROVIDER_NAMES = [
+  'auto',
+  'anthropic-api',
+  'claude-cli',
+  'codex',
+  'gemini',
+  'opencode',
+  'local',
+  'apple',
+] as const;
+
+export type ProviderName = (typeof PROVIDER_NAMES)[number];
 
 /**
  * Output shape:
