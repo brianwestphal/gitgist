@@ -13,7 +13,7 @@ src/
   types.ts            # shared types
   git.ts              # readCommits, latestTag, resolveCommitRange, readWorkingChanges
   parse.ts            # parseCommit (Conventional Commits)
-  prompt.ts           # SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, NO_USER_FACING_CHANGES, isEmptyNotesSentinel, buildUserPrompt, buildTemplatePrompt, commitsToMaterial, stripCodeFences, cleanModelOutput, workingChangesToMaterial
+  prompt.ts           # SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, NO_CROSS_REFERENCE_RULES, NO_USER_FACING_CHANGES, isEmptyNotesSentinel, buildUserPrompt, buildTemplatePrompt, commitsToMaterial, stripCodeFences, cleanModelOutput, workingChangesToMaterial
   changelog.ts        # buildChangelog, renderMarkdown, renderWorkingChanges, DEFAULT_GROUPS  (--no-ai path)
   template.ts         # loadTemplate, parseTemplate (--template)
   releaseNotes.ts     # generateReleaseNotes (orchestrator)
@@ -43,7 +43,7 @@ scripts/
 - Working tree: `readWorkingChanges`, `renderWorkingChanges`, `workingChangesToMaterial`.
 - Changelog: `buildChangelog`, `renderMarkdown`, `DEFAULT_GROUPS`.
 - Prompt: `SYSTEM_PROMPT`, `COMMIT_SYSTEM_PROMPT`, `TEMPLATE_SYSTEM_PROMPT`,
-  `NO_USER_FACING_CHANGES`, `isEmptyNotesSentinel`, `buildUserPrompt`,
+  `NO_CROSS_REFERENCE_RULES`, `NO_USER_FACING_CHANGES`, `isEmptyNotesSentinel`, `buildUserPrompt`,
   `buildTemplatePrompt`, `commitsToMaterial`, `workingChangesToMaterial`,
   `stripCodeFences`, `cleanModelOutput`.
 - Templates: `loadTemplate`, `parseTemplate`, type `Template`.

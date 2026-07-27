@@ -21,6 +21,24 @@ export function isEmptyNotesSentinel(text: string): boolean {
 }
 
 /**
+ * Shared rule block forbidding meta / cross-reference output (GG-51).
+ *
+ * Whenever a changelog or release-notes file is part of the input — an
+ * `Unreleased` section being the common case — models are prone to emitting a
+ * deferral instead of the change itself: a "Carried over from … — dedupe
+ * against the draft above" section, a "see the changelog" pointer, or an
+ * instruction telling the reader to reconcile two documents. gitgist's output
+ * must always stand on its own and fully describe the software change;
+ * de-duplicating against an existing `CHANGELOG.md` is an external tool's
+ * responsibility and out of scope here.
+ *
+ * Embedded verbatim in {@link SYSTEM_PROMPT}, {@link TEMPLATE_SYSTEM_PROMPT},
+ * and {@link COMMIT_SYSTEM_PROMPT} so the rule can never drift between formats.
+ */
+export const NO_CROSS_REFERENCE_RULES = `- Describe the software changes themselves; never write about the output or about other documents. Do NOT emit meta or cross-reference content of any kind — no "Carried over from …", "Previously announced", "Already in the changelog", "See also", or "dedupe against the draft above", and no instruction telling the reader to reconcile, merge, or de-duplicate anything. De-duplicating against an existing changelog is a separate tool's job and is out of scope for you.
+- A changelog, release-notes, or other documentation file in the input is just another changed file. If the input already contains an entry for this work (e.g. an \`Unreleased\` section), treat it as evidence of what changed: describe that change in full, in your own words, in the place it belongs. Never defer to it, never assume the reader has seen it, and never drop or shorten a change because it already appears there.`;
+
+/**
  * System prompt instructing the model to turn commits into grouped,
  * user-facing release notes. The sections are intentionally not fixed — the
  * model picks whatever headings best fit the actual changes.
@@ -34,6 +52,7 @@ Rules:
 - Each change is a single \`-\` bullet on one short, user-facing line. Combine several related commits into one bullet where that reads better.
 - INCLUDE user-visible changes: new features, bug fixes, performance, UX, breaking changes, and notable behavior changes.
 - EXCLUDE noise: ticket IDs, pure-internal refactors, test-only changes, CI/build tweaks, routine dependency bumps, and implementation detail.
+${NO_CROSS_REFERENCE_RULES}
 - Scale the amount of detail to the volume of real user-facing work. Do not pad, and do not invent changes that are not present in the commits.
 - If there are no user-facing changes, output exactly: \`${NO_USER_FACING_CHANGES}\``;
 
@@ -49,6 +68,7 @@ Rules:
 - Choose one type: feat, fix, docs, style, refactor, perf, test, build, ci, chore.
 - If the change is breaking, append \`!\` after the type/scope (e.g. \`feat!:\`) and add a \`BREAKING CHANGE: <what broke>\` footer.
 - For anything beyond a trivial one-liner, add a blank line then a body: a few short bullet points or sentences explaining what changed and why. Wrap body lines at about 72 characters.
+${NO_CROSS_REFERENCE_RULES}
 - Summarize the actual changes; do not invent anything not present in the input.`;
 
 /**
@@ -63,6 +83,7 @@ Template rules:
 - Text inside HTML comments (\`<!-- ... -->\`) is guidance for the section directly above it: follow it to decide that section's content, but do NOT include the comments in your output.
 - If the template has YAML frontmatter (a \`---\`-fenced block at the top), treat it as global directives — audience, tone, and what to include or exclude. Apply it, but do NOT output the frontmatter.
 - Under each section, write concise, user-facing bullet points. Filter out noise (internal refactors, tests, CI tweaks, ticket IDs) unless the template's guidance says otherwise. Summarize the actual changes; do not invent anything.
+${NO_CROSS_REFERENCE_RULES}
 - Output ONLY the rendered Markdown — no preamble, no surrounding code fence, no leftover template comments or frontmatter.`;
 
 /**

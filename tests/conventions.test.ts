@@ -107,6 +107,7 @@ describe('public API surface (FR-10 programmatic API)', () => {
       'COMMIT_SYSTEM_PROMPT',
       'DEFAULT_GROUPS',
       'DEFAULT_LOCAL_ENDPOINT',
+      'NO_CROSS_REFERENCE_RULES',
       'NO_USER_FACING_CHANGES',
       'PROVIDERS',
       'SYSTEM_PROMPT',

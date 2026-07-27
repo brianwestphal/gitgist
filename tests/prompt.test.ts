@@ -7,9 +7,11 @@ import {
   COMMIT_SYSTEM_PROMPT,
   commitsToMaterial,
   isEmptyNotesSentinel,
+  NO_CROSS_REFERENCE_RULES,
   NO_USER_FACING_CHANGES,
   stripCodeFences,
   SYSTEM_PROMPT,
+  TEMPLATE_SYSTEM_PROMPT,
   workingChangesToMaterial,
 } from '../src/prompt.js';
 import type { Commit, WorkingChanges } from '../src/types.js';
@@ -125,6 +127,34 @@ describe('COMMIT_SYSTEM_PROMPT', () => {
     expect(COMMIT_SYSTEM_PROMPT).toContain('Conventional Commits');
     expect(COMMIT_SYSTEM_PROMPT).toContain('type(scope): description');
     expect(COMMIT_SYSTEM_PROMPT).toContain('BREAKING CHANGE');
+  });
+});
+
+// @covers FR-24
+describe('NO_CROSS_REFERENCE_RULES (GG-51)', () => {
+  it('forbids the observed "carried over / dedupe against the draft" section', () => {
+    // The exact failure mode: a CHANGELOG `Unreleased` entry in the input made
+    // the model defer to it instead of describing the change.
+    expect(NO_CROSS_REFERENCE_RULES).toContain('Carried over from');
+    expect(NO_CROSS_REFERENCE_RULES).toContain('dedupe against the draft above');
+    expect(NO_CROSS_REFERENCE_RULES).toContain('de-duplicate');
+  });
+
+  it('names the changelog `Unreleased` case and requires describing it in full', () => {
+    expect(NO_CROSS_REFERENCE_RULES).toContain('Unreleased');
+    expect(NO_CROSS_REFERENCE_RULES).toContain('describe that change in full');
+    expect(NO_CROSS_REFERENCE_RULES).toContain('Never defer to it');
+  });
+
+  it('declares changelog de-duplication out of scope', () => {
+    expect(NO_CROSS_REFERENCE_RULES).toContain('out of scope');
+  });
+
+  it('is embedded verbatim in every output format, so the rule cannot drift', () => {
+    // A format that grows its own paraphrase (or drops the block) fails here.
+    for (const prompt of [SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT]) {
+      expect(prompt).toContain(NO_CROSS_REFERENCE_RULES);
+    }
   });
 });
 

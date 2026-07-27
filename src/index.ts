@@ -26,6 +26,7 @@ export {
   COMMIT_SYSTEM_PROMPT,
   commitsToMaterial,
   isEmptyNotesSentinel,
+  NO_CROSS_REFERENCE_RULES,
   NO_USER_FACING_CHANGES,
   stripCodeFences,
   SYSTEM_PROMPT,

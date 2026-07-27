@@ -37,6 +37,8 @@ Keep status markers in sync with the implementation.
 - **FR-22 Suspect empty-notes handling** — Shipped. `releaseNotes.ts`: a returned `_No user-facing changes._` sentinel (`prompt.ts:NO_USER_FACING_CHANGES`/`isEmptyNotesSentinel`) is suspect when commits were in range → warn + deterministic changelog (notes only; working-tree-only sentinel trusted). Spec: `docs/6-fallback.md`. Follows GG-38.
 - **FR-23 Configurable fallback provider** — Shipped. `--fallback-provider/--fallback-endpoint/--fallback-model` retry with a secondary config on a primary error or suspect response, before the deterministic changelog. The provider-specific model/endpoint inherit the primary's only when the fallback is the **same** provider (else that provider's own default). `releaseNotes.ts` (`hasFallback`/`runFallback`/`generateViaAI`) + `ReleaseNotesOptions.fallback*`/`warn`. Spec: `docs/6-fallback.md`.
 
+- **FR-24 Self-contained output (no cross-reference/dedupe)** — Shipped. Shared `NO_CROSS_REFERENCE_RULES` block in `prompt.ts`, interpolated verbatim into all three system prompts: never emit "Carried over from … — dedupe against the draft above" / "already in the changelog" / "see also" or any reconcile-two-documents instruction. A changelog `Unreleased` entry in the input is *evidence of what changed* — describe it in full, never defer to it. Changelog de-duplication is an external tool's job (GG-51).
+
 ## State transitions (T-N)
 
 Multi-step sequences across the stateful paths — the exact gap line coverage
