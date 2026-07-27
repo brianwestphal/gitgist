@@ -186,6 +186,60 @@ export async function readCommitFiles(
 }
 
 /**
+ * Hosts whose commit-page URL shape gitgist knows. Anything else gets bare
+ * hashes rather than a guessed link — a wrong URL is worse than none.
+ */
+const COMMIT_URL_HOSTS: Record<string, string | undefined> = {
+  'github.com': 'commit',
+  'gitlab.com': 'commit',
+  'bitbucket.org': 'commits',
+};
+
+/**
+ * Turn a git remote URL into a commit-URL template (GG-59).
+ *
+ * Handles the three forms a remote comes in — `git@host:owner/repo.git`,
+ * `https://host/owner/repo.git`, and `ssh://git@host/owner/repo.git` — and maps
+ * the host to its commit path (`/commit/` on GitHub and GitLab, `/commits/` on
+ * Bitbucket).
+ *
+ * @param remote - The raw remote URL.
+ * @returns A template containing `{hash}`, or `null` for an unrecognized host.
+ */
+export function commitUrlFromRemote(remote: string): string | null {
+  const trimmed = remote.trim();
+  // `git@host:owner/repo` (scp-like) or a URL with a scheme.
+  const scp = /^(?:[^@/]+@)?([^:/]+):(?!\/)(.+)$/.exec(trimmed);
+  const url = /^[a-z+]+:\/\/(?:[^@/]+@)?([^/:]+)(?::\d+)?\/(.+)$/i.exec(trimmed);
+  const match = scp ?? url;
+  if (match === null) return null;
+
+  const host = match[1].toLowerCase();
+  const segment = COMMIT_URL_HOSTS[host];
+  if (segment === undefined) return null;
+
+  const path = match[2].replace(/\.git$/, '').replace(/^\/+|\/+$/g, '');
+  if (path === '') return null;
+  return `https://${host}/${path}/${segment}/{hash}`;
+}
+
+/**
+ * Read the repository's `origin` remote and derive a commit-URL template.
+ *
+ * @param cwd - Repository directory (default: `process.cwd()`).
+ * @returns The template, or `null` when there is no remote or the host is unknown.
+ */
+export async function detectCommitUrl(cwd: string = process.cwd()): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync('git', ['remote', 'get-url', 'origin'], { cwd });
+    return commitUrlFromRemote(stdout);
+  } catch {
+    // No `origin` remote (or not a repo) — bare hashes are the right fallback.
+    return null;
+  }
+}
+
+/**
  * Find the most recent tag reachable from `HEAD`.
  *
  * @param cwd - Repository directory (default: `process.cwd()`).

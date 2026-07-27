@@ -23,6 +23,8 @@ export interface CliArgs {
   ai: boolean;
   diff: boolean;
   attribution: boolean;
+  linkCommits: boolean;
+  commitUrl?: string;
   maxDiffChars?: number;
   exclude: string[];
   defaultExcludes: boolean;
@@ -60,6 +62,11 @@ Options:
                           Defaults to the provider's own budget, sized to its
                           context window (apple 4k … anthropic-api 200k). The
                           changed-file list is never dropped.
+  --link-commits          End each bullet with the commit it came from. Links
+                          to the commit page when the origin remote is a known
+                          host (GitHub/GitLab/Bitbucket), else a bare hash.
+  --commit-url <template> URL for --link-commits, containing {hash}. Overrides
+                          the auto-detected one, e.g. for a self-hosted host.
   --no-attribution        Skip the per-commit file lists. They let the model tie
                           a change to the commit that made it and group changes
                           that land together, for a small share of the budget.
@@ -112,6 +119,7 @@ Examples:
   gitgist --working                      # all uncommitted work
   gitgist v1.4.0..HEAD --untracked       # commits plus new files
   gitgist v1.4.0..HEAD --template notes.md   # shape with a template
+  gitgist v1.4.0..HEAD --link-commits         # each bullet cites its commit
   gitgist v1.4.0..HEAD --exclude 'migrations/*' --exclude '*.pb.py'
   gitgist v1.4.0..HEAD --no-default-excludes --exclude 'testdata/*'  # dist/ is the product
   gitgist v1.4.0..HEAD --provider local --model llama3.2   # local Ollama/LM Studio
@@ -151,6 +159,15 @@ function parseExclude(value: string | undefined): string {
   return value;
 }
 
+function parseCommitUrl(value: string | undefined): string {
+  if (value === undefined || !value.includes('{hash}')) {
+    throw new Error(
+      `Invalid --commit-url: ${value ?? '(missing)'} (must contain the {hash} placeholder, e.g. https://github.com/o/r/commit/{hash})`,
+    );
+  }
+  return value;
+}
+
 function parseFormat(value: string | undefined): OutputFormat {
   if (value === 'notes' || value === 'commit') return value;
   throw new Error(`Invalid --format: ${value ?? '(missing)'} (expected notes or commit)`);
@@ -172,6 +189,7 @@ export function parseArgs(argv: string[]): CliArgs {
     ai: true,
     diff: true,
     attribution: true,
+    linkCommits: false,
     exclude: [],
     defaultExcludes: true,
     help: false,
@@ -222,6 +240,12 @@ export function parseArgs(argv: string[]): CliArgs {
         break;
       case '--no-attribution':
         args.attribution = false;
+        break;
+      case '--link-commits':
+        args.linkCommits = true;
+        break;
+      case '--commit-url':
+        args.commitUrl = parseCommitUrl(argv[++i]);
         break;
       case '--exclude':
         args.exclude.push(parseExclude(argv[++i]));

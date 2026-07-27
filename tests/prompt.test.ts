@@ -4,9 +4,11 @@ import { parseCommit, type RawCommit } from '../src/parse.js';
 import {
   ATTRIBUTION_RULES,
   attributionFilesPerCommit,
+  buildCommitLinkRules,
   buildUserPrompt,
   cleanModelOutput,
   COMMIT_SYSTEM_PROMPT,
+  COMMIT_URL_PLACEHOLDER,
   commitsToMaterial,
   DIFF_IS_SOURCE_OF_TRUTH_RULES,
   isEmptyNotesSentinel,
@@ -214,6 +216,43 @@ describe('ATTRIBUTION_RULES (GG-58)', () => {
     for (const prompt of [SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT]) {
       expect(prompt).toContain(ATTRIBUTION_RULES);
     }
+  });
+});
+
+// @covers FR-31
+describe('buildCommitLinkRules (GG-59)', () => {
+  it('asks for a bare hash when no URL template is given', () => {
+    const rules = buildCommitLinkRules();
+    expect(rules).toContain('End every bullet with the commit it came from');
+    expect(rules).toContain('(a1b2c3d)');
+    expect(rules).not.toContain('](http');
+  });
+
+  it('asks for a Markdown link when a URL template is given, with the example filled in', () => {
+    const rules = buildCommitLinkRules('https://github.com/o/r/commit/{hash}');
+    expect(rules).toContain('Markdown link');
+    // The example must show a resolved URL, not the raw placeholder.
+    expect(rules).toContain('[a1b2c3d](https://github.com/o/r/commit/a1b2c3d)');
+    expect(rules).toContain(COMMIT_URL_PLACEHOLDER);
+  });
+
+  it('states the multi-commit policy outright rather than leaving it to the model', () => {
+    expect(buildCommitLinkRules()).toContain('cite ALL of them');
+  });
+
+  it('tells the model to match bullets to commits via the file lists', () => {
+    // Without this, runs produced real-but-swapped hashes — the citation guard
+    // stops invented hashes, not misattributed ones.
+    const rules = buildCommitLinkRules();
+    expect(rules).toContain('`files:` list');
+    expect(rules).toContain('a real hash on the wrong bullet is still wrong');
+  });
+
+  it('keeps the never-invent-a-hash guard while overriding the do-not-emit rule', () => {
+    const rules = buildCommitLinkRules();
+    expect(rules).toContain('overrides the instruction not to emit hashes');
+    expect(rules).toContain('appearing verbatim in the material still applies');
+    expect(rules).toContain('no citation rather than guessing one');
   });
 });
 

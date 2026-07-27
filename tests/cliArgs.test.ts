@@ -94,6 +94,21 @@ describe('parseArgs', () => {
     expect(parseArgs(['--no-attribution']).attribution).toBe(false);
   });
 
+  // @covers FR-31
+  it('parses --link-commits and --commit-url', () => {
+    expect(parseArgs([]).linkCommits).toBe(false);
+    expect(parseArgs([]).commitUrl).toBeUndefined();
+    const args = parseArgs(['--link-commits', '--commit-url', 'https://x/c/{hash}']);
+    expect(args.linkCommits).toBe(true);
+    expect(args.commitUrl).toBe('https://x/c/{hash}');
+  });
+
+  // @covers FR-31
+  it('rejects a --commit-url without the {hash} placeholder', () => {
+    expect(() => parseArgs(['--commit-url', 'https://x/commit/'])).toThrow(/Invalid --commit-url/);
+    expect(() => parseArgs(['--commit-url'])).toThrow(/Invalid --commit-url/);
+  });
+
   it('rejects an invalid --provider', () => {
     expect(() => parseArgs(['--provider', 'bogus'])).toThrow(/Invalid --provider/);
   });

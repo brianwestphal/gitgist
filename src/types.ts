@@ -186,6 +186,17 @@ export interface ReleaseNotesOptions {
    */
   maxDiffChars?: number;
   /**
+   * End each bullet with the commit it came from (default: `false`). Requires
+   * attribution; ignored for `format: 'commit'`, where a hash makes no sense.
+   */
+  linkCommits?: boolean;
+  /**
+   * URL template for {@link linkCommits}, containing `{hash}` — bullets then
+   * cite a Markdown link instead of a bare hash. Defaults to one derived from
+   * the `origin` remote for known hosts; unset for anything else.
+   */
+  commitUrl?: string;
+  /**
    * Feed the model which files each commit touched, so it can attribute a change
    * to a commit, group changes that touch the same files, and read the order
    * they landed in (default: `true`). Costs a small share of the diff budget.

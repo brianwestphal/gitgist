@@ -1,6 +1,51 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildExcludePathspecs, DEFAULT_EXCLUDES, resolveCommitRange } from '../src/git.js';
+import {
+  buildExcludePathspecs,
+  commitUrlFromRemote,
+  DEFAULT_EXCLUDES,
+  resolveCommitRange,
+} from '../src/git.js';
+
+// @covers FR-31
+describe('commitUrlFromRemote (GG-59)', () => {
+  it('handles the scp-like, https, and ssh:// remote forms', () => {
+    expect(commitUrlFromRemote('git@github.com:owner/repo.git')).toBe(
+      'https://github.com/owner/repo/commit/{hash}',
+    );
+    expect(commitUrlFromRemote('https://github.com/owner/repo.git')).toBe(
+      'https://github.com/owner/repo/commit/{hash}',
+    );
+    expect(commitUrlFromRemote('https://github.com/owner/repo')).toBe(
+      'https://github.com/owner/repo/commit/{hash}',
+    );
+    expect(commitUrlFromRemote('ssh://git@gitlab.com/group/sub/repo.git')).toBe(
+      'https://gitlab.com/group/sub/repo/commit/{hash}',
+    );
+  });
+
+  it('uses each host\'s own commit path', () => {
+    // Bitbucket is /commits/, not /commit/ — guessing wrong yields a 404 link.
+    expect(commitUrlFromRemote('https://bitbucket.org/o/r')).toBe(
+      'https://bitbucket.org/o/r/commits/{hash}',
+    );
+  });
+
+  it('normalizes host case but preserves the path', () => {
+    expect(commitUrlFromRemote('git@GitHub.com:Owner/Repo.git')).toBe(
+      'https://github.com/Owner/Repo/commit/{hash}',
+    );
+  });
+
+  it('returns null rather than guessing an unknown host', () => {
+    // A wrong URL is worse than a bare hash, so anything unrecognized opts out.
+    expect(commitUrlFromRemote('https://git.internal.corp/o/r.git')).toBeNull();
+    expect(commitUrlFromRemote('git@ssh.dev.azure.com:v3/org/proj/repo')).toBeNull();
+    expect(commitUrlFromRemote('/local/path/repo')).toBeNull();
+    expect(commitUrlFromRemote('')).toBeNull();
+    expect(commitUrlFromRemote('https://github.com/')).toBeNull();
+  });
+});
 
 // @covers FR-27
 describe('buildExcludePathspecs (GG-53)', () => {

@@ -51,6 +51,35 @@ export const ATTRIBUTION_RULES = `- Each commit above may list the files it touc
 - Only ever cite a commit hash that appears verbatim in the material above. Never guess, reconstruct, or invent a hash, and never cite one for a change you cannot tie to that commit's file list. If you are unsure which commit made a change, describe the change without a hash.
 - Do not add hashes to the output unless the requested format asks for them; the file lists are there to help you reason, not to be echoed back.`;
 
+/** Placeholder a `--commit-url` template must contain. */
+export const COMMIT_URL_PLACEHOLDER = '{hash}';
+
+/**
+ * Build the rule that turns commit attribution into visible provenance (GG-59).
+ *
+ * {@link ATTRIBUTION_RULES} deliberately tells the model *not* to emit hashes
+ * "unless the requested format asks for them" — this is the format asking. It is
+ * appended to the system prompt only when `--link-commits` is set, so the
+ * default output is unchanged.
+ *
+ * The multi-commit policy is stated outright rather than left to the model: a
+ * bullet that merges several commits cites **all** of them, because citing only
+ * one would misrepresent where the change came from.
+ *
+ * @param urlTemplate - A URL containing `{hash}`; omit for bare hashes.
+ * @returns The rule block to append to a system prompt.
+ */
+export function buildCommitLinkRules(urlTemplate?: string): string {
+  const cite =
+    urlTemplate === undefined
+      ? 'Cite it in parentheses at the end of the line, e.g. `- Added a retry flag (a1b2c3d)`.'
+      : `Cite it in parentheses at the end of the line as a Markdown link, replacing ${COMMIT_URL_PLACEHOLDER} in \`${urlTemplate}\` with the hash, e.g. \`- Added a retry flag ([a1b2c3d](${urlTemplate.replace(COMMIT_URL_PLACEHOLDER, 'a1b2c3d')}))\`.`;
+  return `- End every bullet with the commit it came from. ${cite}
+- Work out which commit that is from the \`files:\` list under each commit: the change you are describing lives in a file, and the commit whose list contains that file is the commit that made it. Check the file before citing — a real hash on the wrong bullet is still wrong.
+- When a bullet covers several commits, cite ALL of them, comma-separated inside the one set of parentheses — citing only one would misrepresent where the change came from.
+- This overrides the instruction not to emit hashes: hashes are wanted here. The rule that you may only cite a hash appearing verbatim in the material still applies in full — if you cannot tie a change to a specific commit, write the bullet with no citation rather than guessing one.`;
+}
+
 /**
  * Shared rule block forbidding meta / cross-reference output (GG-51).
  *

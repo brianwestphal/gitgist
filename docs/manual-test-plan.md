@@ -62,6 +62,28 @@ user-facing change under a vague subject (`chore: tidy up`), then:
   the notes should summarize what fits, without confidently describing files
   whose diff was cut.
 
+## Commit links (FR-31) — hashes must be real *and* right
+
+Unit tests can only assert the rule text; the failure mode is a plausible-looking
+wrong hash, so this needs a live model. See
+[11-commit-links.md](11-commit-links.md).
+
+Run `gitgist <range> --link-commits` and cross-check against
+`git log --format='%h %s' <range>`:
+
+- **Never invented.** Every cited hash appears in that output. A hash that looks
+  right but isn't in the log is the worst outcome — worse than no citation.
+- **Never misattributed.** Each bullet's hash is the commit that touched the file
+  the bullet describes. This was observed failing before the prompt was told to
+  match bullets to commits via the `files:` lists, and it is not something the
+  never-invent guard catches.
+- **Merged bullets cite all commits.** A bullet combining two commits shows both,
+  comma-separated in one set of parentheses.
+- **Link shape.** With a GitHub/GitLab/Bitbucket `origin`, bullets carry Markdown
+  links (note Bitbucket's `/commits/`); with an unrecognized host, bare hashes and
+  **no** guessed URL; with `--commit-url`, the given template.
+- **`--format commit` ignores it** — no hash in the subject or body.
+
 ## Provider comparison
 
 - `npm run compare` runs the fixed sample history through every backend available

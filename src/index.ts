@@ -19,7 +19,9 @@ export {
 } from './changelog.js';
 export {
   buildExcludePathspecs,
+  commitUrlFromRemote,
   DEFAULT_EXCLUDES,
+  detectCommitUrl,
   latestTag,
   readCommitFiles,
   readCommits,
@@ -31,10 +33,12 @@ export { parseCommit, type RawCommit } from './parse.js';
 export {
   ATTRIBUTION_RULES,
   attributionFilesPerCommit,
+  buildCommitLinkRules,
   buildTemplatePrompt,
   buildUserPrompt,
   cleanModelOutput,
   COMMIT_SYSTEM_PROMPT,
+  COMMIT_URL_PLACEHOLDER,
   type CommitAttribution,
   commitsToMaterial,
   DIFF_IS_SOURCE_OF_TRUTH_RULES,

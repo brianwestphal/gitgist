@@ -19,6 +19,8 @@ async function main(): Promise<void> {
     diff: args.diff,
     maxDiffChars: args.maxDiffChars,
     attribution: args.attribution,
+    linkCommits: args.linkCommits,
+    commitUrl: args.commitUrl,
     exclude: args.exclude,
     defaultExcludes: args.defaultExcludes,
     provider: args.provider,

@@ -132,6 +132,8 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 | `--exclude <pathspec>`     | Hold a path's diff body back from the model, on top of the built-in list. Repeatable ([docs](docs/8-exclusions.md)). |
 | `--no-default-excludes`    | Drop the built-in exclude list (lockfiles, `dist/`, `vendor/`, …), keeping only your `--exclude` patterns. |
 | `--no-attribution`         | Skip the per-commit file lists that let the model attribute and group changes ([docs](docs/10-attribution.md)). |
+| `--link-commits`           | End each bullet with the commit it came from — linked when the remote host is known ([docs](docs/11-commit-links.md)). |
+| `--commit-url <template>`  | URL for `--link-commits`, containing `{hash}`. Overrides the auto-detected one. |
 | `--provider <name>`        | `auto` \| `claude-cli` \| `codex` \| `gemini` \| `opencode` \| `anthropic-api` \| `local` \| `apple` (default: `auto`). |
 | `--endpoint <url>`         | Base URL for `--provider local` (default: Ollama's `…:11434/v1`).   |
 | `--model <id>`             | `anthropic-api` model (default `claude-opus-4-8`), or the `local` model name. |

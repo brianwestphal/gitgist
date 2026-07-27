@@ -1,5 +1,6 @@
 import { buildChangelog, renderMarkdown, renderWorkingChanges } from './changelog.js';
 import {
+  detectCommitUrl,
   readCommitFiles,
   readCommits,
   readRangeDiff,
@@ -8,6 +9,7 @@ import {
 } from './git.js';
 import {
   attributionFilesPerCommit,
+  buildCommitLinkRules,
   buildTemplatePrompt,
   buildUserPrompt,
   cleanModelOutput,
@@ -159,6 +161,23 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     }
   }
 
+  // Visible provenance (GG-59): the model is told to cite each bullet's commit.
+  // A hash alone is far less useful in published notes than a link, so an
+  // explicit `--commit-url` wins, else one is derived from the `origin` remote
+  // for hosts whose commit-page shape we actually know. Skipped for
+  // `format: 'commit'`, where a hash in the subject line makes no sense — the
+  // same way `--title` is ignored there.
+  const wantLinks = options.linkCommits === true && format !== 'commit' && attribution !== undefined;
+  let commitLinkRules: string | undefined;
+  if (wantLinks) {
+    const url = options.commitUrl ?? (await detectCommitUrl(cwd)) ?? undefined;
+    commitLinkRules = buildCommitLinkRules(url);
+  }
+
+  /** Append the commit-link rule to a system prompt when links were requested. */
+  const withLinkRules = (system: string): string =>
+    commitLinkRules === undefined ? system : `${system}\n${commitLinkRules}`;
+
   // Build the AI material (commit messages + range diff + working-tree diffs) once.
   const buildPromptMaterial = (commitList: Commit[], wc: WorkingChanges | undefined): string => {
     const parts: string[] = [];
@@ -300,7 +319,7 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
       throw new Error('--format commit requires AI; remove --no-ai.');
     }
     ({ text: body } = await generateViaAI(
-      COMMIT_SYSTEM_PROMPT,
+      withLinkRules(COMMIT_SYSTEM_PROMPT),
       buildPromptMaterial(commits, working),
       () => false,
     ));
@@ -310,7 +329,7 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     }
     const template = await loadTemplate(options.template, cwd);
     ({ text: body } = await generateViaAI(
-      TEMPLATE_SYSTEM_PROMPT,
+      withLinkRules(TEMPLATE_SYSTEM_PROMPT),
       buildTemplatePrompt(template, buildPromptMaterial(commits, working)),
       () => false,
     ));
@@ -322,7 +341,7 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     // changelog rather than silently trusting it (GG-39).
     const notesInvalid = (out: string): boolean => haveCommits && isEmptyNotesSentinel(out);
     const { text, suspect } = await generateViaAI(
-      SYSTEM_PROMPT,
+      withLinkRules(SYSTEM_PROMPT),
       buildPromptMaterial(commits, working),
       notesInvalid,
     );

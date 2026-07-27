@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
+  detectCommitUrl,
   readCommitFiles,
   readCommits,
   readRangeDiff,
@@ -419,6 +420,40 @@ describe('readCommitFiles — the attribution map (GG-58)', () => {
 
   it('returns an empty map for a range with no commits', async () => {
     expect((await readCommitFiles('HEAD..HEAD', { cwd: repo })).size).toBe(0);
+  });
+});
+
+// @covers FR-31
+describe('detectCommitUrl — zero-config commit links (GG-59)', () => {
+  let repo: string;
+
+  beforeAll(() => {
+    repo = initRepo();
+    commit(repo, 'feat: seed');
+  });
+
+  afterAll(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
+
+  it('derives a commit URL from a recognized origin remote', async () => {
+    git(repo, 'remote', 'add', 'origin', 'git@github.com:acme/widgets.git');
+    expect(await detectCommitUrl(repo)).toBe('https://github.com/acme/widgets/commit/{hash}');
+  });
+
+  it('returns null for an unrecognized host rather than guessing', async () => {
+    git(repo, 'remote', 'set-url', 'origin', 'https://git.internal.corp/acme/widgets.git');
+    expect(await detectCommitUrl(repo)).toBeNull();
+  });
+
+  it('returns null when there is no origin remote at all', async () => {
+    git(repo, 'remote', 'remove', 'origin');
+    expect(await detectCommitUrl(repo)).toBeNull();
+  });
+
+  it('defaults cwd to process.cwd()', async () => {
+    // This repo's own origin is a GitHub remote, so detection should succeed.
+    expect(await detectCommitUrl()).toMatch(/^https:\/\/github\.com\/.+\/commit\/\{hash\}$/);
   });
 });
 

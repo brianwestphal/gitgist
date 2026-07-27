@@ -391,6 +391,63 @@ describe('diff-grounded generation (GG-50)', () => {
     expect(warnings).toEqual([]);
   });
 
+  // @covers FR-31
+  it('appends the commit-link rule to the system prompt when asked', async () => {
+    await generateReleaseNotes({
+      range: 'v1.0.0..HEAD',
+      cwd: repo,
+      linkCommits: true,
+      commitUrl: 'https://example.test/c/{hash}',
+      warn,
+    });
+    const { system } = h.calls[0];
+    // The base prompt is intact; the link rule rides on top of it.
+    expect(system.startsWith(SYSTEM_PROMPT)).toBe(true);
+    expect(system).toContain('End every bullet with the commit it came from');
+    expect(system).toContain('https://example.test/c/a1b2c3d');
+  });
+
+  // @covers FR-31
+  it('leaves the system prompt untouched by default', async () => {
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, warn });
+    expect(h.calls[0].system).toBe(SYSTEM_PROMPT);
+  });
+
+  // @covers FR-31
+  it('ignores commit links for --format commit, where a hash makes no sense', async () => {
+    await generateReleaseNotes({
+      range: 'v1.0.0..HEAD',
+      cwd: repo,
+      format: 'commit',
+      linkCommits: true,
+      warn,
+    });
+    // Silently ignored, matching how --title behaves for this format (FR-12).
+    expect(h.calls[0].system).toBe(COMMIT_SYSTEM_PROMPT);
+  });
+
+  // @covers FR-31
+  it('needs attribution — without the map there is no hash to cite', async () => {
+    await generateReleaseNotes({
+      range: 'v1.0.0..HEAD',
+      cwd: repo,
+      linkCommits: true,
+      attribution: false,
+      warn,
+    });
+    expect(h.calls[0].system).toBe(SYSTEM_PROMPT);
+  });
+
+  // @covers FR-31
+  it('falls back to bare hashes when the URL cannot be derived', async () => {
+    // The temp repo has no `origin`, so no template is detected — the rule is
+    // still added, just without links.
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, linkCommits: true, warn });
+    const { system } = h.calls[0];
+    expect(system).toContain('(a1b2c3d)');
+    expect(system).not.toContain('](http');
+  });
+
   it('warns about an unreadable diff via the default stderr sink', async () => {
     const spy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
     try {
