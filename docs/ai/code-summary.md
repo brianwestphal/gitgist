@@ -18,7 +18,7 @@ src/
   template.ts         # loadTemplate, parseTemplate (--template)
   releaseNotes.ts     # generateReleaseNotes (orchestrator)
   providers/
-    types.ts          # AIProvider, GenerateRequest
+    types.ts          # AIProvider (incl. diffBudgetChars), GenerateRequest
     cli.ts            # createCliProvider (reusable no-key CLI backend; model via runArgs fn, system via systemArgs hook)
     claudeCli.ts      # claudeCliProvider (claude -p; system via --append-system-prompt)
     codex.ts          # codexProvider (codex exec; no key)
@@ -77,6 +77,7 @@ scripts/
 | change how uncommitted changes are read | `git.ts` (`readWorkingChanges`); orchestration in `releaseNotes.ts` |
 | change what code diff the model sees / the budget rules | `git.ts` (`readRangeDiff`, `readWorkingChanges`, `DEFAULT_MAX_DIFF_CHARS`, `shareBudget`); `prompt.ts` (`rangeDiffToMaterial`, `DIFF_IS_SOURCE_OF_TRUTH_RULES`); spec in `docs/7-diff-grounding.md` |
 | change which files' diff content is held back | `git.ts` (`DEFAULT_EXCLUDES`, `buildExcludePathspecs`); `--exclude`/`--no-default-excludes` in `cliArgs.ts`; spec in `docs/8-exclusions.md` |
+| change how much diff a provider gets | `AIProvider.diffBudgetChars` (`providers/types.ts`) + the per-provider constants; precedence in `releaseNotes.ts`; spec in `docs/9-provider-budgets.md` |
 | change deterministic (`--no-ai`) grouping | `changelog.ts` |
 | change the fallback-provider retry / suspect empty-notes handling | `releaseNotes.ts` (`generateViaAI`, `hasFallback`, `notesInvalid`); sentinel in `prompt.ts` (`NO_USER_FACING_CHANGES`, `isEmptyNotesSentinel`); spec in `docs/6-fallback.md` |
 | add/change a CLI flag | `cliArgs.ts` (+ wire in `cli.ts`, `releaseNotes.ts`) |

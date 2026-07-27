@@ -57,7 +57,23 @@ export interface CliProviderSpec {
   timeoutMs?: number;
   /** Short hint shown when the CLI runs but returns nothing (e.g. not signed in). */
   hint?: string;
+  /**
+   * Diff-material budget in characters (see `AIProvider.diffBudgetChars` and
+   * `docs/9-provider-budgets.md`). Agent CLIs front frontier models with very
+   * large context windows, so they can take far more diff than the shared
+   * default.
+   */
+  diffBudgetChars?: number;
 }
+
+/**
+ * Diff-material budget for the signed-in agent CLIs (`claude`, `codex`,
+ * `gemini`, `opencode`). They front frontier models with 200k–1M token context
+ * windows, so ~30k tokens of diff is comfortable — roughly 5× the conservative
+ * shared default. Prompts reach these CLIs via stdin (or a single argv entry),
+ * well inside `ARG_MAX` at this size. See `docs/9-provider-budgets.md`.
+ */
+const AGENT_CLI_DIFF_BUDGET_CHARS = 120_000;
 
 /** Keep only the last few non-empty lines of stderr for an error message. */
 function stderrTail(stderr: string): string {
@@ -88,6 +104,7 @@ export function createCliProvider(spec: CliProviderSpec): AIProvider {
 
   return {
     name: spec.name,
+    diffBudgetChars: spec.diffBudgetChars ?? AGENT_CLI_DIFF_BUDGET_CHARS,
 
     async isAvailable(): Promise<boolean> {
       try {

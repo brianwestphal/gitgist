@@ -122,6 +122,15 @@ function resolveLanguageHint(
  * @param config - Injectable probe / generate / platform / language for tests.
  * @returns A provider backed by `apple-fm`.
  */
+/**
+ * Diff-material budget for Apple's on-device Foundation Model. Its context
+ * window is roughly 4k **tokens** for prompt and response combined — the
+ * smallest of any supported backend by two orders of magnitude — so the diff
+ * gets ~1k tokens and the rest is left for the system prompt, the commit list,
+ * and the notes themselves. See `docs/9-provider-budgets.md`.
+ */
+const APPLE_DIFF_BUDGET_CHARS = 4_000;
+
 export function createAppleProvider(config: AppleProviderConfig = {}): AIProvider {
   const probe = config.probe ?? appleProbe;
   const generate = config.generate ?? appleGenerate;
@@ -133,6 +142,7 @@ export function createAppleProvider(config: AppleProviderConfig = {}): AIProvide
 
   return {
     name: 'apple',
+    diffBudgetChars: APPLE_DIFF_BUDGET_CHARS,
 
     async isAvailable(): Promise<boolean> {
       if (!isDarwin) return false;

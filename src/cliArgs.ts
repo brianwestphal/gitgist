@@ -54,9 +54,11 @@ Options:
   --no-diff               Summarize from commit messages alone, without reading
                           the range's actual code diff. Smaller prompts, but the
                           notes can only repeat what the commit log claims.
-  --max-diff-chars <n>    Character budget for the diff material (default: 24000),
-                          applied to the range patch and to the working-tree
-                          diffs alike. The changed-file list is never dropped.
+  --max-diff-chars <n>    Character budget for the diff material, applied to the
+                          range patch and to the working-tree diffs alike.
+                          Defaults to the provider's own budget, sized to its
+                          context window (apple 4k … anthropic-api 200k). The
+                          changed-file list is never dropped.
   --exclude <pathspec>    Hold this path's diff body back from the model, on top
                           of the built-in list (lockfiles, dist/, vendor/, …).
                           Repeatable. Excluded files still appear as changed.

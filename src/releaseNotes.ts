@@ -12,6 +12,7 @@ import {
   workingChangesToMaterial,
 } from './prompt.js';
 import { resolveProvider } from './providers/index.js';
+import type { AIProvider } from './providers/types.js';
 import { loadTemplate } from './template.js';
 import type {
   Commit,
@@ -57,6 +58,30 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
   const explicitRange =
     options.range !== undefined || options.from !== undefined || options.to !== undefined;
 
+  // Resolve the primary provider up front (GG-52): the diff budget depends on
+  // which backend will read it — a 1M-token frontier model and Apple's ~4k-token
+  // on-device model can't share one number. Resolving once also avoids probing
+  // availability twice, since the same instance is reused for the primary
+  // generation. A resolution failure is deferred, not thrown here, so it still
+  // surfaces at generation time (where the fallback provider can rescue it).
+  let primaryProvider: AIProvider | undefined;
+  let primaryResolveError: Error | undefined;
+  if (options.ai !== false) {
+    try {
+      primaryProvider = await resolveProvider(options.provider, {
+        endpoint: options.endpoint,
+        model: options.model,
+        language: options.language,
+      });
+    } catch (error) {
+      // Normalized so the deferred rethrow below stays a real Error.
+      primaryResolveError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+  // Explicit `--max-diff-chars` always wins; otherwise take the provider's
+  // advertised budget, else `readRangeDiff`'s conservative shared default.
+  const maxDiffChars = options.maxDiffChars ?? primaryProvider?.diffBudgetChars;
+
   // Read commits unless we're summarizing pending changes only (working flags
   // with no explicit range).
   let range = '';
@@ -73,7 +98,7 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
       staged: options.staged,
       unstaged: options.unstaged,
       untracked: options.untracked,
-      maxChars: options.maxDiffChars,
+      maxChars: maxDiffChars,
       exclude: options.exclude,
       defaultExcludes: options.defaultExcludes,
     });
@@ -92,7 +117,7 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     try {
       rangeDiff = await readRangeDiff(range, {
         cwd,
-        maxChars: options.maxDiffChars,
+        maxChars: maxDiffChars,
         exclude: options.exclude,
         defaultExcludes: options.defaultExcludes,
       });
@@ -127,12 +152,15 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     model: string | undefined,
     system: string,
     prompt: string,
+    preResolved?: AIProvider,
   ): Promise<string> => {
-    const resolved = await resolveProvider(provider, {
-      endpoint,
-      model,
-      language: options.language,
-    });
+    const resolved =
+      preResolved ??
+      (await resolveProvider(provider, {
+        endpoint,
+        model,
+        language: options.language,
+      }));
     const generated = await resolved.generate({
       system,
       prompt,
@@ -170,7 +198,17 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
   ): Promise<{ text: string; suspect: boolean }> => {
     let primary: string;
     try {
-      primary = await runProvider(options.provider, options.endpoint, options.model, system, prompt);
+      // The up-front resolution already ran; rethrow its error here so the
+      // fallback path below still sees it exactly as before.
+      if (primaryResolveError !== undefined) throw primaryResolveError;
+      primary = await runProvider(
+        options.provider,
+        options.endpoint,
+        options.model,
+        system,
+        prompt,
+        primaryProvider,
+      );
     } catch (error) {
       if (!hasFallback) throw error;
       warn(`primary provider failed (${errorMessage(error)}); retrying with the fallback provider.`);

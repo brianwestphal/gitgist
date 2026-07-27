@@ -128,7 +128,7 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 | `--template <file>`        | Shape the notes with a Markdown template ([docs](docs/4-templates.md)). |
 | `--no-ai`                  | Group commits by Conventional Commit type instead (offline).        |
 | `--no-diff`                | Skip reading the range's code diff; summarize from commit messages alone ([docs](docs/7-diff-grounding.md)). |
-| `--max-diff-chars <n>`     | Character budget for diff material — range patch and working-tree diffs alike (default: 24000). |
+| `--max-diff-chars <n>`     | Character budget for diff material — range patch and working-tree diffs alike. Defaults to the provider's own budget, sized to its context window ([docs](docs/9-provider-budgets.md)). |
 | `--exclude <pathspec>`     | Hold a path's diff body back from the model, on top of the built-in list. Repeatable ([docs](docs/8-exclusions.md)). |
 | `--no-default-excludes`    | Drop the built-in exclude list (lockfiles, `dist/`, `vendor/`, …), keeping only your `--exclude` patterns. |
 | `--provider <name>`        | `auto` \| `claude-cli` \| `codex` \| `gemini` \| `opencode` \| `anthropic-api` \| `local` \| `apple` (default: `auto`). |

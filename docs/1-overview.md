@@ -39,6 +39,7 @@ gitgist --no-ai         # offline Conventional Commits grouping
 - [6-fallback.md](6-fallback.md) — fallback provider + suspect empty-notes handling.
 - [7-diff-grounding.md](7-diff-grounding.md) — grounding the notes in the real code diff.
 - [8-exclusions.md](8-exclusions.md) — which files' diff content is held back, and how to configure it.
+- [9-provider-budgets.md](9-provider-budgets.md) — how much diff each AI backend gets, sized to its context window.
 - [ai/code-summary.md](ai/code-summary.md) — AI-oriented code map.
 - [ai/requirements-summary.md](ai/requirements-summary.md) — AI-oriented
   requirements digest.

@@ -85,6 +85,14 @@ const defaultRun: AnthropicRunFn = async ({ model, maxTokens, system, prompt }) 
  * @param config - Injectable SDK call / warning sink / key check for tests.
  * @returns A provider backed by the Anthropic API.
  */
+/**
+ * Diff-material budget for the Anthropic API backend. The default model
+ * (`claude-opus-4-8`) has a **1M-token** context window, so ~50k tokens of diff
+ * is a small fraction of it — the binding constraint here is usefulness and
+ * cost, not the window. See `docs/9-provider-budgets.md`.
+ */
+const API_DIFF_BUDGET_CHARS = 200_000;
+
 export function createAnthropicApiProvider(config: AnthropicApiProviderConfig = {}): AIProvider {
   const run = config.run ?? defaultRun;
   const warn = config.warn ?? ((message: string) => void process.stderr.write(message));
@@ -97,6 +105,7 @@ export function createAnthropicApiProvider(config: AnthropicApiProviderConfig = 
 
   return {
     name: 'anthropic-api',
+    diffBudgetChars: API_DIFF_BUDGET_CHARS,
 
     isAvailable(): Promise<boolean> {
       return Promise.resolve(hasApiKey());

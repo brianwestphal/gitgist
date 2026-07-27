@@ -25,6 +25,11 @@ const h = vi.hoisted(() => {
   // read, and optionally forced to fail so the degrade path (T-5) can be walked.
   const diffReads: unknown[][] = [];
   let rangeDiffError: Error | null = null;
+  // Provider resolution (GG-52): budget advertised by the resolved provider, a
+  // count of how many times resolution ran, and an optional forced failure.
+  let diffBudgetChars: number | undefined;
+  let resolveError: unknown;
+  const resolves: unknown[] = [];
   return {
     DEFAULT_NOTES,
     calls,
@@ -35,6 +40,13 @@ const h = vi.hoisted(() => {
     failRangeDiff(error: Error): void {
       rangeDiffError = error;
     },
+    resolves,
+    setDiffBudget(chars: number | undefined): void {
+      diffBudgetChars = chars;
+    },
+    failResolve(error: unknown): void {
+      resolveError = error;
+    },
     takeRangeDiffError(): Error | null {
       return rangeDiffError;
     },
@@ -42,11 +54,20 @@ const h = vi.hoisted(() => {
       calls.length = 0;
       diffReads.length = 0;
       rangeDiffError = null;
+      resolves.length = 0;
+      diffBudgetChars = undefined;
+      resolveError = undefined;
       responder = () => DEFAULT_NOTES;
     },
-    resolveProvider: (provider: unknown, opts?: { endpoint?: string }) =>
-      Promise.resolve({
+    resolveProvider: (provider: unknown, opts?: { endpoint?: string }) => {
+      resolves.push(provider);
+      // Deliberately unrestricted: one test rejects with a non-Error to walk
+      // the normalization branch in `generateReleaseNotes`.
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      if (resolveError !== undefined) return Promise.reject(resolveError);
+      return Promise.resolve({
         name: typeof provider === 'string' ? provider : 'auto',
+        diffBudgetChars,
         isAvailable: () => Promise.resolve(true),
         generate: (req: { system: string; prompt: string; model?: string }) => {
           const endpoint = opts?.endpoint;
@@ -54,7 +75,8 @@ const h = vi.hoisted(() => {
           // Resolve via the responder; a throw becomes a rejected promise.
           return Promise.resolve().then(() => responder({ ...req, provider, endpoint }));
         },
-      }),
+      });
+    },
   };
 });
 
@@ -237,6 +259,66 @@ describe('diff-grounded generation (GG-50)', () => {
     // The prompt fell back to prose alone — no diff section.
     expect(h.calls[0].prompt).toContain('chore: tidy up');
     expect(h.calls[0].prompt).not.toContain('Code diff for');
+  });
+
+  // @covers FR-28
+  it('sizes the diff from the provider budget, and lets --max-diff-chars override it', async () => {
+    // A small-context backend (e.g. apple) advertises a tight budget…
+    h.setDiffBudget(30);
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, warn });
+    expect(h.diffReads[0][1]).toMatchObject({ maxChars: 30 });
+    expect(h.calls[0].prompt).toContain('patch truncated at 30 characters');
+
+    // …and an explicit flag still wins over it.
+    h.reset();
+    h.setDiffBudget(30);
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, maxDiffChars: 90_000, warn });
+    expect(h.diffReads[0][1]).toMatchObject({ maxChars: 90_000 });
+    expect(h.calls[0].prompt).not.toContain('truncated');
+  });
+
+  // @covers FR-28
+  it('falls back to the shared default when the provider advertises no budget', async () => {
+    h.setDiffBudget(undefined);
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, warn });
+    // `undefined` reaches readRangeDiff, which applies DEFAULT_MAX_DIFF_CHARS.
+    expect(h.diffReads[0][1]).toMatchObject({ maxChars: undefined });
+    expect(h.calls[0].prompt).toContain('retryForever');
+  });
+
+  // @covers FR-28
+  it('resolves the primary provider once, not once per read', async () => {
+    // The budget is needed before the diff is read, so resolution moved up
+    // front — the same instance must then be reused for generation rather than
+    // probing availability a second time.
+    h.setDiffBudget(50_000);
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, warn });
+    expect(h.resolves).toHaveLength(1);
+    expect(h.calls).toHaveLength(1);
+  });
+
+  it('never resolves a provider on the deterministic path', async () => {
+    await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, ai: false, warn });
+    expect(h.resolves).toHaveLength(0);
+  });
+
+  // @covers FR-28, T-2
+  it('defers an up-front resolution failure so the fallback still rescues it', async () => {
+    // Resolution now happens before generation; its error must still surface at
+    // generation time, where T-2's fallback retry can recover — not earlier.
+    h.failResolve(new Error('no provider available'));
+    await expect(
+      generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, warn }),
+    ).rejects.toThrow(/no provider available/);
+    expect(warnings).toEqual([]);
+  });
+
+  // @covers FR-28
+  it('normalizes a non-Error resolution failure before rethrowing it', async () => {
+    h.failResolve('provider blew up');
+    await expect(
+      generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, warn }),
+    ).rejects.toThrow(/provider blew up/);
   });
 
   it('warns about an unreadable diff via the default stderr sink', async () => {

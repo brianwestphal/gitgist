@@ -21,6 +21,17 @@ export interface GenerateRequest {
 export interface AIProvider {
   /** Stable provider identifier (e.g. `anthropic-api`). */
   readonly name: string;
+  /**
+   * How many characters of **diff material** this backend can usefully digest,
+   * derived from its model's context window (see `docs/9-provider-budgets.md`).
+   *
+   * Context windows differ by three orders of magnitude across the supported
+   * backends — a 1M-token frontier model and Apple's ~4k-token on-device model
+   * cannot sensibly share one number. `generateReleaseNotes` uses this to size
+   * the diff when `--max-diff-chars` is not given explicitly; omit it to accept
+   * the conservative shared default.
+   */
+  readonly diffBudgetChars?: number;
   /** Whether this provider can run right now (key present, binary installed). */
   isAvailable(): Promise<boolean>;
   /** Generate a single completion. Returns the model's text output. */

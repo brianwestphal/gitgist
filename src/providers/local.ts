@@ -102,6 +102,15 @@ async function fetchWithTimeout(
  * @param config - Endpoint/model overrides and an injectable fetch.
  * @returns A provider backed by the local endpoint.
  */
+/**
+ * Diff-material budget for a local OpenAI-compatible endpoint. Whatever model
+ * happens to be loaded is unknown to gitgist, and Ollama's default context is
+ * commonly 4k–8k tokens — so this errs small deliberately. Raise it with
+ * `--max-diff-chars` when the loaded model has room. See
+ * `docs/9-provider-budgets.md`.
+ */
+const LOCAL_DIFF_BUDGET_CHARS = 8_000;
+
 export function createLocalProvider(config: LocalProviderConfig = {}): AIProvider {
   const fetchImpl = config.fetchImpl ?? defaultFetch;
 
@@ -113,6 +122,7 @@ export function createLocalProvider(config: LocalProviderConfig = {}): AIProvide
 
   return {
     name: 'local',
+    diffBudgetChars: LOCAL_DIFF_BUDGET_CHARS,
 
     async isAvailable(): Promise<boolean> {
       try {

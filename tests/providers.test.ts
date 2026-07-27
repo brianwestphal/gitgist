@@ -48,6 +48,45 @@ describe('provider registry', () => {
   });
 });
 
+// @covers FR-28
+describe('provider diff budgets (GG-52)', () => {
+  it('scales the budget by context window, smallest on-device to largest API', () => {
+    // The whole point of FR-28: these differ by orders of magnitude, so one
+    // shared number was wrong for both ends.
+    const apple = PROVIDERS.apple.diffBudgetChars ?? 0;
+    const local = PROVIDERS.local.diffBudgetChars ?? 0;
+    const cli = PROVIDERS['claude-cli'].diffBudgetChars ?? 0;
+    const api = PROVIDERS['anthropic-api'].diffBudgetChars ?? 0;
+
+    expect(apple).toBeLessThan(local);
+    expect(local).toBeLessThan(cli);
+    expect(cli).toBeLessThan(api);
+    // Apple's on-device window is ~4k tokens total — the diff must leave room
+    // for the system prompt, commit list, and the notes themselves.
+    expect(apple).toBeLessThanOrEqual(4_000);
+  });
+
+  it('gives every registered provider a budget', () => {
+    for (const [name, provider] of Object.entries(PROVIDERS)) {
+      expect(provider.diffBudgetChars, `${name} advertises no diff budget`).toBeGreaterThan(0);
+    }
+  });
+
+  it('lets a CLI spec override the shared agent-CLI budget', () => {
+    const custom = createCliProvider({
+      name: 'tiny',
+      command: 'tiny',
+      runArgs: ['-p'],
+      diffBudgetChars: 1234,
+    });
+    expect(custom.diffBudgetChars).toBe(1234);
+    // …and defaults to the agent-CLI budget when unset.
+    expect(
+      createCliProvider({ name: 'plain', command: 'plain', runArgs: ['-p'] }).diffBudgetChars,
+    ).toBe(PROVIDERS['claude-cli'].diffBudgetChars);
+  });
+});
+
 // @covers FR-5, FR-18, FR-19, FR-20
 describe('CLI agent provider arg builders', () => {
   it('codex: `exec`, with `-m <model>` after the subcommand', () => {

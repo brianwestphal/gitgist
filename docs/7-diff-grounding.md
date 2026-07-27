@@ -58,10 +58,13 @@ are excluded from the patch body via git `:(exclude)` pathspecs — currently
 `stat`: the model still learns that `package-lock.json` changed, it just doesn't
 spend 5000 lines of budget on it.
 
-**A character budget.** The patch is capped at 24000 chars by default
-(`--max-diff-chars`). The stat and the changed-file list are *never* dropped, so
-an oversized range degrades to "here is every file that changed, plus as much
-diff as fits" rather than to nothing.
+**A character budget.** The patch is capped at the **provider's own budget**,
+sized to its context window — 4000 chars for Apple's on-device model up to
+200000 for the Anthropic API, or 24000 when a backend advertises none (FR-28,
+[9-provider-budgets.md](9-provider-budgets.md)). `--max-diff-chars` overrides
+it. The stat and the changed-file list are *never* dropped, so an oversized
+range degrades to "here is every file that changed, plus as much diff as fits"
+rather than to nothing.
 
 Both are **stated in the prompt**, not applied silently — `rangeDiffToMaterial`
 names the excluded files and flags a truncated patch, and the rules tell the
@@ -127,17 +130,19 @@ staged `package-lock.json` that sorted early could consume the entire section an
 push the real source change out of the prompt completely.
 
 The working-tree budget is a **total**, shared across only the sections that
-actually carry content:
+actually carry content — so `--working` can't quietly send three times the
+requested budget:
 
-| Requested | Per-section allowance (default budget) |
+| Requested | Per-section allowance |
 | --- | --- |
-| `--working` (staged + unstaged + untracked, all non-empty) | 8000 each — unchanged from before |
-| `--staged` alone | the full 24000 |
-| two non-empty sections | 12000 each |
+| `--working` (staged + unstaged + untracked, all non-empty) | budget ÷ 3 |
+| two non-empty sections | budget ÷ 2 |
+| `--staged` alone | the whole budget |
 
-So the common `--working` case behaves exactly as it always did, while a
-single-category run — typically `gitgist --staged --commit-message` — is no
-longer starved at a third of the budget for no reason.
+At the 24000 fallback budget that makes a full `--working` run 8000 chars per
+section — byte-for-byte what it was before GG-54 — while a single-category run,
+typically `gitgist --staged --commit-message`, is no longer starved at a third
+of the budget for no reason.
 
 ## Related
 
