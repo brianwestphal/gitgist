@@ -2,7 +2,8 @@
 
 How gitgist decides *what actually changed*. Requirements: **FR-25** (diff-grounded
 generation), **FR-26** (bounded, noise-filtered material), **T-5** (degrade when the
-diff can't be read). See [3-requirements.md](3-requirements.md).
+diff can't be read), **FR-29** (per-file budget allocation). See
+[3-requirements.md](3-requirements.md).
 
 ## Why
 
@@ -30,8 +31,9 @@ This is on by **default** — grounding is the normal mode, not an opt-in.
 | --- | --- |
 | `files` | Every changed path in the range. **Always complete.** |
 | `stat` | `git diff --stat` — the per-file line delta. Capped at 4000 chars. |
-| `patch` | The unified diff, minus noise paths, capped at `maxChars`. |
+| `patch` | The unified diff, minus noise paths, with `maxChars` shared across every file. |
 | `excluded` | Paths that changed but whose patch body was dropped as noise. |
+| `trimmedFiles` | Paths whose patch was **shortened** to fit (they still appear, partially). |
 | `truncated` | True when the stat or patch was trimmed to fit. |
 | `isEmpty` | True when the range changed no files (no patch commands run). |
 
@@ -65,6 +67,49 @@ sized to its context window — 4000 chars for Apple's on-device model up to
 it. The stat and the changed-file list are *never* dropped, so an oversized
 range degrades to "here is every file that changed, plus as much diff as fits"
 rather than to nothing.
+
+### How the budget is spent (FR-29)
+
+The budget is allocated **per file**, not by keeping the first N characters of
+the patch. That distinction is load-bearing. `git diff` emits files in **path
+order**, so a positional cut spends the whole budget alphabetically. On this
+repo's own `v1.1.0..HEAD` range that meant:
+
+| Budget | Files with patch text | `src/` files with patch text |
+| ---: | ---: | ---: |
+| 24,000 | 18 / 71 | **0 / 13** |
+| 120,000 (the default agent-CLI budget) | 46 / 71 | **0 / 13** |
+
+Every source file was invisible while `.agents/` scaffolding consumed the
+allowance — and the model was simultaneously being told the diff was the
+authoritative record of what changed.
+
+Allocation is **max-min fair** ("water-filling"): files are served
+smallest-first, each offered an equal share of what remains, and whatever a
+small file doesn't need flows back to the larger ones. That fits as many whole
+files as possible while guaranteeing every changed file gets a share. Same
+range, after:
+
+| Budget | Files with patch text | `src/` files with patch text | Files shortened |
+| ---: | ---: | ---: | ---: |
+| 24,000 | **71 / 71** | **13 / 13** | 71 |
+| 120,000 | **71 / 71** | **13 / 13** | 22 |
+| 200,000 | **71 / 71** | **13 / 13** | 9 |
+
+Two deliberate choices:
+
+- **No path ranks above another.** It is tempting to prefer `src/` over `docs/`
+  and tests, but "which directory holds the product" is exactly the kind of
+  ecosystem assumption [8-exclusions.md](8-exclusions.md) exists to avoid — a
+  docs site's product *is* `docs/`. Fair allocation fixes the defect without
+  guessing, and `--exclude` remains the way to demote paths you don't care about.
+- **Cuts land on line boundaries** so a section stays readable as a diff, unless
+  line-aligning would rewind past nearly everything (a minified or generated file
+  can be one enormous line) — then a raw cut is preferred to an empty section.
+
+Files that were shortened rather than dropped are listed in
+`RangeDiff.trimmedFiles` / `WorkingChanges.trimmedFiles` and named in the
+prompt, so the model knows it is seeing part of those files and not all of them.
 
 Both are **stated in the prompt**, not applied silently — `rangeDiffToMaterial`
 names the excluded files and flags a truncated patch, and the rules tell the

@@ -166,10 +166,103 @@ describe('readRangeDiff — the actual code diff for a range (GG-50)', () => {
     expect(diff.excluded).not.toContain('src.ts');
   });
 
+  // @covers FR-29
+  it('gives every changed file a share of the budget, whatever its path sorts as', async () => {
+    // GG-57 regression. `git diff` emits files in path order, so a positional
+    // cut spent the whole budget alphabetically: on this repo's own release
+    // range every `src/` file got zero patch text while `.agents/` scaffolding
+    // consumed the allowance. Here `zzz-late.ts` stands in for that — it sorts
+    // last and is guaranteed to be pushed out by a prefix cut.
+    const wide = initRepo();
+    try {
+      writeFileSync(join(wide, 'seed.txt'), 'seed\n');
+      git(wide, 'add', '.');
+      commit(wide, 'feat: seed');
+      git(wide, 'tag', 'v1.0.0');
+
+      // Two big files: one sorts first and would eat a positional budget whole.
+      writeFileSync(join(wide, 'aaa-early.ts'), `export const early = "${'a'.repeat(4000)}";\n`);
+      writeFileSync(join(wide, 'zzz-late.ts'), 'export function lateButImportant(): void {}\n');
+      git(wide, 'add', '.');
+      commit(wide, 'feat: two files');
+
+      // A budget far too small for the early file alone.
+      const diff = await readRangeDiff('v1.0.0..HEAD', { cwd: wide, maxChars: 1200 });
+
+      expect(diff.truncated).toBe(true);
+      // The late-sorting file is present — the defect was it getting nothing.
+      expect(diff.patch).toContain('lateButImportant');
+      expect(diff.patch).toContain('zzz-late.ts');
+      // The early file is present too, just shortened rather than complete.
+      expect(diff.patch).toContain('aaa-early.ts');
+      expect(diff.trimmedFiles).toContain('aaa-early.ts');
+      // Small files that fit are never listed as trimmed.
+      expect(diff.trimmedFiles).not.toContain('zzz-late.ts');
+    } finally {
+      rmSync(wide, { recursive: true, force: true });
+    }
+  });
+
+  // @covers FR-29
+  it('keeps whole files whole when the budget allows, spending leftovers on the big ones', async () => {
+    // Max-min fairness: a file smaller than its equal share takes only what it
+    // needs and returns the rest, so small files stay complete.
+    const mixed = initRepo();
+    try {
+      writeFileSync(join(mixed, 'seed.txt'), 'seed\n');
+      git(mixed, 'add', '.');
+      commit(mixed, 'feat: seed');
+      git(mixed, 'tag', 'v1.0.0');
+
+      writeFileSync(join(mixed, 'small.ts'), 'export const small = 1;\n');
+      // Many short lines — ordinary source, not one giant minified line.
+      const body = Array.from({ length: 300 }, (_, i) => `export const v${String(i)} = ${String(i)};`);
+      writeFileSync(join(mixed, 'large.ts'), `${body.join('\n')}\n`);
+      git(mixed, 'add', '.');
+      commit(mixed, 'feat: mixed sizes');
+
+      const diff = await readRangeDiff('v1.0.0..HEAD', { cwd: mixed, maxChars: 2000 });
+      // The small file fits within its share, so it survives untouched…
+      expect(diff.patch).toContain('export const small = 1;');
+      expect(diff.trimmedFiles).toEqual(['large.ts']);
+      // …and the large one absorbed the leftover rather than being cut to half.
+      expect(diff.patch.length).toBeGreaterThan(1000);
+      // Line-aligned: the kept portion never ends mid-statement.
+      expect(diff.patch).not.toMatch(/export const v\d+ = \d*$/m);
+    } finally {
+      rmSync(mixed, { recursive: true, force: true });
+    }
+  });
+
+  // @covers FR-29
+  it('still yields content for a file that is one enormous line', async () => {
+    // Line-aligning a 6000-char single-line file would rewind past all of its
+    // content and leave only the diff header — so the cut falls back to raw.
+    const oneLine = initRepo();
+    try {
+      writeFileSync(join(oneLine, 'seed.txt'), 'seed\n');
+      git(oneLine, 'add', '.');
+      commit(oneLine, 'feat: seed');
+      git(oneLine, 'tag', 'v1.0.0');
+      writeFileSync(join(oneLine, 'generated.ts'), `export const blob = "${'x'.repeat(6000)}";\n`);
+      git(oneLine, 'add', '.');
+      commit(oneLine, 'feat: generated blob');
+
+      const diff = await readRangeDiff('v1.0.0..HEAD', { cwd: oneLine, maxChars: 2000 });
+      expect(diff.trimmedFiles).toEqual(['generated.ts']);
+      // Actual content, not just the `diff --git` header.
+      expect(diff.patch).toContain('export const blob');
+      expect(diff.patch.length).toBeGreaterThan(1000);
+    } finally {
+      rmSync(oneLine, { recursive: true, force: true });
+    }
+  });
+
   it('caps the patch at the char budget while keeping the file list complete', async () => {
     const diff = await readRangeDiff('v1.0.0..HEAD', { cwd: repo, maxChars: 40 });
     expect(diff.truncated).toBe(true);
-    expect(diff.patch).toContain('patch truncated at 40 characters');
+    expect(diff.patch).toContain('diff truncated');
+    expect(diff.trimmedFiles).toContain('src.ts');
     // The budget trims the patch only — knowing *which* files changed is never
     // sacrificed, so a huge range degrades gracefully instead of to nothing.
     expect(diff.files).toContain('src.ts');
@@ -229,6 +322,33 @@ describe('readRangeDiff — the actual code diff for a range (GG-50)', () => {
     });
     expect(custom.excluded).toEqual(['src.ts']);
     expect(custom.patch).toContain('xxxxxxxxxx');
+  });
+
+  // @covers FR-26
+  it('caps the per-file stat too, so a huge file list cannot dominate', async () => {
+    // The stat has its own 4000-char cap, separate from the patch budget — a
+    // range touching hundreds of files would otherwise crowd out the patch.
+    const many = initRepo();
+    try {
+      writeFileSync(join(many, 'seed.txt'), 'seed\n');
+      git(many, 'add', '.');
+      commit(many, 'feat: seed');
+      git(many, 'tag', 'v1.0.0');
+      for (let i = 0; i < 220; i++) {
+        writeFileSync(join(many, `file-${String(i).padStart(3, '0')}.ts`), `export const n${String(i)} = ${String(i)};\n`);
+      }
+      git(many, 'add', '.');
+      commit(many, 'feat: many files');
+
+      const diff = await readRangeDiff('v1.0.0..HEAD', { cwd: many });
+      expect(diff.files).toHaveLength(220);
+      expect(diff.stat).toContain('file list truncated');
+      expect(diff.truncated).toBe(true);
+      // The complete file list survives on `files` even though the stat is cut.
+      expect(diff.files).toContain('file-219.ts');
+    } finally {
+      rmSync(many, { recursive: true, force: true });
+    }
   });
 
   it('reports an empty range without running the patch commands', async () => {

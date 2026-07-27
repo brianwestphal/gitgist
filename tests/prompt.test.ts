@@ -82,6 +82,7 @@ describe('workingChangesToMaterial', () => {
     untracked: [],
     excluded: [],
     diff: '### Staged changes\ndiff --git a/a.ts b/a.ts',
+    trimmedFiles: [],
     truncated: false,
     isEmpty: false,
   };
@@ -107,6 +108,17 @@ describe('workingChangesToMaterial', () => {
     const material = workingChangesToMaterial({ ...base, truncated: true });
     expect(material).toContain('truncated to fit');
     expect(material).toContain('do not speculate about the omitted portion');
+  });
+
+  it('names files whose diff was shortened rather than dropped (GG-57)', () => {
+    const material = workingChangesToMaterial({
+      ...base,
+      staged: ['a.ts', 'big.ts'],
+      trimmedFiles: ['big.ts'],
+    });
+    expect(material).toContain('had their diff shortened to fit');
+    expect(material).toContain('big.ts');
+    expect(material).toContain('part of each, not all of it');
   });
 
   it('stays silent when nothing was held back', () => {
@@ -190,6 +202,7 @@ describe('rangeDiffToMaterial', () => {
     stat: ' src/a.ts | 2 +-',
     patch: 'diff --git a/src/a.ts b/src/a.ts\n+export const added = 1;',
     excluded: [],
+    trimmedFiles: [],
     truncated: false,
     isEmpty: false,
   };

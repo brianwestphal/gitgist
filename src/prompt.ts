@@ -243,6 +243,11 @@ export function rangeDiffToMaterial(diff: RangeDiff): string {
       `Note: these changed files are listed above but their diff was omitted as generated/lockfile noise — do not describe their contents: ${diff.excluded.join(', ')}`,
     );
   }
+  if (diff.trimmedFiles.length > 0) {
+    parts.push(
+      `Note: every changed file above appears in the patch, but these had their diff shortened to fit — you are seeing part of each, not all of it: ${diff.trimmedFiles.join(', ')}`,
+    );
+  }
   if (diff.truncated) {
     parts.push(
       'Note: the patch above was truncated to fit. Summarize only what is visible in it; do not speculate about the omitted portion.',
@@ -266,6 +271,11 @@ export function workingChangesToMaterial(working: WorkingChanges): string {
   if (working.excluded.length > 0) {
     parts.push(
       `Note: these uncommitted files changed but their diff was omitted as generated/lockfile noise — do not describe their contents: ${working.excluded.join(', ')}`,
+    );
+  }
+  if (working.trimmedFiles.length > 0) {
+    parts.push(
+      `Note: these uncommitted files had their diff shortened to fit — you are seeing part of each, not all of it: ${working.trimmedFiles.join(', ')}`,
     );
   }
   if (working.truncated) {

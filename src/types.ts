@@ -256,6 +256,12 @@ export interface RangeDiff {
    * {@link stat} so the change is still visible to the model.
    */
   excluded: string[];
+  /**
+   * Paths whose patch text was **shortened** to fit the budget. Distinct from
+   * {@link excluded}: those contribute no patch at all, these contribute a
+   * partial one. Every changed file still gets a share (GG-57).
+   */
+  trimmedFiles: string[];
   /** True when the stat or patch was trimmed to fit the budget. */
   truncated: boolean;
   /** True when the range changed no files at all. */
@@ -296,6 +302,8 @@ export interface WorkingChanges {
   excluded: string[];
   /** Formatted diff material (per-category `###` sections) for the AI. */
   diff: string;
+  /** Paths whose patch text was shortened to fit the budget (see `RangeDiff.trimmedFiles`). */
+  trimmedFiles: string[];
   /** True when any section was trimmed to fit the budget. */
   truncated: boolean;
   /** True when no requested category has any change. */

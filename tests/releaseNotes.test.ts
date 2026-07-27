@@ -244,7 +244,7 @@ describe('diff-grounded generation (GG-50)', () => {
   it('threads maxDiffChars through and tells the model the patch was cut', async () => {
     await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, maxDiffChars: 30, warn });
     expect(h.diffReads[0][1]).toMatchObject({ maxChars: 30 });
-    expect(h.calls[0].prompt).toContain('patch truncated at 30 characters');
+    expect(h.calls[0].prompt).toContain('had their diff shortened to fit');
     expect(h.calls[0].prompt).toContain('do not speculate about the omitted portion');
   });
 
@@ -267,7 +267,7 @@ describe('diff-grounded generation (GG-50)', () => {
     h.setDiffBudget(30);
     await generateReleaseNotes({ range: 'v1.0.0..HEAD', cwd: repo, warn });
     expect(h.diffReads[0][1]).toMatchObject({ maxChars: 30 });
-    expect(h.calls[0].prompt).toContain('patch truncated at 30 characters');
+    expect(h.calls[0].prompt).toContain('had their diff shortened to fit');
 
     // …and an explicit flag still wins over it.
     h.reset();
