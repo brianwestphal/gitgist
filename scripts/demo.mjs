@@ -29,7 +29,7 @@
  * typically the signed-in `claude` CLI, so no API key is required.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -47,20 +47,91 @@ const OUT_DIR = join(ROOT, 'assets', 'demos');
  * `v1.0.0..HEAD` is everything after it: a healthy mix of user-facing work plus
  * internal noise (refactor / test / chore) that the AI filters out and the
  * deterministic `--no-ai` grouping keeps.
+ *
+ * **Every commit carries real file content.** gitgist reads the range's actual
+ * diff and each commit's file list (FR-25 / FR-30) — on a history of
+ * `--allow-empty` commits there is no diff to ground in, so the AI demos would
+ * silently capture the commit-messages-only path rather than how the tool
+ * actually behaves. The files are deliberately tiny; they exist to give the
+ * model something real to read.
  */
 const COMMITS = [
-  'feat: initial release',
+  {
+    subject: 'feat: initial release',
+    files: {
+      'package.json': '{\n  "name": "acme",\n  "version": "1.0.0",\n  "engines": { "node": ">=18" }\n}\n',
+      'src/index.js': "export { generate } from './generate.js';\n",
+      'src/generate.js': 'export function generate(input) {\n  return String(input);\n}\n',
+    },
+  },
   '__TAG__',
-  'feat: stream large diffs instead of buffering them in memory',
-  'feat(cli): add --watch to regenerate notes on every commit',
-  'fix: handle an empty commit range without crashing',
-  'fix(auth): reject expired tokens instead of returning a 500',
-  'perf: cache the parsed config — about 3x faster startup',
-  'docs: expand the quickstart with a tag-to-HEAD example',
-  'refactor: split the loader into smaller modules',
-  'test: add coverage for the range parser',
-  'chore: bump eslint to v10',
-  'feat!: drop Node 18; the minimum supported version is now Node 20',
+  {
+    subject: 'feat: stream large diffs instead of buffering them in memory',
+    files: {
+      'src/diff.js':
+        'export async function* readDiff(stream) {\n  for await (const chunk of stream) {\n    yield chunk.toString();\n  }\n}\n',
+    },
+  },
+  {
+    subject: 'feat(cli): add --watch to regenerate notes on every commit',
+    files: {
+      'src/cli.js':
+        "import { watch } from 'node:fs';\n\nexport function run({ watch: follow } = {}) {\n  if (follow) watch('.git', () => regenerate());\n  return regenerate();\n}\n",
+    },
+  },
+  {
+    subject: 'fix: handle an empty commit range without crashing',
+    files: {
+      'src/range.js':
+        'export function parseRange(range) {\n  const commits = read(range);\n  if (commits.length === 0) return { empty: true, commits: [] };\n  return { empty: false, commits };\n}\n',
+    },
+  },
+  {
+    subject: 'fix(auth): reject expired tokens instead of returning a 500',
+    files: {
+      'src/auth.js':
+        "export function verifyToken(token) {\n  const payload = decode(token);\n  if (payload.exp * 1000 < Date.now()) {\n    throw new AuthError('token expired', 401);\n  }\n  return payload;\n}\n",
+    },
+  },
+  {
+    subject: 'perf: cache the parsed config — about 3x faster startup',
+    files: {
+      'src/config.js':
+        'let cached;\n\nexport function loadConfig() {\n  cached ??= JSON.parse(readFileSync(CONFIG_PATH, "utf8"));\n  return cached;\n}\n',
+    },
+  },
+  {
+    subject: 'docs: expand the quickstart with a tag-to-HEAD example',
+    files: { 'README.md': '# acme\n\n## Quickstart\n\n```bash\nacme v1.0.0..HEAD\n```\n' },
+  },
+  {
+    subject: 'refactor: split the loader into smaller modules',
+    files: {
+      'src/loader.js': "export { parse } from './loader/parse.js';\n",
+      'src/loader/parse.js': 'export function parse(text) {\n  return text.trim().split("\\n");\n}\n',
+    },
+  },
+  {
+    subject: 'test: add coverage for the range parser',
+    files: {
+      'test/range.test.js':
+        "import { parseRange } from '../src/range.js';\n\ntest('empty range', () => {\n  expect(parseRange('HEAD..HEAD').empty).toBe(true);\n});\n",
+    },
+  },
+  {
+    subject: 'chore: bump eslint to v10',
+    files: {
+      'package.json':
+        '{\n  "name": "acme",\n  "version": "1.0.0",\n  "engines": { "node": ">=18" },\n  "devDependencies": { "eslint": "^10.0.0" }\n}\n',
+    },
+  },
+  {
+    subject: 'feat!: drop Node 18; the minimum supported version is now Node 20',
+    files: {
+      'package.json':
+        '{\n  "name": "acme",\n  "version": "1.0.0",\n  "engines": { "node": ">=20" },\n  "devDependencies": { "eslint": "^10.0.0" }\n}\n',
+    },
+  },
 ];
 
 /** Open a `git` runner bound to `dir`, with demo identity/config preset. */
@@ -73,15 +144,21 @@ function gitIn(dir) {
   return git;
 }
 
-/** Seed a throwaway git repo with COMMITS and a `v1.0.0` tag. */
+/** Seed a throwaway git repo with COMMITS (real file content) and a `v1.0.0` tag. */
 function seedRepo(dir) {
   const git = gitIn(dir);
-  for (const subject of COMMITS) {
-    if (subject === '__TAG__') {
+  for (const entry of COMMITS) {
+    if (entry === '__TAG__') {
       git('tag', 'v1.0.0');
       continue;
     }
-    git('commit', '--allow-empty', '-q', '-m', subject);
+    for (const [path, content] of Object.entries(entry.files)) {
+      const full = join(dir, path);
+      mkdirSync(dirname(full), { recursive: true });
+      writeFileSync(full, content);
+    }
+    git('add', '-A');
+    git('commit', '-q', '-m', entry.subject);
   }
 }
 

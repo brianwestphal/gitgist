@@ -56,7 +56,7 @@ const HTML = `<!doctype html><html><head><meta charset="utf-8"><style>
   <div class="diagram">
     <div class="card src"><span class="badge">GIT</span><h3>Your commits</h3><div class="sub">v1.4.0&hellip;HEAD</div></div>
     <div class="flow">
-      <div class="top">read &rarr; group by theme</div>
+      <div class="top">read the diff &rarr; group by theme</div>
       <div class="arrowrow"><span class="seg"></span><span class="pill">gitgist &middot; Claude</span><span class="seg"></span><span class="head"></span></div>
       <div class="bot">filter the noise</div>
     </div>

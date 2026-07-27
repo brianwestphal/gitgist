@@ -5,7 +5,7 @@ read.** Point `gitgist` at everything since your last tag and it returns clean,
 grouped Markdown — written by Claude, with the internal noise stripped out.
 
 <p align="center">
-  <img src="assets/diagram.svg" alt="Your git commits (v1.4.0…HEAD) → gitgist · Claude reads them, groups by theme, and filters the noise → release notes as grouped Markdown. No API key — runs on your signed-in claude CLI, or --no-ai for offline grouping." width="900">
+  <img src="assets/diagram.svg" alt="Your git commits (v1.4.0…HEAD) → gitgist · Claude reads the range's actual code diff, groups by theme, and filters the noise → release notes as grouped Markdown. No API key — runs on your signed-in claude CLI, or --no-ai for offline grouping." width="900">
 </p>
 
 ## Why gitgist
@@ -28,9 +28,15 @@ grouped Markdown — written by Claude, with the internal noise stripped out.
   changes (`--staged`, `--working`, …) to preview notes for work that isn't
   committed yet — or add `--commit-message` to draft a Conventional Commit
   message straight from the staged diff.
+- **Every bullet can name its commit.** `--link-commits` ends each line with the
+  commit it came from — a link straight to the commit page when your remote is
+  GitHub, GitLab, or Bitbucket ([docs](docs/11-commit-links.md)).
 - **Bring your own template.** `--template notes.md` shapes the output to your
   team's house style — fixed section set, order, emoji, and per-section AI
   guidance — via a simple Markdown-with-frontmatter file.
+- **Configure once, not per command.** Drop a `gitgist.config.json` in the repo
+  (or a `gitgist` key in `package.json`) and CI stops repeating flags
+  ([docs](docs/12-config.md)).
 - **Works offline too.** `--no-ai` groups by Conventional Commit type with no
   network, no key, and fully deterministic output.
 - **Resilient by default.** If a provider errors or returns nothing useful for a
@@ -107,6 +113,9 @@ gitgist v1.4.0..HEAD --provider local --model llama3.2 --fallback-provider anthr
 
 # Shape the output to your team's template (sections, order, guidance)
 gitgist v1.4.0..HEAD --template release-notes.md
+
+# End each bullet with the commit it came from (linked, if the remote is known)
+gitgist v1.4.0..HEAD --link-commits
 
 # Offline, no AI — group by Conventional Commit type
 gitgist --no-ai
@@ -348,7 +357,10 @@ const changelog = await generateReleaseNotes({ from: 'v1.0.0', ai: false });
 Lower-level building blocks are exported too — `readCommits`,
 `resolveCommitRange`, `parseCommit`, `buildChangelog`, `renderMarkdown`, the
 `resolveProvider` / provider registry, and the prompt builders — for callers
-that want to customize any stage of the pipeline. See
+that want to customize any stage of the pipeline. This release also exports the
+diff layer (`readRangeDiff`, `readCommitFiles`, `buildExcludePathspecs`) and the
+config layer (`loadConfig`, `parseConfig`, `applyConfig`, `parseArgs`), so a
+wrapping tool can reuse gitgist's own discovery and precedence rules. See
 [`docs/`](docs/) for the architecture and requirements.
 
 ## Development
@@ -359,6 +371,7 @@ npm test          # unit + integration tests with coverage
 npm run lint
 npm run typecheck
 npm run build
+npm run check:features   # every documented behavior has an asserting test
 npm run demo      # re-capture the README demo SVGs (assets/demos/)
 npm run diagram   # re-capture the README flow diagram (assets/diagram.svg)
 npm run compare   # run the same changes through every available provider, side by side
