@@ -242,8 +242,8 @@ a rule of thumb, larger models categorize and filter noise more reliably:
 | --- | --- | --- | --- | --- |
 | `claude-cli` / `anthropic-api` | **Best** | CLI: included with your plan · API: per-token | Sent to Anthropic | Cleanest grouping; Breaking Changes surfaced first; refactor/test/chore noise dropped. |
 | `codex` / `gemini` / `opencode` | Very good | Included with your CLI sign-in (no key) | Sent to that vendor | No-key agent CLIs; quality tracks the underlying model. `--model` picks it (`opencode` uses `provider/model`). |
-| `local` (Ollama / LM Studio) | Very good | Free | **On-device** | Same shape as Claude on a capable model; minor ordering differences. Quality tracks the model you load. |
-| `apple` (Foundation Models) | Usable, weaker | Free | **On-device** | Smallest model — can miscategorize (in the `npm run compare` run: ordinary features listed under Breaking Changes, then repeated under Features), invent sections, or leave raw `feat(ui):` prefixes in the bullets. Free, private, fast. |
+| `local` (Ollama / LM Studio) | Very good | Free | **On-device** | Same shape as Claude on a capable model; minor ordering differences, and it may drop a section Claude keeps. Quality tracks the model you load. |
+| `apple` (Foundation Models) | Usable, weaker | Free | **On-device** | Smallest model, and the most variable run to run — can miscategorize (a `fix:` under Breaking Changes, `chore:`/`test:` under Bug Fixes), keep every internal commit, invent sections, or leave raw `feat(ui):` prefixes and commit hashes in the bullets. Free, private, fast. |
 | `--no-ai` | Deterministic | Free | **No network** | Conventional-Commits grouping; keeps every commit, no rewriting. The offline baseline. |
 
 **Pick by what you care about most:** best notes → Claude; private/free with
@@ -251,7 +251,7 @@ good quality → `local` with a capable model; private/free/fast on a Mac with
 nothing to install → `apple`; reproducible and offline → `--no-ai`.
 
 <details>
-<summary><strong>See it: the same 10 commits through three backends</strong> (real <code>npm&nbsp;run&nbsp;compare</code> output)</summary>
+<summary><strong>See it: the same 10 commits through four backends</strong> (one real <code>npm&nbsp;run&nbsp;compare</code> run)</summary>
 
 The history mixes real user-facing work (a breaking `feat!: drop Node 18`, two
 features, two fixes, a perf win, a `docs:` commit that adds a quickstart) with
@@ -260,51 +260,81 @@ dep bump). Every commit carries real file content, so these runs are
 diff-grounded the way gitgist runs by default — the AI backends describe what the
 code does, not just what the subject line claimed.
 
-**`claude-cli` (Claude)** — tightest. Breaking Changes first, and the bullets
-name things no commit subject mentions (`cursor` / `limit` / `nextCursor`, the
-401, the debounce) because they come from the diff. The `refactor:`, `test:`, and
-`chore:` commits are dropped as internal churn:
+All four blocks come from a **single** run. AI output is non-deterministic, so
+your own `npm run compare` will word things differently — the *tendencies* each
+backend shows here are the stable part, not the exact prose.
+
+**`claude-cli` (Claude)** — tightest. Breaking Changes first, and the bullets name
+things no commit subject mentions (`cursor` / `limit`, the `{ rows, nextCursor }`
+shape, the 401 `AuthError`, the debounce) because they come from the diff. The
+`refactor:`, `test:`, and `chore:` commits are dropped as internal churn:
 
 ```markdown
 ## Breaking Changes
-- Node 18 is no longer supported; Node 20 or newer is now required.
+- Node 18 is no longer supported; Node 20 or newer is required.
 
 ## Features
-- The list endpoint accepts `cursor` and `limit` options and returns a `nextCursor` for paging through results.
-- Settings page gains a dark-mode toggle.
+- The list endpoint now takes `cursor` and `limit` options and returns `{ rows, nextCursor }` for cursor-based pagination (default page size 50).
+- New dark-mode toggle on the settings page.
 
 ## Bug Fixes
-- Expired tokens now fail with a 401 "token expired" error instead of a 500.
+- Expired tokens are now rejected with a 401 `AuthError` instead of failing with a 500.
 - The sidebar no longer flickers on window resize — resize measurement is debounced.
 
 ## Performance
-- Compiled regexes are cached, cutting cold start time significantly.
+- Compiled regexes are cached, cutting cold-start time by roughly 3x.
 
 ## Documentation
-- Added a README with a quickstart showing a tag-to-`HEAD` invocation.
+- Added a README with a quickstart showing a tag-to-`HEAD` range example.
 ```
 
-**`local` (Ollama, `gemma4:12b`)** — the same sections and the same editorial
-calls, just less specific: it summarizes the pagination work without naming the
-new options, and orders Performance ahead of Bug Fixes:
+**`local` (Ollama, `gemma4:12b`)** — close, on a capable model. Same editorial
+instinct: the same six user-facing changes, the same `refactor:` / `test:` /
+`chore:` churn dropped. Two differences — Performance lands ahead of Bug Fixes,
+and it dropped the `docs:` quickstart too, where Claude kept it as Documentation.
+The bullets are a step less specific (no option names):
 
 ```markdown
 ## Breaking Changes
-- Minimum supported Node.js version is now 20.
+- Minimum supported Node.js version updated to v20.
 
 ## Features
-- Added cursor-based pagination to the list endpoint.
-- Added a dark mode toggle in the settings page.
+- Added a dark mode toggle on the settings page.
+- Introduced cursor-based pagination for the list endpoint.
 
 ## Performance
-- Improved cold start performance by caching compiled regular expressions.
+- Improved startup performance by caching compiled regular expressions.
 
 ## Bug Fixes
-- Fixed sidebar flickering during window resize.
-- Corrected expired token handling to properly reject requests with a 401 status code.
+- Fixed sidebar flickering when resizing the window.
+- Corrected expired token handling to return 401 status codes instead of internal server errors.
+```
 
-## Documentation
-- Expanded the quickstart guide with a tag-to-HEAD example.
+**`apple` (on-device Foundation Models)** — the smallest model, and it shows. This
+run filtered nothing (all ten commits survive — `chore:` and `test:` among them,
+under *Bug Fixes*), filed the `fix(auth)` commit under **Breaking Changes**, left
+the raw `feat(ui):` / `perf:` prefixes in the bullets, and appended commit hashes
+nothing asked for. Free, private, and fast — but read it before you ship it:
+
+```markdown
+## Breaking Changes
+
+- **feat!: drop Node 18; the minimum supported version is now Node 20** (af3127e)
+- **fix(auth): reject expired tokens instead of returning a 500** (aaf85a7)
+
+## Features
+
+- **feat(ui): add a dark-mode toggle to the settings page** (bdfb99f)
+- **feat(api): add cursor-based pagination to the list endpoint** (27b2aae)
+- **docs: expand the quickstart with a tag-to-HEAD example** (1c0fdd8)
+- **perf: cache compiled regexes — about 3x faster cold start** (1962afb)
+- **refactor: split the loader into smaller modules** (5ae1775)
+
+## Bug Fixes
+
+- **fix: stop the sidebar from flickering on window resize** (5792a6b)
+- **chore: bump eslint to v10** (e817147)
+- **test: add coverage for the range parser** (01a89db)
 ```
 
 **`--no-ai`** — deterministic baseline. Keeps every commit verbatim with its
@@ -313,31 +343,31 @@ both Breaking Changes *and* Features, and the refactor/test/chore commits stay:
 
 ```markdown
 ## ⚠ BREAKING CHANGES
-- drop Node 18; the minimum supported version is now Node 20 (`1520c30`)
+- drop Node 18; the minimum supported version is now Node 20 (`af3127e`)
 
 ## Features
-- drop Node 18; the minimum supported version is now Node 20 (`1520c30`)
-- **ui:** add a dark-mode toggle to the settings page (`444372b`)
-- **api:** add cursor-based pagination to the list endpoint (`5b1ec8e`)
+- drop Node 18; the minimum supported version is now Node 20 (`af3127e`)
+- **ui:** add a dark-mode toggle to the settings page (`bdfb99f`)
+- **api:** add cursor-based pagination to the list endpoint (`27b2aae`)
 
 ## Bug Fixes
-- stop the sidebar from flickering on window resize (`69b048f`)
-- **auth:** reject expired tokens instead of returning a 500 (`cb8f121`)
+- stop the sidebar from flickering on window resize (`5792a6b`)
+- **auth:** reject expired tokens instead of returning a 500 (`aaf85a7`)
 
 ## Performance
-- cache compiled regexes — about 3x faster cold start (`ac95bda`)
+- cache compiled regexes — about 3x faster cold start (`1962afb`)
 
 ## Refactoring
-- split the loader into smaller modules (`8cd7ba5`)
+- split the loader into smaller modules (`5ae1775`)
 
 ## Documentation
-- expand the quickstart with a tag-to-HEAD example (`4454afe`)
+- expand the quickstart with a tag-to-HEAD example (`1c0fdd8`)
 
 ## Tests
-- add coverage for the range parser (`915e43e`)
+- add coverage for the range parser (`01a89db`)
 
 ## Chores
-- bump eslint to v10 (`9164127`)
+- bump eslint to v10 (`e817147`)
 ```
 
 </details>
