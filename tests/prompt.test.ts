@@ -74,19 +74,44 @@ describe('buildUserPrompt', () => {
   });
 });
 
-// @covers FR-11
+// @covers FR-11, FR-26
 describe('workingChangesToMaterial', () => {
+  const base: WorkingChanges = {
+    staged: ['a.ts'],
+    unstaged: [],
+    untracked: [],
+    excluded: [],
+    diff: '### Staged changes\ndiff --git a/a.ts b/a.ts',
+    truncated: false,
+    isEmpty: false,
+  };
+
   it('labels the diff as uncommitted changes', () => {
-    const working: WorkingChanges = {
-      staged: ['a.ts'],
-      unstaged: [],
-      untracked: [],
-      diff: '### Staged changes\ndiff --git a/a.ts b/a.ts',
-      isEmpty: false,
-    };
-    const material = workingChangesToMaterial(working);
+    const material = workingChangesToMaterial(base);
     expect(material).toContain('Uncommitted changes');
     expect(material).toContain('### Staged changes');
+  });
+
+  it('names files whose diff was held back as noise (GG-54)', () => {
+    const material = workingChangesToMaterial({
+      ...base,
+      staged: ['a.ts', 'package-lock.json'],
+      excluded: ['package-lock.json'],
+    });
+    expect(material).toContain('omitted as generated/lockfile noise');
+    expect(material).toContain('package-lock.json');
+    expect(material).toContain('do not describe their contents');
+  });
+
+  it('flags a truncated working-tree diff, matching the range-diff contract', () => {
+    const material = workingChangesToMaterial({ ...base, truncated: true });
+    expect(material).toContain('truncated to fit');
+    expect(material).toContain('do not speculate about the omitted portion');
+  });
+
+  it('stays silent when nothing was held back', () => {
+    const material = workingChangesToMaterial(base);
+    expect(material).not.toContain('Note:');
   });
 });
 

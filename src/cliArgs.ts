@@ -52,8 +52,9 @@ Options:
   --no-diff               Summarize from commit messages alone, without reading
                           the range's actual code diff. Smaller prompts, but the
                           notes can only repeat what the commit log claims.
-  --max-diff-chars <n>    Character budget for the range patch (default: 24000).
-                          The changed-file list is never dropped.
+  --max-diff-chars <n>    Character budget for the diff material (default: 24000),
+                          applied to the range patch and to the working-tree
+                          diffs alike. The changed-file list is never dropped.
   --provider <name>       AI backend: auto | claude-cli | codex | gemini | opencode |
                           anthropic-api | local | apple (default: auto).
   --endpoint <url>        Base URL for --provider local (default: $GITGIST_LOCAL_ENDPOINT

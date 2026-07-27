@@ -73,6 +73,7 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
       staged: options.staged,
       unstaged: options.unstaged,
       untracked: options.untracked,
+      maxChars: options.maxDiffChars,
     });
   }
 

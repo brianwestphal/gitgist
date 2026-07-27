@@ -16,11 +16,13 @@ const execFileAsync = promisify(execFile);
 /** Generous output cap for git invocations (diffs can be large). */
 const GIT_MAX_BUFFER = 64 * 1024 * 1024;
 
-/** Per-section diff cap (chars) so a huge diff can't blow up the prompt. */
-const MAX_DIFF_CHARS = 8000;
-
-/** Default char budget for a commit range's patch body. */
-const DEFAULT_MAX_RANGE_DIFF_CHARS = 24000;
+/**
+ * Default char budget for diff material, so a huge change can't blow up the
+ * prompt. One number governs **both** diff paths (GG-54): the commit-range
+ * patch body ({@link readRangeDiff}) and the working-tree material as a whole
+ * ({@link readWorkingChanges}). Overridable per call, and via `--max-diff-chars`.
+ */
+const DEFAULT_MAX_DIFF_CHARS = 24000;
 
 /** Char budget for the per-file stat. Kept well under the patch budget — it is a summary. */
 const MAX_STAT_CHARS = 4000;
@@ -152,9 +154,16 @@ function capText(text: string, maxChars: number, note: string): { text: string; 
   return { text: `${trimmed.slice(0, maxChars)}\n… (${note})`, truncated: true };
 }
 
-/** Trim a diff to a sane length so a huge change can't dominate the prompt. */
-function capDiff(diff: string): string {
-  return capText(diff, MAX_DIFF_CHARS, 'diff truncated').text;
+/**
+ * Split a char budget across the sections that actually carry content, so a
+ * single-category run gets the whole budget instead of a fixed fraction of it.
+ *
+ * @param budget - Total chars available for all sections.
+ * @param sections - How many sections have content.
+ * @returns The per-section allowance.
+ */
+function shareBudget(budget: number, sections: number): number {
+  return sections > 0 ? Math.floor(budget / sections) : budget;
 }
 
 /**
@@ -203,7 +212,7 @@ export async function readRangeDiff(
   options: RangeDiffOptions = {},
 ): Promise<RangeDiff> {
   const cwd = options.cwd ?? process.cwd();
-  const maxChars = options.maxChars ?? DEFAULT_MAX_RANGE_DIFF_CHARS;
+  const maxChars = options.maxChars ?? DEFAULT_MAX_DIFF_CHARS;
   const revs = rangeToDiffArgs(range);
 
   const files = await gitNames(['diff', '--name-only', '-z', ...revs], cwd);
@@ -273,51 +282,83 @@ async function untrackedDiff(path: string, cwd: string): Promise<string> {
  * (e.g. to draft a commit message) or to fold into release notes alongside the
  * committed history.
  *
- * @param options - Which categories (staged / unstaged / untracked) to gather.
+ * Same two guarantees as {@link readRangeDiff}, so both diff paths behave alike
+ * (GG-54): generated/lockfile **noise is kept out of the patch bodies** (but
+ * stays in the per-category file lists and is reported in {@link
+ * WorkingChanges.excluded}), and the whole thing is bounded by one char budget
+ * — {@link WorkingChangeOptions.maxChars}, shared across only the sections that
+ * actually have content, so `--staged` alone gets the full budget rather than a
+ * fixed third of it.
+ *
+ * @param options - Which categories (staged / unstaged / untracked) to gather, plus the budget.
  * @returns The changed file paths per category plus formatted diff material.
  */
 export async function readWorkingChanges(options: WorkingChangeOptions = {}): Promise<WorkingChanges> {
   const cwd = options.cwd ?? process.cwd();
+  const budget = options.maxChars ?? DEFAULT_MAX_DIFF_CHARS;
   const staged: string[] = [];
   const unstaged: string[] = [];
   const untracked: string[] = [];
-  const sections: string[] = [];
+  const excluded: string[] = [];
+  // Raw, uncapped sections gathered first — the budget can only be shared out
+  // once we know how many sections actually carry content.
+  const raw: { title: string; diff: string }[] = [];
+
+  /** Read one tracked-diff category: full file list, noise-free patch. */
+  const trackedCategory = async (
+    title: string,
+    into: string[],
+    diffArgs: string[],
+  ): Promise<void> => {
+    into.push(...(await gitNames([...diffArgs, '--name-only', '-z'], cwd)));
+    const kept = new Set(
+      await gitNames([...diffArgs, '--name-only', '-z', '--', ...NOISE_PATHSPECS], cwd),
+    );
+    excluded.push(...into.filter((file) => !kept.has(file)));
+    const { stdout } = await execFileAsync(
+      'git',
+      [...diffArgs, '--no-color', '--', ...NOISE_PATHSPECS],
+      { cwd, maxBuffer: GIT_MAX_BUFFER },
+    );
+    if (stdout.trim() !== '') raw.push({ title, diff: stdout });
+  };
 
   if (options.staged === true) {
-    staged.push(...(await gitNames(['diff', '--staged', '--name-only', '-z'], cwd)));
-    const { stdout } = await execFileAsync('git', ['diff', '--staged', '--no-color'], {
-      cwd,
-      maxBuffer: GIT_MAX_BUFFER,
-    });
-    const diff = capDiff(stdout);
-    if (diff !== '') sections.push(`### Staged changes\n${diff}`);
+    await trackedCategory('Staged changes', staged, ['diff', '--staged']);
   }
 
   if (options.unstaged === true) {
-    unstaged.push(...(await gitNames(['diff', '--name-only', '-z'], cwd)));
-    const { stdout } = await execFileAsync('git', ['diff', '--no-color'], {
-      cwd,
-      maxBuffer: GIT_MAX_BUFFER,
-    });
-    const diff = capDiff(stdout);
-    if (diff !== '') sections.push(`### Unstaged changes\n${diff}`);
+    await trackedCategory('Unstaged changes', unstaged, ['diff']);
   }
 
   if (options.untracked === true) {
-    untracked.push(...(await gitNames(['ls-files', '--others', '--exclude-standard', '-z'], cwd)));
+    const lsArgs = ['ls-files', '--others', '--exclude-standard', '-z'];
+    untracked.push(...(await gitNames(lsArgs, cwd)));
+    const kept = new Set(await gitNames([...lsArgs, '--', ...NOISE_PATHSPECS], cwd));
+    excluded.push(...untracked.filter((file) => !kept.has(file)));
     const parts: string[] = [];
     for (const path of untracked) {
-      parts.push(await untrackedDiff(path, cwd));
+      if (kept.has(path)) parts.push(await untrackedDiff(path, cwd));
     }
-    const diff = capDiff(parts.join('\n'));
-    if (diff !== '') sections.push(`### New (untracked) files\n${diff}`);
+    const diff = parts.join('\n');
+    if (diff.trim() !== '') raw.push({ title: 'New (untracked) files', diff });
   }
+
+  const perSection = shareBudget(budget, raw.length);
+  let truncated = false;
+  const sections = raw.map(({ title, diff }) => {
+    const capped = capText(diff, perSection, 'diff truncated');
+    truncated = truncated || capped.truncated;
+    return `### ${title}\n${capped.text}`;
+  });
 
   return {
     staged,
     unstaged,
     untracked,
+    excluded,
     diff: sections.join('\n\n'),
+    truncated,
     isEmpty: staged.length === 0 && unstaged.length === 0 && untracked.length === 0,
   };
 }

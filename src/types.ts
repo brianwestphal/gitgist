@@ -180,8 +180,9 @@ export interface ReleaseNotesOptions {
    */
   diff?: boolean;
   /**
-   * Character budget for the range patch body (default: 24000). The changed-file
-   * list and stat are never dropped.
+   * Character budget for diff material (default: 24000) — governs both the
+   * commit-range patch body and the working-tree diffs. The changed-file lists
+   * and the range stat are never dropped.
    */
   maxDiffChars?: number;
   /**
@@ -240,6 +241,12 @@ export interface WorkingChangeOptions {
   unstaged?: boolean;
   /** Include untracked (new) files. */
   untracked?: boolean;
+  /**
+   * Total character budget for the working-tree diff material (default: 24000 —
+   * the same budget the commit-range patch uses). It is shared across only the
+   * sections that actually have content, so a lone `staged` run gets all of it.
+   */
+  maxChars?: number;
 }
 
 /** Uncommitted changes in the working tree, gathered by `readWorkingChanges`. */
@@ -250,8 +257,16 @@ export interface WorkingChanges {
   unstaged: string[];
   /** Paths of untracked (new) files. */
   untracked: string[];
+  /**
+   * Paths that changed but whose patch body was omitted as generated/lockfile
+   * noise. They stay listed in the category arrays above, so the change is
+   * still visible — only its line-by-line content is held back.
+   */
+  excluded: string[];
   /** Formatted diff material (per-category `###` sections) for the AI. */
   diff: string;
+  /** True when any section was trimmed to fit the budget. */
+  truncated: boolean;
   /** True when no requested category has any change. */
   isEmpty: boolean;
 }

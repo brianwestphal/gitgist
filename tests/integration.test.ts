@@ -262,6 +262,34 @@ describe('working-tree changes integration', () => {
     expect(wc.diff).toContain('staged content');
   });
 
+  // @covers FR-26
+  it('keeps lockfile/build noise out of the working-tree patch without hiding it', async () => {
+    // GG-54 regression: the working-tree path applied no noise filtering, so a
+    // staged lockfile that sorted early could consume the entire budget and
+    // push the real source change out of the prompt completely.
+    const noisy = initRepo();
+    try {
+      writeFileSync(join(noisy, 'seed.txt'), 'seed\n');
+      git(noisy, 'add', '.');
+      commit(noisy, 'feat: seed');
+      // Sorts before `src.ts`, and is far larger than the whole budget.
+      writeFileSync(join(noisy, 'a-package-lock.json'), `{"noise":"${'x'.repeat(5000)}"}\n`);
+      writeFileSync(join(noisy, 'src.ts'), 'export const realChange = true;\n');
+      git(noisy, 'add', '.');
+
+      const wc = await readWorkingChanges({ cwd: noisy, staged: true, maxChars: 2000 });
+      // The lockfile is still reported as changed…
+      expect(wc.staged).toContain('a-package-lock.json');
+      expect(wc.excluded).toContain('a-package-lock.json');
+      // …but its body never reaches the prompt, so the real change survives.
+      expect(wc.diff).not.toContain('xxxxxxxxxx');
+      expect(wc.diff).toContain('export const realChange = true;');
+      expect(wc.excluded).not.toContain('src.ts');
+    } finally {
+      rmSync(noisy, { recursive: true, force: true });
+    }
+  });
+
   it('readWorkingChanges only reads requested categories', async () => {
     const wc = await readWorkingChanges({ cwd: repo, staged: true });
     expect(wc.staged).toContain('staged.txt');
@@ -286,6 +314,39 @@ describe('working-tree changes integration', () => {
     } finally {
       rmSync(clean, { recursive: true, force: true });
     }
+  });
+
+  // @covers FR-26
+  it('honors maxChars for working-tree diffs, and gives a lone category the whole budget', async () => {
+    // GG-54 regression: `--max-diff-chars` used to be ignored here entirely —
+    // the working-tree path had its own hardcoded 8000-char per-section cap.
+    const tight = await readWorkingChanges({ cwd: repo, staged: true, maxChars: 40 });
+    expect(tight.truncated).toBe(true);
+    expect(tight.diff.length).toBeLessThan(200);
+    expect(tight.diff).toContain('diff truncated');
+
+    // A single requested category gets the full budget, not a fixed third.
+    const roomy = await readWorkingChanges({ cwd: repo, staged: true, maxChars: 100_000 });
+    expect(roomy.truncated).toBe(false);
+    expect(roomy.diff).toContain('staged content');
+  });
+
+  // @covers FR-26
+  it('splits the budget across the sections that actually have content', async () => {
+    // Three non-empty sections share the budget, so each gets a third — and the
+    // total stays under the number the user asked for.
+    const all = await readWorkingChanges({
+      cwd: repo,
+      staged: true,
+      unstaged: true,
+      untracked: true,
+      maxChars: 600,
+    });
+    expect(all.diff).toContain('### Staged changes');
+    expect(all.diff).toContain('### Unstaged changes');
+    expect(all.diff).toContain('### New (untracked) files');
+    // 3 sections × 200 chars + the section headers and truncation markers.
+    expect(all.diff.length).toBeLessThan(600 + 400);
   });
 
   it('readWorkingChanges defaults cwd and returns empty when nothing is requested', async () => {

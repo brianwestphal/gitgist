@@ -68,6 +68,9 @@ names the excluded files and flags a truncated patch, and the rules tell the
 model to describe only what it can see. Hiding the boundary would invite exactly
 the invented detail the diff is meant to prevent.
 
+Both mechanisms govern the **working-tree** diffs on the same terms (GG-54) —
+see [Interaction with working-tree changes](#interaction-with-working-tree-changes).
+
 ## What the model is told
 
 `rangeDiffToMaterial` (`src/prompt.ts`) emits, after the commit list:
@@ -116,6 +119,25 @@ range is evidence to describe in full, never a document to defer to.
 model; FR-25 closes the gap for *committed* history, which previously reached the
 model as subjects and bodies only. When both are present the prompt carries the
 commit list, then the range diff, then the working-tree diffs.
+
+**Both paths obey the same budget and the same noise filter** (GG-54). They used
+to diverge: the working-tree path had its own hardcoded 8000-char per-section cap
+that `--max-diff-chars` could not reach, and no noise filtering at all — so a
+staged `package-lock.json` that sorted early could consume the entire section and
+push the real source change out of the prompt completely.
+
+The working-tree budget is a **total**, shared across only the sections that
+actually carry content:
+
+| Requested | Per-section allowance (default budget) |
+| --- | --- |
+| `--working` (staged + unstaged + untracked, all non-empty) | 8000 each — unchanged from before |
+| `--staged` alone | the full 24000 |
+| two non-empty sections | 12000 each |
+
+So the common `--working` case behaves exactly as it always did, while a
+single-category run — typically `gitgist --staged --commit-message` — is no
+longer starved at a third of the budget for no reason.
 
 ## Related
 

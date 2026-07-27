@@ -258,5 +258,20 @@ export function rangeDiffToMaterial(diff: RangeDiff): string {
  * @returns A labeled block of the diff material.
  */
 export function workingChangesToMaterial(working: WorkingChanges): string {
-  return `Uncommitted changes (not yet committed) — summarize what they do for the reader:\n\n${working.diff}`;
+  const parts = [
+    `Uncommitted changes (not yet committed) — summarize what they do for the reader:\n\n${working.diff}`,
+  ];
+  // Same honesty contract as rangeDiffToMaterial (GG-54): name what was held
+  // back rather than letting the model assume it saw everything.
+  if (working.excluded.length > 0) {
+    parts.push(
+      `Note: these uncommitted files changed but their diff was omitted as generated/lockfile noise — do not describe their contents: ${working.excluded.join(', ')}`,
+    );
+  }
+  if (working.truncated) {
+    parts.push(
+      'Note: the uncommitted diff above was truncated to fit. Summarize only what is visible in it; do not speculate about the omitted portion.',
+    );
+  }
+  return parts.join('\n\n');
 }
