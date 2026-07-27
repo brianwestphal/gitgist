@@ -136,6 +136,7 @@ npm run build         # tsup → dist/ (index + cli, with .d.ts)
 - [docs/6-fallback.md](docs/6-fallback.md) — fallback provider + suspect empty-notes (`--fallback-*`) handling.
 - [docs/7-diff-grounding.md](docs/7-diff-grounding.md) — grounding notes in the real code diff (`--no-diff`, `--max-diff-chars`).
 - [docs/manual-test-plan.md](docs/manual-test-plan.md) — manual checks (CLI-provider output quality).
+- `docs/technical-changelog/` — per-release, diff-grounded technical reports (written by the `technical-changelog` skill; `scripts/changelog-analysis.mjs` does the git analysis).
 - [docs/ai/code-summary.md](docs/ai/code-summary.md) — AI-oriented code map.
 - [docs/ai/requirements-summary.md](docs/ai/requirements-summary.md) — AI-oriented requirements digest.
 

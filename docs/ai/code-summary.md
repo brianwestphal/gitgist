@@ -32,6 +32,7 @@ tests/                # parse, changelog, prompt, cliArgs, git, template, provid
   conventions.test.ts # requirement-level guards line coverage can't express (feature coverage, export surface, dep allow-list, module structure)
 scripts/
   check-features.mjs  # `npm run check:features` — feature/requirement coverage report (FR/NFR/T ↔ @covers)
+  changelog-analysis.mjs # deterministic base-tag/area/surface analysis behind the `technical-changelog` skill
   lib/features.mjs    # shared traceability parser (parseRequirements, collectCovers, computeCoverage)
 ```
 
@@ -78,4 +79,5 @@ scripts/
 | add/change a CLI flag | `cliArgs.ts` (+ wire in `cli.ts`, `releaseNotes.ts`) |
 | change provider selection order | `providers/index.ts` (`AUTO_ORDER`) |
 | add a requirement/behavior + its test link | add an FR/NFR/T row to `docs/3-requirements.md`, add a `// @covers <ID>` tag on the asserting test; verify with `npm run check:features` |
+| write a diff-grounded technical changelog for a release | the `technical-changelog` skill + `scripts/changelog-analysis.mjs`; reports land in `docs/technical-changelog/` |
 | check every documented behavior is tested (not just every line) | `scripts/check-features.mjs` (`npm run check:features`) + `tests/conventions.test.ts` (enforced in `npm test`); index in `docs/3-requirements.md` |
