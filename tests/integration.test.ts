@@ -332,6 +332,8 @@ describe('readRangeDiff — the actual code diff for a range (GG-50)', () => {
   });
 
   // @covers FR-26
+  // Committing 220 files runs a few seconds over vitest's 5s default on a busy
+  // machine, so this one gets an explicit budget.
   it('caps the per-file stat too, so a huge file list cannot dominate', async () => {
     // The stat has its own 4000-char cap, separate from the patch budget — a
     // range touching hundreds of files would otherwise crowd out the patch.
@@ -356,7 +358,7 @@ describe('readRangeDiff — the actual code diff for a range (GG-50)', () => {
     } finally {
       rmSync(many, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 
   it('reports an empty range without running the patch commands', async () => {
     const diff = await readRangeDiff('HEAD..HEAD', { cwd: repo });
