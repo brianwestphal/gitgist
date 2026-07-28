@@ -53,6 +53,13 @@ export interface OpenAiCompatibleTarget {
   label: string;
   /** Appended to the unreachable error — the concrete fix for this backend. */
   unreachableHint: string;
+  /**
+   * Appended to the **timeout** error. Kept separate from
+   * {@link unreachableHint} because a slow model and a dead server call for
+   * opposite advice, and conflating them sent users to restart a server that was
+   * working fine (GG-64).
+   */
+  timeoutHint?: string;
   /** Extra request headers, e.g. `Authorization: Bearer …`. */
   headers?: Record<string, string>;
   /** Injectable fetch (default: the global `fetch`). */
@@ -108,6 +115,35 @@ async function fetchWithTimeout(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Turn a `fetch` rejection into a short, human-readable cause.
+ *
+ * An `AbortError` here can only have come from our own timeout; otherwise the underlying `code` (`ECONNREFUSED`,
+ * `ECONNRESET`, …) is far more useful than the generic "fetch failed" wrapper
+ * Node puts in front of it.
+ *
+ * @param error - Whatever `fetch` rejected with.
+ * @param timeoutMs - The wall-clock budget, named in the timeout case.
+ * @returns A short cause description.
+ */
+export function describeFetchFailure(error: unknown, timeoutMs: number): string {
+  if (isAbort(error)) return `timed out after ${String(timeoutMs)}ms`;
+  const code = (error as { cause?: { code?: unknown } } | null)?.cause?.code;
+  if (typeof code === 'string' && code !== '') return code;
+  if (error instanceof Error && error.message !== '') return error.message;
+  return 'unknown error';
+}
+
+/**
+ * Whether a `fetch` rejection came from our own {@link fetchWithTimeout} abort.
+ *
+ * @param error - Whatever `fetch` rejected with.
+ * @returns True for an `AbortError`.
+ */
+export function isAbort(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
 }
 
 /** Merge the target's auth headers with the JSON content type. */
@@ -194,9 +230,23 @@ export async function chatCompletion(
       },
       timeoutMs,
     );
-  } catch {
+  } catch (error) {
+    // A timeout is NOT unreachability, and must not be reported as one: the
+    // server answered fine, the model was just slow. Reporting "start your local
+    // server" there sent users to fix something that was not broken (GG-64).
+    if (isAbort(error)) {
+      const hint = target.timeoutHint === undefined ? '' : ` ${target.timeoutHint}`;
+      throw new Error(
+        `${target.label} timed out after ${String(timeoutMs)}ms at ${target.endpoint}.${hint}`,
+        { cause: error },
+      );
+    }
+    // Otherwise still name the underlying cause rather than swallowing it — a
+    // refused connection and a socket dropped mid-request are different problems.
     throw new Error(
-      `${target.label} not reachable at ${target.endpoint}. ${target.unreachableHint}`,
+      `${target.label} not reachable at ${target.endpoint}. ${target.unreachableHint}` +
+        ` (${describeFetchFailure(error, timeoutMs)})`,
+      { cause: error },
     );
   }
 

@@ -21,9 +21,10 @@ import {
   resolveProvider,
   unavailableMessage,
 } from '../src/providers/index.js';
-import { createLocalProvider } from '../src/providers/local.js';
+import { createLocalProvider, LOCAL_TIMEOUT_MS } from '../src/providers/local.js';
 import { createOpenAiApiProvider } from '../src/providers/openaiApi.js';
 import {
+  DEFAULT_TIMEOUT_MS,
   extractChatContent,
   type FetchLike,
   parseModelList,
@@ -542,18 +543,76 @@ describe('createLocalProvider', () => {
     }
   });
 
-  it('generate() aborts and reports unreachable when the request exceeds the timeout', async () => {
+  // @covers FR-36
+  it('generate() reports a timeout AS a timeout, not as an unreachable server (GG-64)', async () => {
     // The chat fetch only settles when the timeout fires the abort signal, so
     // this deterministically exercises the AbortController timer + catch path.
     const fetchImpl: FetchLike = (_url, init) =>
       new Promise((_resolve, reject) => {
         init?.signal?.addEventListener('abort', () => {
-          reject(new Error('aborted'));
+          const e = new Error('aborted');
+          e.name = 'AbortError';
+          reject(e);
         });
       });
     const p = createLocalProvider({ model: 'llama3.2', fetchImpl });
+    const message = await p
+      .generate({ system: 's', prompt: 'p', timeoutMs: 10 })
+      .then(() => '')
+      .catch((e: unknown) => (e as Error).message);
+
+    // This was the real GG-64 bug: a slow model was reported as a dead server,
+    // sending users to restart something that was working.
+    expect(message).toMatch(/timed out after 10ms/);
+    expect(message).not.toMatch(/not reachable/);
+    expect(message).not.toMatch(/Start your local server/);
+    // And it says what to actually do about a slow model.
+    expect(message).toMatch(/model is slow/);
+  });
+
+  // @covers FR-36
+  it('generate() names the underlying cause when the endpoint really is down', async () => {
+    // A genuine connection failure keeps the "start your server" advice, and now
+    // carries the OS-level code so the next report is diagnosable.
+    const refused = Object.assign(new Error('fetch failed'), {
+      cause: { code: 'ECONNREFUSED' },
+    });
+    const fetchImpl: FetchLike = () => Promise.reject(refused);
+    const p = createLocalProvider({ model: 'llama3.2', fetchImpl });
+    const message = await p
+      .generate({ system: 's', prompt: 'p' })
+      .then(() => '')
+      .catch((e: unknown) => (e as Error).message);
+
+    expect(message).toMatch(/not reachable/);
+    expect(message).toMatch(/Start your local server/);
+    expect(message).toMatch(/ECONNREFUSED/);
+  });
+
+  // @covers FR-36
+  it('gives a local model a much longer default budget than the shared one', () => {
+    // A 12B model measured 87-109s on this prompt, so the shared 120s default left
+    // almost no headroom — that narrow margin is what made GG-64 intermittent.
+    // Pinned as a ratio, not a magic number, so tuning either stays coherent.
+    expect(LOCAL_TIMEOUT_MS).toBeGreaterThanOrEqual(DEFAULT_TIMEOUT_MS * 4);
+  });
+
+  // @covers FR-36
+  it('an explicit request timeout still overrides the local default', async () => {
+    // The generous default must not become a floor — callers keep control.
+    const never: FetchLike = (_url, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          const e = new Error('aborted');
+          e.name = 'AbortError';
+          reject(e);
+        });
+      });
+    const p = createLocalProvider({ model: 'm', fetchImpl: never });
+    // Resolves promptly at 10ms rather than hanging for the 10-minute default,
+    // which is only possible if the request value won.
     await expect(p.generate({ system: 's', prompt: 'p', timeoutMs: 10 })).rejects.toThrow(
-      /not reachable/,
+      /timed out after 10ms/,
     );
   });
 

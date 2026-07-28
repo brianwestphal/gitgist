@@ -54,6 +54,31 @@ server (e.g. Ollama) or pass --endpoint"*; an unreachable hosted API must not.
 `httpHint(status)` turns a bare status into a fix — for `openai-api`, `401`/`403`
 → check `OPENAI_API_KEY`, `404` → check the model id, `429` → rate limited.
 
+### Failure reporting (FR-36)
+
+A `fetch` rejection is **classified, not flattened**:
+
+| Cause | Message |
+| --- | --- |
+| Our own `AbortController` fired | `<label> timed out after <n>ms at <endpoint>.` + `timeoutHint` |
+| Anything else | `<label> not reachable at <endpoint>. <unreachableHint> (<cause>)` |
+
+`<cause>` is the underlying `code` where Node exposes one (`ECONNREFUSED`,
+`ECONNRESET`), so an occurrence is diagnosable from the output alone. The original
+`Error` is attached as `cause` for programmatic callers.
+
+This split exists because conflating the two produced actively wrong advice. A
+locally hosted 12B model took **87–109 s** on a normal prompt against the shared
+120 s budget, so it intermittently timed out — and was reported as *"Local
+endpoint not reachable… Start your local server"* while the server was perfectly
+healthy (GG-64). `timeoutHint` is therefore a separate field from
+`unreachableHint`: a slow model and a dead server need opposite fixes.
+
+That measurement also drove `local`'s own **10-minute** generation budget
+(`LOCAL_TIMEOUT_MS`) rather than the shared 120 s. A hosted API is fast in a way a
+local model is not, so `openai-api` keeps the shared default.
+`GenerateRequest.timeoutMs` still overrides either.
+
 ### What is deliberately not sent
 
 - **No `response_format`.** Every backend wants freeform Markdown; coercing JSON

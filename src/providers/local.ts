@@ -42,6 +42,17 @@ function resolveEndpoint(configured: string | undefined): string {
 const LOCAL_DIFF_BUDGET_CHARS = 8_000;
 
 /**
+ * Generation timeout for a local model (ms).
+ *
+ * Far above the shared 120 s default, because a locally hosted model is slow in a
+ * way a hosted API is not: on a 12B model this prompt measured **87–109 s**, so
+ * 120 s left almost no headroom and produced intermittent failures that looked
+ * like an unreachable server (GG-64). Overridden per request by
+ * `GenerateRequest.timeoutMs`.
+ */
+export const LOCAL_TIMEOUT_MS = 600_000;
+
+/**
  * Provider for a local **OpenAI-compatible** chat endpoint — Ollama, LM Studio,
  * llama.cpp's server, vLLM, etc. Free, private, on-device. No API key.
  *
@@ -63,6 +74,8 @@ export function createLocalProvider(config: LocalProviderConfig = {}): AIProvide
       endpoint: resolveEndpoint(config.endpoint),
       label: 'Local endpoint',
       unreachableHint: 'Start your local server (e.g. Ollama) or pass --endpoint.',
+      timeoutHint:
+        'The server is up but the model is slow — try a smaller model, lower --max-diff-chars, or allow more time.',
       fetchImpl: config.fetchImpl,
     };
   }
@@ -96,7 +109,7 @@ export function createLocalProvider(config: LocalProviderConfig = {}): AIProvide
         model,
         system: request.system,
         prompt: request.prompt,
-        timeoutMs: request.timeoutMs,
+        timeoutMs: request.timeoutMs ?? LOCAL_TIMEOUT_MS,
       });
     },
   };
