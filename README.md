@@ -45,11 +45,12 @@ grouped Markdown — written by Claude, with the internal noise stripped out.
   deterministic grouping — so a release never blocks on one flaky backend.
 - **CLI _and_ library.** Use the `gitgist` bin, or call `generateReleaseNotes()`
   from your release tooling.
-- **Pluggable providers.** Claude (CLI + API), the OpenAI **Codex**, Google
-  **Gemini**, and **OpenCode** agent CLIs (all no-key), any local
+- **Nine pluggable providers, CLI-first.** No-key agent CLIs — Claude
+  (`claude -p`), OpenAI **Codex**, Google **Antigravity** (`agy`), and
+  **OpenCode** — plus the Anthropic and OpenAI APIs by key, any local
   OpenAI-compatible endpoint (Ollama / LM Studio), and on-device Apple Foundation
-  Models ship today; Cursor is on the way — CLI-first wherever the tool offers a
-  headless mode.
+  Models. `--provider auto` picks the best one you already have, and never a paid
+  API over a sign-in you own. Cursor is on the way.
 
 ## See it
 
@@ -146,7 +147,7 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 | `--no-config`              | Ignore `gitgist.config.json` / `package.json#gitgist` ([docs](docs/12-config.md)). |
 | `--provider <name>`        | `auto` \| `claude-cli` \| `codex` \| `antigravity` \| `gemini` \| `opencode` \| `anthropic-api` \| `openai-api` \| `local` \| `apple` (default: `auto`). `gemini` is legacy — see below. |
 | `--endpoint <url>`         | Base URL for `--provider local` (default: Ollama's `…:11434/v1`).   |
-| `--model <id>`             | `anthropic-api` model (default `claude-opus-4-8`), `openai-api` model (`$GITGIST_OPENAI_MODEL`, else `gpt-5`), or the `local` model name. |
+| `--model <id>`             | Model for the chosen provider — every backend honours it. `anthropic-api` (default `claude-opus-4-8`), `openai-api` (`$GITGIST_OPENAI_MODEL`, else `gpt-5`), the agent CLIs (`claude-cli`/`antigravity` `--model`, `codex`/`gemini`/`opencode` `-m`), or the `local` model name. Ids aren't portable between providers. |
 | `--fallback-provider <name>` | Retry with this provider when the primary errors or returns an empty/suspect result ([docs](docs/6-fallback.md)). |
 | `--fallback-endpoint <url>` | `--endpoint` for the fallback provider.                            |
 | `--fallback-model <id>`    | `--model` for the fallback provider.                                |
@@ -237,10 +238,12 @@ endpoint are provider-specific, so they're inherited from the primary only when
 the fallback is the same provider. See
 [docs/6-fallback.md](docs/6-fallback.md).
 
-> The remaining planned provider follows the same **CLI-first, no-key** pattern —
-> Cursor agent (`cursor-agent`) — plus optional API-key fallbacks for the agent
-> CLIs (OpenAI, Google). The provider layer is pluggable, and CLI backends share
-> a small `createCliProvider()` helper.
+> One provider is still planned, and follows the same **CLI-first, no-key**
+> pattern: Cursor agent (`cursor-agent`). The API-key fallbacks that used to sit
+> here are settled — OpenAI shipped as `openai-api` above, and the Google one was
+> dropped as redundant once `antigravity` covered that vendor without a key. The
+> provider layer is pluggable, and CLI backends share a small
+> `createCliProvider()` helper.
 
 ### Choosing a provider
 
@@ -404,14 +407,22 @@ console.log(notes);
 const changelog = await generateReleaseNotes({ from: 'v1.0.0', ai: false });
 ```
 
-Lower-level building blocks are exported too — `readCommits`,
-`resolveCommitRange`, `parseCommit`, `buildChangelog`, `renderMarkdown`, the
-`resolveProvider` / provider registry, and the prompt builders — for callers
-that want to customize any stage of the pipeline. This release also exports the
-diff layer (`readRangeDiff`, `readCommitFiles`, `buildExcludePathspecs`) and the
-config layer (`loadConfig`, `parseConfig`, `applyConfig`, `parseArgs`), so a
-wrapping tool can reuse gitgist's own discovery and precedence rules. See
-[`docs/`](docs/) for the architecture and requirements.
+Every stage of the pipeline is exported, so a wrapping tool can reuse gitgist's
+own rules rather than reimplementing them:
+
+- **Commits and ranges** — `readCommits`, `resolveCommitRange`, `parseCommit`.
+- **The diff layer** — `readRangeDiff`, `readCommitFiles`, `buildExcludePathspecs`.
+  The per-file budget allocation is applied for you when you read a range.
+- **Prompt assembly and output cleanup** — the prompt builders, `cleanModelOutput`,
+  `stripUnrequestedHashes`.
+- **Config and args** — `loadConfig`, `parseConfig`, `applyConfig`, `parseArgs`,
+  with the same flag-over-config precedence the CLI uses.
+- **Providers** — `resolveProvider` and the registry, plus the pieces to build your
+  own: `createCliProvider` for a headless CLI and the shared OpenAI-protocol
+  client (`chatCompletion`, `listModels`) for anything speaking that wire format.
+- **Deterministic output** — `buildChangelog`, `renderMarkdown`.
+
+See [`docs/`](docs/) for the architecture and requirements.
 
 ## Development
 
