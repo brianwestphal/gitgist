@@ -850,6 +850,72 @@ describe('createOpenAiApiProvider (GG-32)', () => {
   });
 });
 
+// @covers FR-14, FR-34
+describe('providers hold no state between generations (GG-73)', () => {
+  /** A fetch that answers model-list and chat, counting the chat calls. */
+  function countingFetch(): { chats: string[]; fetchImpl: FetchLike } {
+    const chats: string[] = [];
+    const fetchImpl: FetchLike = (url, init) => {
+      if (url.endsWith('/chat/completions')) chats.push(init?.body ?? '');
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve(
+            url.endsWith('/models')
+              ? { data: [{ id: 'first' }, { id: 'second' }] }
+              : { choices: [{ message: { content: 'notes' } }] },
+          ),
+      });
+    };
+    return { chats, fetchImpl };
+  }
+
+  it('local: rediscovers the model each call, and ignores request.model (GG-74)', async () => {
+    // `localProvider` is a module-level singleton, so anything cached on the
+    // instance would leak between runs — the model is rediscovered per call.
+    //
+    // It also pins a quirk found while writing this: `local` is the ONLY provider
+    // that ignores `GenerateRequest.model`. Its model arrives through the factory
+    // config (which is how the CLI threads `--model`), so a library caller passing
+    // `model` straight to `generate()` is silently ignored. Filed as GG-74; this
+    // asserts today's behavior so a fix there is a deliberate, visible change.
+    const { chats, fetchImpl } = countingFetch();
+    const p = createLocalProvider({ fetchImpl });
+    await p.generate({ system: 's', prompt: 'p' });
+    await p.generate({ system: 's', prompt: 'p', model: 'explicit' });
+    expect(chats).toHaveLength(2);
+    const models = chats.map((b) => (JSON.parse(b) as { model: string }).model);
+    expect(models).toEqual(['first', 'first']);
+  });
+
+  it('local: repeated identical calls are identical', async () => {
+    const { chats, fetchImpl } = countingFetch();
+    const p = createLocalProvider({ model: 'm', fetchImpl });
+    const a = await p.generate({ system: 's', prompt: 'p' });
+    const b = await p.generate({ system: 's', prompt: 'p' });
+    expect(a).toBe(b);
+    expect(chats[0]).toBe(chats[1]);
+  });
+
+  it('openai-api: the key and model are re-read every call, never memoised', async () => {
+    // The key is read through a function precisely so a rotated key takes effect;
+    // memoising it on the instance would defeat that.
+    let key: string | undefined = 'sk-first';
+    const { chats, fetchImpl } = countingFetch();
+    const p = createOpenAiApiProvider({ apiKey: () => key, fetchImpl });
+
+    await p.generate({ system: 's', prompt: 'p', model: 'm1' });
+    key = 'sk-second';
+    await p.generate({ system: 's', prompt: 'p', model: 'm2' });
+
+    expect(chats.map((b) => (JSON.parse(b) as { model: string }).model)).toEqual(['m1', 'm2']);
+    // And once the key is gone, the next call fails rather than reusing the old one.
+    key = undefined;
+    await expect(p.generate({ system: 's', prompt: 'p' })).rejects.toThrow(/set OPENAI_API_KEY/);
+  });
+});
+
 // @covers FR-34
 describe('the shared OpenAI-compatible client keeps the two backends distinct', () => {
   it('local sends no Authorization header; openai-api does', async () => {

@@ -642,6 +642,78 @@ describe('generateReleaseNotes empty-notes sentinel + fallback (GG-39)', () => {
     expect(warnings.some((w) => w.includes('primary provider failed'))).toBe(true);
   });
 
+  // @covers FR-37
+  it('strips volunteered hashes from the FALLBACK output too, not just the primary', async () => {
+    // stripUnrequestedHashes runs inside runProvider, so both attempts pass
+    // through it — but only the primary was ever asserted. This is the
+    // second-call-in-a-sequence shape that hid the range+working-tree gap (GG-73).
+    const hash = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
+      cwd: repo,
+      encoding: 'utf8',
+    }).trim();
+    h.setResponder((ctx) => {
+      if (ctx.provider !== 'anthropic-api') throw new Error('primary boom');
+      return `## Features\n- recovered, and volunteered a hash (${hash})`;
+    });
+    const out = await generateReleaseNotes({
+      range: 'HEAD',
+      cwd: repo,
+      provider: 'claude-cli',
+      fallbackProvider: 'anthropic-api',
+      warn,
+    });
+    expect(out).toContain('volunteered a hash');
+    expect(out).not.toContain(hash);
+  });
+
+  // @covers FR-31
+  it('gives the fallback attempt the same --link-commits rules as the primary', async () => {
+    // The link rules are built once and appended to the system prompt. A retry
+    // must not silently lose provenance, so both attempts must carry them.
+    h.setResponder((ctx) => {
+      if (ctx.provider !== 'anthropic-api') throw new Error('primary boom');
+      return '## Features\n- from the fallback';
+    });
+    await generateReleaseNotes({
+      range: 'HEAD',
+      cwd: repo,
+      provider: 'claude-cli',
+      fallbackProvider: 'anthropic-api',
+      linkCommits: true,
+      commitUrl: 'https://example.com/commit/{hash}',
+      warn,
+    });
+    expect(h.calls).toHaveLength(2);
+    for (const call of h.calls) {
+      expect(call.system).toContain('End every bullet with the commit it came from');
+    }
+  });
+
+  // @covers T-2
+  it('a provider that passes availability but fails at generation lands in the fallback', async () => {
+    // This is the shape FR-34 made routine: openai-api's probe checks only that a
+    // key is set, so an invalid key resolves fine and fails at generation. The
+    // mocked provider reports available and then throws, which is exactly that
+    // sequence at the pipeline level.
+    let resolvedOk = false;
+    h.setResponder((ctx) => {
+      if (ctx.provider !== 'anthropic-api') {
+        resolvedOk = true; // we only get here after isAvailable() said yes
+        throw new Error('401 invalid key');
+      }
+      return '## Features\n- second provider carried it';
+    });
+    const out = await generateReleaseNotes({
+      range: 'HEAD',
+      cwd: repo,
+      provider: 'openai-api',
+      fallbackProvider: 'anthropic-api',
+      warn,
+    });
+    expect(resolvedOk).toBe(true);
+    expect(out).toBe('## Features\n- second provider carried it\n');
+  });
+
   it('uses the singular "commit" noun when a single-commit range is suspect', async () => {
     h.setResponder(() => NO_USER_FACING_CHANGES);
     // HEAD~1..HEAD spans exactly one commit (`fix: thing two`) → singular
