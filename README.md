@@ -60,6 +60,12 @@ grouped Markdown — written by Claude, with the internal noise stripped out.
   <img src="assets/demos/ai-release-notes.svg" alt="gitgist v1.0.0..HEAD --title v1.5.0 produces grouped Markdown: Breaking Changes (Node 18 dropped), Features (--watch flag, streamed diffs), Performance (cached config ~3x faster startup), Bug Fixes (expired tokens, empty range) — refactor/test/chore commits filtered out.">
 </p>
 
+**Every line, traceable** — `gitgist v1.0.0..HEAD --link-commits`
+
+<p align="center">
+  <img src="assets/demos/link-commits.svg" alt="gitgist v1.0.0..HEAD --link-commits produces the same grouped Markdown with every bullet ending in a link to the commit it came from — Breaking Changes (Node 18 dropped), Features (--watch flag, streamed diffs), Bug Fixes (expired tokens, empty range), Performance (cached config ~3x), Documentation — each hash a github.com/acme/acme/commit/… URL derived automatically from the origin remote.">
+</p>
+
 **Your house style, every release** — `gitgist v1.0.0..HEAD --template release-notes.md`
 
 <p align="center">

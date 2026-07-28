@@ -225,6 +225,22 @@ function seedTemplate(dir) {
   writeFileSync(join(dir, 'release-notes.md'), TEMPLATE);
 }
 
+/**
+ * Seed the commit-links demo: the standard history plus a GitHub `origin`.
+ *
+ * The remote is the point. With one, `--link-commits` derives the commit-page URL
+ * itself (FR-31) and every bullet becomes a real Markdown link; without one it
+ * falls back to bare hashes. Seeding the remote demonstrates the zero-config path
+ * — passing `--commit-url` here would wrongly imply the flag is required.
+ */
+function seedLinked(dir) {
+  seedRepo(dir);
+  execFileSync('git', ['remote', 'add', 'origin', 'https://github.com/acme/acme.git'], {
+    cwd: dir,
+    stdio: ['ignore', 'ignore', 'inherit'],
+  });
+}
+
 /** Run the built CLI in `dir` and return its transcript (stderr+stdout) as lines. */
 function runCli(dir, argv) {
   const r = spawnSync(process.execPath, [CLI, ...argv, '--cwd', dir], { encoding: 'utf8' });
@@ -242,6 +258,15 @@ const DEMOS = [
     headline: 'From raw commits to a changelog',
     cmd: 'gitgist v1.0.0..HEAD --title "v1.5.0"',
     capture: (dir) => runCli(dir, ['v1.0.0..HEAD', '--title', 'v1.5.0']),
+  },
+  {
+    slug: 'link-commits',
+    accent: '#ffa657',
+    eyebrow: 'Commit provenance',
+    headline: 'Every line, traceable',
+    cmd: 'gitgist v1.0.0..HEAD --link-commits',
+    seed: seedLinked,
+    capture: (dir) => runCli(dir, ['v1.0.0..HEAD', '--link-commits']),
   },
   {
     slug: 'template',
