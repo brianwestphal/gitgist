@@ -3,8 +3,8 @@ import {
   type FetchLike,
   listModels,
   type OpenAiCompatibleTarget,
-  PROBE_TIMEOUT_MS,
 } from './openaiCompatible.js';
+import { HTTP_PROBE_TIMEOUT_MS, LOCAL_GENERATION_TIMEOUT_MS } from './timeouts.js';
 import type { AIProvider, GenerateRequest } from './types.js';
 
 /** Default OpenAI-compatible base URL — Ollama's port + `/v1` prefix. */
@@ -42,17 +42,6 @@ function resolveEndpoint(configured: string | undefined): string {
 const LOCAL_DIFF_BUDGET_CHARS = 8_000;
 
 /**
- * Generation timeout for a local model (ms).
- *
- * Far above the shared 120 s default, because a locally hosted model is slow in a
- * way a hosted API is not: on a 12B model this prompt measured **87–109 s**, so
- * 120 s left almost no headroom and produced intermittent failures that looked
- * like an unreachable server (GG-64). Overridden per request by
- * `GenerateRequest.timeoutMs`.
- */
-export const LOCAL_TIMEOUT_MS = 600_000;
-
-/**
  * Provider for a local **OpenAI-compatible** chat endpoint — Ollama, LM Studio,
  * llama.cpp's server, vLLM, etc. Free, private, on-device. No API key.
  *
@@ -86,7 +75,7 @@ export function createLocalProvider(config: LocalProviderConfig = {}): AIProvide
 
     async isAvailable(): Promise<boolean> {
       try {
-        return (await listModels(target(), PROBE_TIMEOUT_MS)).length > 0;
+        return (await listModels(target(), HTTP_PROBE_TIMEOUT_MS)).length > 0;
       } catch {
         return false;
       }
@@ -98,7 +87,7 @@ export function createLocalProvider(config: LocalProviderConfig = {}): AIProvide
       // Model precedence: explicit (--model) → env → the endpoint's first model.
       let model = config.model?.trim() ?? '';
       if (model === '') model = process.env.GITGIST_LOCAL_MODEL?.trim() ?? '';
-      if (model === '') model = (await listModels(where, PROBE_TIMEOUT_MS))[0] ?? '';
+      if (model === '') model = (await listModels(where, HTTP_PROBE_TIMEOUT_MS))[0] ?? '';
       if (model === '') {
         throw new Error(
           `No local model available at ${where.endpoint}. Install one (e.g. \`ollama pull llama3.2\`) or pass --model.`,
@@ -109,7 +98,7 @@ export function createLocalProvider(config: LocalProviderConfig = {}): AIProvide
         model,
         system: request.system,
         prompt: request.prompt,
-        timeoutMs: request.timeoutMs ?? LOCAL_TIMEOUT_MS,
+        timeoutMs: request.timeoutMs ?? LOCAL_GENERATION_TIMEOUT_MS,
       });
     },
   };

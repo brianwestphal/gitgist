@@ -2,12 +2,10 @@ import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 
 import { stripCodeFences } from '../prompt.js';
+import { GENERATION_TIMEOUT_MS } from './timeouts.js';
 import type { AIProvider, GenerateRequest } from './types.js';
 
 const execFileAsync = promisify(execFile);
-
-/** Default wall-clock timeout for a single CLI generation. */
-const DEFAULT_TIMEOUT_MS = 120_000;
 
 /** How many trailing stderr lines to include in a failure message. */
 const STDERR_TAIL_LINES = 5;
@@ -125,7 +123,7 @@ export function createCliProvider(spec: CliProviderSpec): AIProvider {
         spec.systemArgs !== undefined ? request.prompt : `${request.system}\n\n${request.prompt}`;
       const baseArgs = [...systemArgs, ...runArgs];
       const args = input === 'arg' ? [...baseArgs, inputText] : baseArgs;
-      const timeoutMs = request.timeoutMs ?? spec.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+      const timeoutMs = request.timeoutMs ?? spec.timeoutMs ?? GENERATION_TIMEOUT_MS;
 
       return new Promise<string>((resolve, reject) => {
         // Run the CLI in the repository the notes are about. Agent CLIs gate on

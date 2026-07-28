@@ -21,15 +21,18 @@ import {
   resolveProvider,
   unavailableMessage,
 } from '../src/providers/index.js';
-import { createLocalProvider, LOCAL_TIMEOUT_MS } from '../src/providers/local.js';
+import { createLocalProvider } from '../src/providers/local.js';
 import { createOpenAiApiProvider } from '../src/providers/openaiApi.js';
 import {
-  DEFAULT_TIMEOUT_MS,
   extractChatContent,
   type FetchLike,
   parseModelList,
 } from '../src/providers/openaiCompatible.js';
 import { opencodeRunArgs } from '../src/providers/opencode.js';
+import {
+  GENERATION_TIMEOUT_MS,
+  LOCAL_GENERATION_TIMEOUT_MS,
+} from '../src/providers/timeouts.js';
 import type { AIProvider } from '../src/providers/types.js';
 
 /** A deterministic stand-in provider whose availability we control. */
@@ -606,7 +609,7 @@ describe('createLocalProvider', () => {
     // A 12B model measured 87-109s on this prompt, so the shared 120s default left
     // almost no headroom — that narrow margin is what made GG-64 intermittent.
     // Pinned as a ratio, not a magic number, so tuning either stays coherent.
-    expect(LOCAL_TIMEOUT_MS).toBeGreaterThanOrEqual(DEFAULT_TIMEOUT_MS * 4);
+    expect(LOCAL_GENERATION_TIMEOUT_MS).toBeGreaterThanOrEqual(GENERATION_TIMEOUT_MS * 4);
   });
 
   // @covers FR-36

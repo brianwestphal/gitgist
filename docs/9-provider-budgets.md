@@ -92,3 +92,28 @@ provider with no budget fails there.
 - [7-diff-grounding.md](7-diff-grounding.md) — why the diff is read; `--max-diff-chars`.
 - [8-exclusions.md](8-exclusions.md) — which files' diff content is held back.
 - [5-providers.md](5-providers.md) — the CLI-first agent providers.
+
+## Timeouts (the sibling axis)
+
+The diff budget bounds *how much* a backend is asked to read; a timeout bounds
+*how long* it gets. All of them live in `src/providers/timeouts.ts` and are
+overridable per call via `GenerateRequest.timeoutMs`.
+
+| Constant | Value | Applies to |
+| --- | --- | --- |
+| `GENERATION_TIMEOUT_MS` | 120 s | one generation on the agent-CLI and hosted HTTP/SDK backends |
+| `LOCAL_GENERATION_TIMEOUT_MS` | 600 s | one generation on `local` |
+| `HTTP_PROBE_TIMEOUT_MS` | 3 s | the OpenAI-compatible `/models` reachability probe |
+| `APPLE_PROBE_TIMEOUT_MS` | 10 s | the on-device Apple helper availability probe |
+
+Two of these values are deliberately unlike their neighbours, and both were
+learned the hard way:
+
+- **`local` gets 5× the generation budget.** A 12B model measured **87–109 s** on
+  a normal prompt, so the shared 120 s left almost no headroom — failures were
+  intermittent and, worse, were reported as an unreachable server (GG-64 /
+  FR-36).
+- **The two probes differ by more than 3×** because they do different work: one
+  HTTP request versus spawning a process and asking the OS about model
+  availability. They were once both called `PROBE_TIMEOUT_MS`, which invited
+  unifying values that should not match (GG-71).

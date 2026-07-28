@@ -32,6 +32,7 @@ src/
     anthropicApi.ts   # anthropicApiProvider
     local.ts          # createLocalProvider (Ollama / OpenAI-compatible; opt-in)
     apple.ts          # createAppleProvider (macOS Apple Foundation Models via the apple-fm npm package)
+    timeouts.ts       # all provider wall-clock timeouts (generation / local / http-probe / apple-probe)
     index.ts          # PROVIDERS, AUTO_ORDER, resolveProvider
 tests/                # parse, changelog, prompt, cliArgs, config, git, template, providers, apple, releaseNotes, integration, docs
   conventions.test.ts # requirement-level guards line coverage can't express (feature coverage, export surface, dep allow-list, module structure)

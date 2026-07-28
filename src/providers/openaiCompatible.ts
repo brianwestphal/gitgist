@@ -1,4 +1,5 @@
 import { stripCodeFences } from '../prompt.js';
+import { GENERATION_TIMEOUT_MS, HTTP_PROBE_TIMEOUT_MS } from './timeouts.js';
 
 /**
  * The shared **OpenAI-protocol client** behind every backend that speaks
@@ -16,12 +17,6 @@ import { stripCodeFences } from '../prompt.js';
  * dependency list is a guarded surface (see `tests/conventions.test.ts`), and
  * this protocol is small enough that an SDK would buy nothing.
  */
-
-/** Reachability/model-listing probe timeout (ms). */
-export const PROBE_TIMEOUT_MS = 3000;
-
-/** Default generation timeout (ms) — local models in particular can be slow. */
-export const DEFAULT_TIMEOUT_MS = 120_000;
 
 /** The subset of `fetch` this module uses — injectable for tests. */
 export interface FetchInit {
@@ -159,12 +154,12 @@ function requestHeaders(target: OpenAiCompatibleTarget): Record<string, string> 
  * models". A transport failure still rejects.
  *
  * @param target - The endpoint to query.
- * @param timeoutMs - Wall-clock timeout (default: {@link PROBE_TIMEOUT_MS}).
+ * @param timeoutMs - Wall-clock timeout (default: {@link HTTP_PROBE_TIMEOUT_MS}).
  * @returns The advertised model ids, or `[]`.
  */
 export async function listModels(
   target: OpenAiCompatibleTarget,
-  timeoutMs: number = PROBE_TIMEOUT_MS,
+  timeoutMs: number = HTTP_PROBE_TIMEOUT_MS,
 ): Promise<string[]> {
   const fetchImpl = target.fetchImpl ?? defaultFetch;
   const res = await fetchWithTimeout(
@@ -185,7 +180,7 @@ export interface ChatCompletionRequest {
   system: string;
   /** User-role message. */
   prompt: string;
-  /** Wall-clock timeout (default: {@link DEFAULT_TIMEOUT_MS}). */
+  /** Wall-clock timeout (default: {@link GENERATION_TIMEOUT_MS}). */
   timeoutMs?: number;
 }
 
@@ -208,7 +203,7 @@ export async function chatCompletion(
   request: ChatCompletionRequest,
 ): Promise<string> {
   const fetchImpl = target.fetchImpl ?? defaultFetch;
-  const timeoutMs = request.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timeoutMs = request.timeoutMs ?? GENERATION_TIMEOUT_MS;
 
   let res;
   try {

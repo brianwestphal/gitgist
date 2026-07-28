@@ -7,12 +7,9 @@ import {
 } from 'apple-fm';
 
 import { stripCodeFences } from '../prompt.js';
+import { APPLE_PROBE_TIMEOUT_MS, GENERATION_TIMEOUT_MS } from './timeouts.js';
 import type { AIProvider, GenerateRequest } from './types.js';
 
-/** Probe timeout (ms) — a quick availability check. */
-const PROBE_TIMEOUT_MS = 10_000;
-/** Default generation timeout (ms) — on-device inference can be slow. */
-const DEFAULT_TIMEOUT_MS = 120_000;
 
 /** The `apple-fm` probe function (injectable for tests). */
 export type AppleProbeFn = (options?: HelperOptions) => Promise<ProbeResult>;
@@ -147,7 +144,7 @@ export function createAppleProvider(config: AppleProviderConfig = {}): AIProvide
     async isAvailable(): Promise<boolean> {
       if (!isDarwin) return false;
       try {
-        const { available } = await probe({ timeoutMs: PROBE_TIMEOUT_MS });
+        const { available } = await probe({ timeoutMs: APPLE_PROBE_TIMEOUT_MS });
         return available;
       } catch {
         return false;
@@ -161,7 +158,7 @@ export function createAppleProvider(config: AppleProviderConfig = {}): AIProvide
           : `Treat the following as ${languageHint}:\n\n${request.prompt}`;
       const output = await generate(
         { system: request.system, prompt },
-        { timeoutMs: request.timeoutMs ?? DEFAULT_TIMEOUT_MS },
+        { timeoutMs: request.timeoutMs ?? GENERATION_TIMEOUT_MS },
       );
       const text = stripCodeFences(output);
       if (text === '') throw new Error('Apple Foundation Models returned no output.');
