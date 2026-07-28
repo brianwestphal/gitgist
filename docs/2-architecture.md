@@ -48,6 +48,7 @@ generateReleaseNotes (releaseNotes.ts)
 | `providers/apple.ts` | `createAppleProvider()` — on-device Apple Foundation Models via the `apple-fm` package. |
 | `providers/openaiApi.ts` | The `openai-api` provider — OpenAI chat-completions over `fetch`, no SDK. |
 | `providers/openaiCompatible.ts` | The shared OpenAI-protocol client (`chatCompletion`, `listModels`) behind `local` + `openai-api`. |
+| `diffBudget.ts` | Pure FR-26/FR-29 budget arithmetic: `capPatch` (max-min fair allocation), `capText`, `shareBudget`, `splitPatchByFile`, `sliceToLine`. No I/O. |
 | `providers/index.ts` | `PROVIDERS`, `AUTO_ORDER`, `resolveProvider(requested, opts?)`. |
 | `releaseNotes.ts` | `generateReleaseNotes()` — orchestrates the whole flow. |
 | `cliArgs.ts` | `parseArgs()` + `USAGE` (pure, testable); `explicit` records which flags were passed. |

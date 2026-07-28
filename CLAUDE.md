@@ -17,6 +17,11 @@ The pipeline: resolve a range → read commits → generate notes.
   records); `latestTag()` / `resolveCommitRange(from, to)` turn a `from`/`to`
   pair into a range (defaults: latest tag → `HEAD`); `readWorkingChanges()`
   gathers staged/unstaged/untracked diffs for the `--staged`/`--working` flags.
+- `src/diffBudget.ts` — the pure FR-26/FR-29 budget arithmetic `git.ts` applies to
+  diff text: `capPatch` (max-min fair / water-filling allocation), `capText`,
+  `shareBudget`, `splitPatchByFile`, `sliceToLine`, plus `DEFAULT_MAX_DIFF_CHARS`
+  and `MAX_STAT_CHARS`. No subprocess, no filesystem — kept out of `git.ts` so the
+  allocation is unit-testable without building a repository (GG-72).
 - `src/parse.ts` — `parseCommit(raw)` parses Conventional Commit subjects.
 - `src/prompt.ts` — `SYSTEM_PROMPT` (themed notes) and `COMMIT_SYSTEM_PROMPT`
   (`--format commit`, a Conventional Commit message), plus `buildUserPrompt()`,

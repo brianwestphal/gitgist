@@ -13,6 +13,7 @@ src/
   index.ts            # public API surface + generateChangelog()
   types.ts            # shared types
   git.ts              # readCommits, readCommitFiles, latestTag, resolveCommitRange, readRangeDiff, readWorkingChanges, DEFAULT_EXCLUDES, buildExcludePathspecs, commitUrlFromRemote, detectCommitUrl
+  diffBudget.ts       # pure FR-26/FR-29 budget math: capPatch (max-min fair), capText, shareBudget, splitPatchByFile, sliceToLine — no I/O
   parse.ts            # parseCommit (Conventional Commits)
   prompt.ts           # SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, DIFF_IS_SOURCE_OF_TRUTH_RULES, NO_CROSS_REFERENCE_RULES, NO_USER_FACING_CHANGES, rangeDiffToMaterial, isEmptyNotesSentinel, buildUserPrompt, buildTemplatePrompt, commitsToMaterial, stripCodeFences, cleanModelOutput, stripUnrequestedHashes, workingChangesToMaterial
   changelog.ts        # buildChangelog, renderMarkdown, renderWorkingChanges, DEFAULT_GROUPS  (--no-ai path)

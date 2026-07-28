@@ -194,3 +194,20 @@ of the budget for no reason.
 - [2-architecture.md](2-architecture.md) — module layout.
 - [4-templates.md](4-templates.md) — `--template`, which is diff-grounded too.
 - [6-fallback.md](6-fallback.md) — provider fallback and suspect empty notes.
+
+## Where the budget code lives
+
+The arithmetic is deliberately separate from the git I/O (GG-72):
+
+- **`src/diffBudget.ts`** — pure: `capPatch` (the max-min fair allocation),
+  `capText`, `shareBudget`, `splitPatchByFile`, `sliceToLine`, and the
+  `DEFAULT_MAX_DIFF_CHARS` / `MAX_STAT_CHARS` defaults. No subprocess, no
+  filesystem.
+- **`src/git.ts`** — fetches the patch and applies those functions to it.
+
+The split is what makes the allocation testable at speed. `tests/diffBudget.test.ts`
+asserts the interesting cases directly in milliseconds — a lone file larger than
+the whole budget, every file over its equal share, a small file's remainder
+flowing back to a large one, an unparseable header — none of which is pleasant to
+stage as a real commit. `tests/integration.test.ts` keeps one end-to-end check
+that the wiring holds against a real repository.
