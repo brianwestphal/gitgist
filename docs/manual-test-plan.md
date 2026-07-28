@@ -137,6 +137,27 @@ Run `gitgist <range> --link-commits` and cross-check against
 - `npm run compare` runs the fixed sample history through every backend available
   on the machine and prints them side by side (`scripts/compare-providers.mjs`).
 
+## README visuals — how to actually look at them
+
+`npm run demo` (the four `assets/demos/*.svg` terminal demos) and `npm run diagram`
+(`assets/diagram.svg`) are animated SVGs, so "the file changed" is not evidence
+they are *correct*. Two ways to see the pixels, both shipped inside the
+`domotion-svg` dependency:
+
+```bash
+# Rasterize a frame. --at picks a timeline position in ms; sample LATE, after all
+# content has revealed, or you will review a half-drawn terminal.
+npx svg-to-image assets/demos/offline.svg -o /tmp/offline.png --at 8000 --width 900
+
+# Or play/scrub it interactively.
+npx svg-scrubber assets/demos/offline.svg
+```
+
+Check per demo: window chrome and traffic lights intact, ANSI colors present on
+the Markdown headings, the lower-third caption readable, and no clipped text at
+the canvas edge. The `--no-ai` demo is deterministic; the AI-backed ones vary in
+wording between captures, which is expected.
+
 ## Automated coverage summary
 
 Wiring for the CLI providers is unit-tested in `tests/providers.test.ts`
