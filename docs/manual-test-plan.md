@@ -18,7 +18,7 @@ conversational preamble, no wrapping code fence).
 | `claude-cli` | `claude` signed in | `gitgist v1.0.0..HEAD --provider claude-cli` |
 | `codex` | `codex login` done | `gitgist v1.0.0..HEAD --provider codex` |
 | `antigravity` | `agy` signed in (Google) | `gitgist v1.0.0..HEAD --provider antigravity` |
-| `gemini` (legacy) | `gemini` signed in **with a Code Assist Standard/Enterprise license** — individual tiers were retired 2026-06-18 | `gitgist v1.0.0..HEAD --provider gemini` |
+| `gemini` (legacy) | `gemini` signed in **with a Code Assist Standard/Enterprise license** — individual tiers were retired 2026-06-18 | `gitgist v1.0.0..HEAD --provider gemini` (gitgist passes `--skip-trust`; confirm generation succeeds in a directory you have *not* trusted interactively) |
 | `opencode` | `opencode auth login` done | `gitgist v1.0.0..HEAD --provider opencode` |
 
 For each, also verify:

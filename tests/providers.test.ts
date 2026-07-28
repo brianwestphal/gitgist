@@ -99,9 +99,30 @@ describe('CLI agent provider arg builders', () => {
     expect(codexRunArgs({ model: 'o3' })).toEqual(['exec', '-m', 'o3']);
   });
 
-  it('gemini: `-p` last, with `-m <model>` before it', () => {
-    expect(geminiRunArgs({})).toEqual(['-p']);
-    expect(geminiRunArgs({ model: 'gemini-2.5-pro' })).toEqual(['-m', 'gemini-2.5-pro', '-p']);
+  it('gemini: `--skip-trust` first, `-p` last, `-m <model>` between (GG-65)', () => {
+    // Without --skip-trust, headless `gemini -p` refuses (exit 55) in any
+    // workspace the user has not explicitly trusted — including an ordinary git
+    // checkout — so the flag is what makes this provider usable unattended.
+    expect(geminiRunArgs({})).toEqual(['--skip-trust', '-p']);
+    expect(geminiRunArgs({ model: 'gemini-2.5-pro' })).toEqual([
+      '--skip-trust',
+      '-m',
+      'gemini-2.5-pro',
+      '-p',
+    ]);
+    // `-p` must stay last: the prompt is appended as its value.
+    expect(geminiRunArgs({ model: 'm' }).at(-1)).toBe('-p');
+    expect(geminiRunArgs({}).at(-1)).toBe('-p');
+  });
+
+  it('gemini: trusting the workspace does not also auto-approve tools (GG-65)', () => {
+    // Trust and approval are separate axes in the Gemini CLI. gitgist wants only
+    // text generation, so it must not drift into passing --yolo/--approval-mode.
+    for (const args of [geminiRunArgs({}), geminiRunArgs({ model: 'm' })]) {
+      expect(args).not.toContain('--yolo');
+      expect(args).not.toContain('-y');
+      expect(args).not.toContain('--approval-mode');
+    }
   });
 
   it('antigravity: `-p` last, with `--model <model>` before it', () => {

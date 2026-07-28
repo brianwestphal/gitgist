@@ -101,6 +101,31 @@ mode; `-m <model>` (placed before `-p`) selects the model. The prompt is passed
 as an argument. No `GEMINI_API_KEY` is required for the CLI path — it reuses the
 signed-in Google session.
 
+**Workspace trust: gitgist passes `--skip-trust`.** In a workspace the user has
+not explicitly trusted, headless `gemini -p` **refuses to run** (exit 55) and
+points at `--skip-trust` or `GEMINI_CLI_TRUST_WORKSPACE=true`. That gate fires on
+directories one would expect to be fine — including an ordinary git checkout — so
+without the flag the provider is broken in exactly the unattended context it is
+most useful in, and gitgist targets arbitrary repositories by design (`--cwd`).
+
+This is a deliberate, bounded choice rather than a silent one:
+
+- **The flag, not the env var.** `--skip-trust` is scoped to the single
+  invocation; `GEMINI_CLI_TRUST_WORKSPACE=true` would leak to anything else the
+  child spawns.
+- **Trust is not approval.** Gemini's trust setting governs whether the workspace
+  is *trusted*, not whether tool calls are *approved* — approval is a separate
+  axis (`--approval-mode`, `--yolo`) that gitgist leaves at its default. Nothing
+  here auto-approves a tool, and a unit test asserts those flags are never
+  passed.
+- **The user chose the directory**, gitgist only asks for text generation, and the
+  other agent CLIs (`claude-cli`, `codex`, `antigravity`) have no equivalent gate
+  — so this brings `gemini` in line with them rather than ahead of them.
+
+Note this is **not** a `--cwd` problem: FR-35 made CLI children spawn in the
+target repository, and the trust refusal still fired there, so the flag is
+genuinely required.
+
 **Superseded by `antigravity`.** Since 2026-06-18 this backend returns
 `IneligibleTierError` ("no longer supported for Gemini Code Assist for
 individuals") for Google AI Pro/Ultra and free-tier accounts. It is **kept, not
@@ -115,9 +140,8 @@ Two consequences worth knowing:
   precedes `gemini` in `AUTO_ORDER`: ordering, not probing, is what keeps `auto`
   off a dead backend. An explicit `--provider gemini` still fails at generation
   with the CLI's own error surfaced.
-- **Headless runs also need a trusted workspace.** In an untrusted directory the
-  CLI refuses with a trusted-folders error and wants `--skip-trust` or
-  `GEMINI_CLI_TRUST_WORKSPACE=true`; gitgist passes neither.
+- **Headless runs also need a trusted workspace** — now handled: gitgist passes
+  `--skip-trust` (see above, GG-65).
 
 ### `opencode` — OpenCode CLI (FR-20)
 
