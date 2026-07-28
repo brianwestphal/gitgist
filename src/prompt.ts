@@ -226,6 +226,81 @@ export function cleanModelOutput(text: string, format: OutputFormat): string {
 }
 
 /**
+ * A trailing parenthetical at the end of a line, e.g. `… (a1b2c3d)` or
+ * `… (a1b2c3d, e4f5a6b)`. The contents are validated against real hashes before
+ * anything is removed.
+ */
+const TRAILING_PARENS_RE = /\s*\(([^()]*)\)\s*$/;
+
+/**
+ * The Markdown-link citation shape, e.g. `… ([a1b2c3d](https://…/a1b2c3d))`,
+ * which nests parentheses and so cannot match {@link TRAILING_PARENS_RE}.
+ *
+ * Only reachable if a model invents a commit URL it was never given — a model
+ * that ignores the no-hashes rule the way `apple` does could, so it is covered.
+ */
+const TRAILING_LINKED_HASHES_RE = /\s*\(\s*((?:\[[^\]]*\]\([^()]*\)\s*,?\s*)+)\)\s*$/;
+
+/** A bare hex token that could be an abbreviated commit hash. */
+const HEX_TOKEN_RE = /^[0-9a-f]{7,40}$/i;
+
+/**
+ * Remove commit hashes the output was never supposed to carry (GG-63).
+ *
+ * {@link ATTRIBUTION_RULES} tells the model the per-commit file lists are for
+ * reasoning and that hashes must not be echoed unless the format asks — and
+ * `--link-commits` (FR-31) is the only thing that asks. A prompt is advisory
+ * though, and the smallest backend (`apple`) ignores it: it appended a hash to
+ * every bullet on a plain `--provider apple` run. This makes the guarantee
+ * structural, so it holds regardless of how well a model follows instructions.
+ *
+ * False positives are ruled out by construction rather than by heuristics: a
+ * parenthetical is only removed when **every** token inside it matches a hash
+ * gitgist actually put in the prompt. So `(3x faster)`, `(#123)`, `(see docs)` —
+ * and even a genuinely hex-shaped English word like `(defaced)` — are all left
+ * alone, because they are not hashes from this range.
+ *
+ * @param text - The model's output.
+ * @param hashes - Commit hashes from the range (full and/or abbreviated).
+ * @returns The output with unrequested hash citations removed.
+ */
+export function stripUnrequestedHashes(text: string, hashes: readonly string[]): string {
+  if (hashes.length === 0) return text;
+  const known = new Set(hashes.map((h) => h.toLowerCase()));
+
+  /** Whether `token` is an abbreviation of (or equal to) a hash we supplied. */
+  const isKnownHash = (token: string): boolean => {
+    if (!HEX_TOKEN_RE.test(token)) return false;
+    const lower = token.toLowerCase();
+    for (const hash of known) {
+      if (hash.startsWith(lower) || lower.startsWith(hash)) return true;
+    }
+    return false;
+  };
+
+  return text
+    .split('\n')
+    .map((line) => {
+      const match = TRAILING_PARENS_RE.exec(line) ?? TRAILING_LINKED_HASHES_RE.exec(line);
+      if (match === null) return line;
+      // Reduce each entry to its bare hash: drop a Markdown-link wrapper
+      // (`[a1b2c3d](url)` → `a1b2c3d`) and any inline-code backticks.
+      const tokens = match[1]
+        .split(',')
+        .map((part) =>
+          part
+            .trim()
+            .replace(/^\[([^\]]*)\]\([^()]*\)$/, '$1')
+            .replace(/^`|`$/g, ''),
+        )
+        .filter((part) => part !== '');
+      if (tokens.length === 0 || !tokens.every(isKnownHash)) return line;
+      return line.slice(0, match.index).trimEnd();
+    })
+    .join('\n');
+}
+
+/**
  * Default cap on how many paths are listed per commit in the attribution map.
  * A commit that touches fifty files says "broad change" just as well with ten
  * paths and a `+40 more` — and the remaining budget is better spent on the diff.

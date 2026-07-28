@@ -227,6 +227,33 @@ describe('generateReleaseNotes AI branches (mocked provider)', () => {
     expect(call.prompt.length).toBeGreaterThan(0);
   });
 
+  // @covers FR-37
+  it('strips hashes the model volunteered without --link-commits (GG-63)', async () => {
+    // What the apple backend actually did: cite a hash on every bullet even
+    // though nothing asked. FR-30 promises they stay out, so enforce it.
+    const hash = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+    h.setResponder(() => `## Features\n- Added a flag (${hash})`);
+    const out = await generateReleaseNotes({ range: 'HEAD', cwd: repo });
+    expect(out).toBe('## Features\n- Added a flag\n');
+  });
+
+  // @covers FR-37
+  it('KEEPS the hashes when --link-commits asked for them (GG-63)', async () => {
+    // The guard must not fight the feature whose whole purpose is emitting
+    // hashes — this is the interaction that would make FR-31 silently useless.
+    const hash = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+    h.setResponder(() => `## Features\n- Added a flag (${hash})`);
+    const out = await generateReleaseNotes({ range: 'HEAD', cwd: repo, linkCommits: true });
+    expect(out).toContain(hash);
+  });
+
+  // @covers FR-37
+  it('leaves a non-hash parenthetical intact', async () => {
+    h.setResponder(() => '## Performance\n- Cached regexes (3x faster cold start)');
+    const out = await generateReleaseNotes({ range: 'HEAD', cwd: repo });
+    expect(out).toContain('(3x faster cold start)');
+  });
+
   it('--format commit uses COMMIT_SYSTEM_PROMPT and skips the title heading', async () => {
     const out = await generateReleaseNotes({ range: 'HEAD', cwd: repo, format: 'commit', title: 'v9' });
     expect(h.calls[0].system).toBe(COMMIT_SYSTEM_PROMPT);

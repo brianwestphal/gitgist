@@ -112,3 +112,42 @@ told to hide — `--no-default-excludes` brings those paths back here too.
 - [7-diff-grounding.md](7-diff-grounding.md) — the net diff and its budget.
 - [8-exclusions.md](8-exclusions.md) — which paths are held back.
 - [9-provider-budgets.md](9-provider-budgets.md) — the budget this shares.
+
+## Enforcing "no hashes unless asked" (FR-37)
+
+`ATTRIBUTION_RULES` tells the model the per-commit file lists are for *reasoning*
+and must not be echoed back as hashes unless the requested format asks — and
+[`--link-commits`](11-commit-links.md) (FR-31) is the only thing that asks.
+
+A prompt is advisory, and the smallest backend ignores it. On a plain
+`--provider apple` run with no `--link-commits`, Apple Foundation Models appended
+a hash to every bullet (GG-63):
+
+```markdown
+- **feat!: drop Node 18; the minimum supported version is now Node 20** (af3127e)
+```
+
+So the rule is also enforced in code. After `cleanModelOutput`, and only when
+links were **not** requested, `stripUnrequestedHashes` removes trailing hash
+citations.
+
+### Why it cannot eat legitimate text
+
+The obvious implementation — strip a trailing `(<7-40 hex>)` — would also eat
+`(defaced)`, which is a real English word made entirely of hex digits. Instead the
+guard is checked against **the hashes gitgist actually supplied for this range**:
+a parenthetical is removed only if every token inside it is a prefix of (or equal
+to) a known commit hash.
+
+| Input | Result | Why |
+| --- | --- | --- |
+| `- Added a flag (af3127e)` | stripped | `af3127e` is a commit in this range |
+| `- Added a flag (af3127e, aaf85a7)` | stripped | every token is a known hash |
+| `- Added a flag ([af3127e](…))` | stripped | Markdown-link form, hash validated |
+| `- Cached regexes (3x faster)` | kept | not a hash |
+| `- Restored the page (defaced)` | kept | hex-shaped, but not a hash from this range |
+| `- Renamed a fixture (deadbeef)` | kept | valid hex, never in the prompt |
+| `- Reverted af3127e because …` | kept | not a trailing citation |
+
+It is a no-op when the range has no commits (a working-tree-only run), and
+idempotent.

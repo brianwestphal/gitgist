@@ -16,6 +16,7 @@ import {
   COMMIT_SYSTEM_PROMPT,
   isEmptyNotesSentinel,
   rangeDiffToMaterial,
+  stripUnrequestedHashes,
   SYSTEM_PROMPT,
   TEMPLATE_SYSTEM_PROMPT,
   workingChangesToMaterial,
@@ -174,6 +175,10 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
     commitLinkRules = buildCommitLinkRules(url);
   }
 
+  // The hashes the model could legitimately have seen, used to enforce FR-30's
+  // "no hashes unless asked" guarantee structurally rather than by prompt alone.
+  const knownHashes = commits.flatMap((c) => [c.hash, c.shortHash]);
+
   /** Append the commit-link rule to a system prompt when links were requested. */
   const withLinkRules = (system: string): string =>
     commitLinkRules === undefined ? system : `${system}\n${commitLinkRules}`;
@@ -236,7 +241,12 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
       // `--cwd` means the same thing for the AI backend as it does for git.
       cwd,
     });
-    return cleanModelOutput(generated, format);
+    const cleaned = cleanModelOutput(generated, format);
+    // FR-30 promises hashes stay out of the output unless the format asks; a weak
+    // model can ignore that instruction, so enforce it here too (GG-63). Only
+    // hashes gitgist actually supplied are removed, so ordinary parentheticals
+    // survive untouched.
+    return wantLinks ? cleaned : stripUnrequestedHashes(cleaned, knownHashes);
   };
 
   const runFallback = (system: string, prompt: string): Promise<string> => {

@@ -16,6 +16,7 @@ import {
   NO_USER_FACING_CHANGES,
   rangeDiffToMaterial,
   stripCodeFences,
+  stripUnrequestedHashes,
   SYSTEM_PROMPT,
   TEMPLATE_SYSTEM_PROMPT,
   workingChangesToMaterial,
@@ -460,5 +461,79 @@ describe('cleanModelOutput (commit)', () => {
   it('does not strip on markdown rules (a commit has no heading)', () => {
     const clean = 'feat!: drop Node 18';
     expect(cleanModelOutput(clean, 'commit')).toBe(clean);
+  });
+});
+
+// @covers FR-37
+describe('stripUnrequestedHashes (GG-63)', () => {
+  // Two real hashes from the observed `apple` run, plus their abbreviations.
+  const HASHES = ['af3127ec0ffee1234567890abcdef1234567890a', 'aaf85a7b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f'];
+
+  it('removes a trailing hash the format never asked for', () => {
+    // The exact shape the apple backend produced on a plain `--provider apple`
+    // run with no --link-commits.
+    const out = stripUnrequestedHashes(
+      '## Breaking Changes\n\n- **feat!: drop Node 18** (af3127e)\n- **fix(auth): reject expired tokens** (aaf85a7)',
+      HASHES,
+    );
+    expect(out).toBe(
+      '## Breaking Changes\n\n- **feat!: drop Node 18**\n- **fix(auth): reject expired tokens**',
+    );
+  });
+
+  it('removes a comma-separated multi-hash citation', () => {
+    expect(stripUnrequestedHashes('- Did two things (af3127e, aaf85a7)', HASHES)).toBe(
+      '- Did two things',
+    );
+  });
+
+  it('removes a Markdown-linked hash too', () => {
+    const line = '- Added a flag ([af3127e](https://example.com/commit/af3127e))';
+    expect(stripUnrequestedHashes(line, HASHES)).toBe('- Added a flag');
+  });
+
+  it('accepts the full 40-char hash and odd abbreviation lengths', () => {
+    expect(stripUnrequestedHashes(`- A change (${HASHES[0]})`, HASHES)).toBe('- A change');
+    // 10 chars — longer than the 7-char short hash, still a prefix of the full one.
+    expect(stripUnrequestedHashes('- A change (af3127ec0f)', HASHES)).toBe('- A change');
+  });
+
+  it('leaves ordinary parentheticals alone', () => {
+    // The false-positive risk flagged on the ticket. None of these are hashes
+    // from this range, so none are touched.
+    for (const line of [
+      '- Cached compiled regexes (3x faster cold start)',
+      '- Fixed the crash (#123)',
+      '- Dropped Node 18 (engines.node is now >=20)',
+      '- Reworked the loader (see docs/2-architecture.md)',
+      '- Restored the page (defaced)',
+      '- Bumped the version (v1.2.3)',
+    ]) {
+      expect(stripUnrequestedHashes(line, HASHES)).toBe(line);
+    }
+  });
+
+  it('leaves a hex-shaped token that is NOT one of this range\'s hashes', () => {
+    // This is why the guard matches against real hashes instead of a hex regex:
+    // `deadbeef` is perfectly valid hex but was never in the prompt.
+    const line = '- Renamed the fixture (deadbeef)';
+    expect(stripUnrequestedHashes(line, HASHES)).toBe(line);
+  });
+
+  it('leaves a hash that is not at the end of the line', () => {
+    // Only a trailing citation is a citation; prose mentioning a hash stays.
+    const line = '- Reverted af3127e because it broke the build';
+    expect(stripUnrequestedHashes(line, HASHES)).toBe(line);
+  });
+
+  it('is a no-op when there are no known hashes', () => {
+    // A working-tree-only run has no commits, so nothing can be a citation.
+    const line = '- Something (af3127e)';
+    expect(stripUnrequestedHashes(line, [])).toBe(line);
+  });
+
+  it('is idempotent', () => {
+    const once = stripUnrequestedHashes('- A change (af3127e)', HASHES);
+    expect(stripUnrequestedHashes(once, HASHES)).toBe(once);
   });
 });
