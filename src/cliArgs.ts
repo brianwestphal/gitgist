@@ -84,12 +84,15 @@ Options:
                           Repeatable. Excluded files still appear as changed.
   --no-default-excludes   Drop the built-in exclude list, keeping only your own
                           --exclude patterns (e.g. a repo that ships dist/).
-  --provider <name>       AI backend: auto | claude-cli | codex | gemini | opencode |
-                          anthropic-api | local | apple (default: auto).
+  --provider <name>       AI backend: auto | claude-cli | codex | antigravity |
+                          gemini | opencode | anthropic-api | local | apple
+                          (default: auto). gemini is legacy — Gemini CLI stopped
+                          serving individual tiers on 2026-06-18; use antigravity.
   --endpoint <url>        Base URL for --provider local (default: $GITGIST_LOCAL_ENDPOINT
                           or http://localhost:11434/v1).
   --model <id>            Model id — the anthropic-api model (default: claude-opus-4-8),
-                          the CLI-provider model (codex/gemini/opencode -m <model>),
+                          the CLI-provider model (codex/gemini/opencode -m <model>,
+                          antigravity --model, e.g. 'Gemini 3.6 Flash (High)'),
                           or the local model name (default: the endpoint's first model).
   --fallback-provider <name>  Secondary provider to retry with when the primary
                           errors or returns a likely-invalid response (e.g. the

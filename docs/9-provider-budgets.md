@@ -13,7 +13,7 @@ of magnitude:
 | Backend | Model | Context window |
 | --- | --- | --- |
 | `anthropic-api` | `claude-opus-4-8` | **1M tokens** |
-| `claude-cli` / `codex` / `gemini` / `opencode` | whatever frontier model the signed-in CLI fronts | 200k–1M tokens |
+| `claude-cli` / `codex` / `antigravity` / `gemini` / `opencode` | whatever frontier model the signed-in CLI fronts | 200k–1M tokens |
 | `local` | whatever is loaded in Ollama / LM Studio | commonly 4k–8k tokens |
 | `apple` | Apple on-device Foundation Model | **~4k tokens** |
 
@@ -45,7 +45,7 @@ sections), exactly as `--max-diff-chars` does — see
 | Provider | Budget (chars) | Reasoning |
 | --- | ---: | --- |
 | `anthropic-api` | 200,000 | ~50k tokens — a small slice of a 1M-token window. The binding constraint is usefulness and cost, not the window. |
-| `claude-cli`, `codex`, `gemini`, `opencode` | 120,000 | ~30k tokens. Prompts reach these CLIs via stdin (or one argv entry), comfortably inside `ARG_MAX` at this size. |
+| `claude-cli`, `codex`, `antigravity`, `gemini`, `opencode` | 120,000 | ~30k tokens. Prompts reach these CLIs via stdin (or one argv entry), comfortably inside `ARG_MAX` at this size. |
 | `local` | 8,000 | The loaded model is unknown to gitgist and Ollama's default context is often 4k–8k tokens. Errs small on purpose. |
 | `apple` | 4,000 | ~1k tokens of diff, leaving the rest of the ~4k-token on-device window for the system prompt, commit list, and the notes. |
 

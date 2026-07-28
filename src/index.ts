@@ -65,6 +65,8 @@ export {
   type AIProvider,
   anthropicApiProvider,
   type AnthropicApiProviderConfig,
+  antigravityProvider,
+  antigravityRunArgs,
   appleProvider,
   type AppleProviderConfig,
   AUTO_LANGUAGE,

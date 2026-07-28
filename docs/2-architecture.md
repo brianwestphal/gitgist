@@ -16,7 +16,8 @@ generateReleaseNotes (releaseNotes.ts)
    └─ ai:true  → resolveProvider (providers/index.ts)
                     ├─ claude-cli    (providers/claudeCli.ts → providers/cli.ts)
                     ├─ codex         (providers/codex.ts    → providers/cli.ts)
-                    ├─ gemini        (providers/gemini.ts   → providers/cli.ts)
+                    ├─ antigravity   (providers/antigravity.ts → providers/cli.ts)
+                    ├─ gemini        (providers/gemini.ts   → providers/cli.ts — legacy)
                     ├─ opencode      (providers/opencode.ts → providers/cli.ts)
                     ├─ anthropic-api (providers/anthropicApi.ts)
                     ├─ local         (providers/local.ts — opt-in)
@@ -38,7 +39,8 @@ generateReleaseNotes (releaseNotes.ts)
 | `providers/cli.ts` | `createCliProvider()` — reusable no-key CLI backend (timeout, stderr capture). |
 | `providers/claudeCli.ts` | The `claude -p` provider (a `createCliProvider` spec; system prompt via `--append-system-prompt`). |
 | `providers/codex.ts` | The `codex exec` provider (a `createCliProvider` spec; no key). |
-| `providers/gemini.ts` | The `gemini -p` provider (a `createCliProvider` spec; no key). |
+| `providers/antigravity.ts` | The `agy -p` provider (a `createCliProvider` spec; no key) — Google's replacement for the Gemini CLI. |
+| `providers/gemini.ts` | The `gemini -p` provider (a `createCliProvider` spec; no key). **Legacy** — retired for individual tiers 2026-06-18. |
 | `providers/opencode.ts` | The `opencode run` provider (a `createCliProvider` spec; no key). |
 | `providers/anthropicApi.ts` | Anthropic API via `@anthropic-ai/sdk` (`claude-opus-4-8`, adaptive thinking, streaming). |
 | `providers/local.ts` | `createLocalProvider()` — any OpenAI-compatible endpoint (Ollama / LM Studio); opt-in. |
@@ -54,13 +56,19 @@ generateReleaseNotes (releaseNotes.ts)
 ## Provider resolution
 
 `resolveProvider('auto')` walks `AUTO_ORDER`
-(`[claude-cli, codex, gemini, opencode, anthropic-api, apple]`) and returns the
-first available provider — zero-config signed-in CLIs (no key) before the
+(`[claude-cli, codex, antigravity, gemini, opencode, anthropic-api, apple]`) and
+returns the first available provider — zero-config signed-in CLIs (no key) before the
 API-key backend, then on-device Apple Foundation Models as a free fallback (a
 no-op when the device/model isn't available). The `local` provider is
 intentionally **not** in `AUTO_ORDER` (opt-in via `--provider local`, so a
 normal run never probes localhost). A specific provider can be forced; if none
 is available the caller is told to use `--no-ai`.
+
+`antigravity` sits **before** `gemini` on purpose. Gemini CLI stopped serving
+Google AI Pro/Ultra and free-tier requests on 2026-06-18, but its `--version`
+availability probe still succeeds — so without that ordering `auto` would select
+a backend that fails at generation time. `gemini` remains in the order behind it
+for Gemini Code Assist Standard/Enterprise licensees, who keep access.
 
 ## Diff grounding
 

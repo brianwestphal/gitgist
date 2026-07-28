@@ -144,7 +144,7 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 | `--link-commits`           | End each bullet with the commit it came from — linked when the remote host is known ([docs](docs/11-commit-links.md)). |
 | `--commit-url <template>`  | URL for `--link-commits`, containing `{hash}`. Overrides the auto-detected one. |
 | `--no-config`              | Ignore `gitgist.config.json` / `package.json#gitgist` ([docs](docs/12-config.md)). |
-| `--provider <name>`        | `auto` \| `claude-cli` \| `codex` \| `gemini` \| `opencode` \| `anthropic-api` \| `local` \| `apple` (default: `auto`). |
+| `--provider <name>`        | `auto` \| `claude-cli` \| `codex` \| `antigravity` \| `gemini` \| `opencode` \| `anthropic-api` \| `local` \| `apple` (default: `auto`). `gemini` is legacy — see below. |
 | `--endpoint <url>`         | Base URL for `--provider local` (default: Ollama's `…:11434/v1`).   |
 | `--model <id>`             | `anthropic-api` model (default `claude-opus-4-8`), or the `local` model name. |
 | `--fallback-provider <name>` | Retry with this provider when the primary errors or returns an empty/suspect result ([docs](docs/6-fallback.md)). |
@@ -187,11 +187,16 @@ approach the related tools take with `claude -p`. The backends that ship today:
 
 1. **`claude-cli`** — your locally installed, signed-in `claude` CLI. **No API
    key** — it reuses the CLI's own auth.
-2. **`codex`** / **`gemini`** / **`opencode`** — the other signed-in agent CLIs,
-   also **no API key** (they reuse each CLI's own auth): OpenAI **Codex**
-   (`codex exec`), Google **Gemini** (`gemini -p`), and **OpenCode**
+2. **`codex`** / **`antigravity`** / **`opencode`** — the other signed-in agent
+   CLIs, also **no API key** (they reuse each CLI's own auth): OpenAI **Codex**
+   (`codex exec`), Google **Antigravity** (`agy -p`), and **OpenCode**
    (`opencode run`). Select with `--provider <name>`; pick the model with
    `--model` (`-m`). See [docs/5-providers.md](docs/5-providers.md).
+   <br>**`gemini` is legacy.** Google retired the Gemini CLI for Google AI
+   Pro/Ultra and free-tier accounts on **2026-06-18** in favour of Antigravity;
+   `--provider gemini` still ships (Gemini Code Assist Standard/Enterprise
+   licensees keep access) but individual accounts now get an `IneligibleTierError`.
+   Use `--provider antigravity` instead.
 3. **`anthropic-api`** — the Anthropic API via the official SDK. Set
    `ANTHROPIC_API_KEY` in your environment.
 4. **`local`** — any **OpenAI-compatible** endpoint (Ollama, LM Studio,
@@ -210,7 +215,7 @@ approach the related tools take with `claude -p`. The backends that ship today:
    override with `--language <name|code>`, or `--language auto` to disable it).
 
 With `--provider auto` (the default), gitgist tries the signed-in agent CLIs
-first — `claude-cli`, then `codex`, `gemini`, `opencode` — falls back to the
+first — `claude-cli`, then `codex`, `antigravity`, `gemini`, `opencode` — falls back to the
 Anthropic API when `ANTHROPIC_API_KEY` is set, and then to on-device Apple
 Foundation Models when the device and model are available (a no-op when they
 aren't). The `local` provider is **never** auto-selected (so a normal run doesn't
@@ -241,7 +246,8 @@ a rule of thumb, larger models categorize and filter noise more reliably:
 | Provider | Quality | Cost | Privacy | Notes |
 | --- | --- | --- | --- | --- |
 | `claude-cli` / `anthropic-api` | **Best** | CLI: included with your plan · API: per-token | Sent to Anthropic | Cleanest grouping; Breaking Changes surfaced first; refactor/test/chore noise dropped. |
-| `codex` / `gemini` / `opencode` | Very good | Included with your CLI sign-in (no key) | Sent to that vendor | No-key agent CLIs; quality tracks the underlying model. `--model` picks it (`opencode` uses `provider/model`). |
+| `codex` / `antigravity` / `opencode` | Very good | Included with your CLI sign-in (no key) | Sent to that vendor | No-key agent CLIs; quality tracks the underlying model. `--model` picks it (`opencode` uses `provider/model`; `antigravity` uses `agy models` ids like `Gemini 3.6 Flash (High)`). |
+| `gemini` | — | — | — | **Legacy.** Retired for individual tiers on 2026-06-18; use `antigravity`. Still works with a Gemini Code Assist Standard/Enterprise license. |
 | `local` (Ollama / LM Studio) | Very good | Free | **On-device** | Same shape as Claude on a capable model; minor ordering differences, and it may drop a section Claude keeps. Quality tracks the model you load. |
 | `apple` (Foundation Models) | Usable, weaker | Free | **On-device** | Smallest model, and the most variable run to run — can miscategorize (a `fix:` under Breaking Changes, `chore:`/`test:` under Bug Fixes), keep every internal commit, invent sections, or leave raw `feat(ui):` prefixes and commit hashes in the bullets. Free, private, fast. |
 | `--no-ai` | Deterministic | Free | **No network** | Conventional-Commits grouping; keeps every commit, no rewriting. The offline baseline. |

@@ -85,6 +85,7 @@ export const PROVIDER_NAMES = [
   'anthropic-api',
   'claude-cli',
   'codex',
+  'antigravity',
   'gemini',
   'opencode',
   'local',

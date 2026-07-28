@@ -121,6 +121,8 @@ describe('public API surface (FR-10 programmatic API)', () => {
       'TEMPLATE_SYSTEM_PROMPT',
       'USAGE',
       'anthropicApiProvider',
+      'antigravityProvider',
+      'antigravityRunArgs',
       'appleProvider',
       'applyConfig',
       'attributionFilesPerCommit',

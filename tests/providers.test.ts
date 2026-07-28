@@ -9,6 +9,7 @@ import {
   type AnthropicRunParams,
   createAnthropicApiProvider,
 } from '../src/providers/anthropicApi.js';
+import { antigravityRunArgs } from '../src/providers/antigravity.js';
 import { claudeSystemArgs } from '../src/providers/claudeCli.js';
 import { createCliProvider } from '../src/providers/cli.js';
 import { codexRunArgs } from '../src/providers/codex.js';
@@ -43,6 +44,7 @@ describe('provider registry', () => {
     expect(PROVIDERS['anthropic-api'].name).toBe('anthropic-api');
     expect(PROVIDERS['claude-cli'].name).toBe('claude-cli');
     expect(PROVIDERS.codex.name).toBe('codex');
+    expect(PROVIDERS.antigravity.name).toBe('antigravity');
     expect(PROVIDERS.gemini.name).toBe('gemini');
     expect(PROVIDERS.opencode.name).toBe('opencode');
   });
@@ -87,7 +89,7 @@ describe('provider diff budgets (GG-52)', () => {
   });
 });
 
-// @covers FR-5, FR-18, FR-19, FR-20
+// @covers FR-5, FR-18, FR-19, FR-20, FR-33
 describe('CLI agent provider arg builders', () => {
   it('codex: `exec`, with `-m <model>` after the subcommand', () => {
     expect(codexRunArgs({})).toEqual(['exec']);
@@ -98,6 +100,18 @@ describe('CLI agent provider arg builders', () => {
   it('gemini: `-p` last, with `-m <model>` before it', () => {
     expect(geminiRunArgs({})).toEqual(['-p']);
     expect(geminiRunArgs({ model: 'gemini-2.5-pro' })).toEqual(['-m', 'gemini-2.5-pro', '-p']);
+  });
+
+  it('antigravity: `-p` last, with `--model <model>` before it', () => {
+    expect(antigravityRunArgs({})).toEqual(['-p']);
+    expect(antigravityRunArgs({ model: '' })).toEqual(['-p']);
+    // `agy models` ids carry spaces and parentheses; they must ride as one argv
+    // entry, unsplit and unquoted, or the CLI sees a bogus model name.
+    expect(antigravityRunArgs({ model: 'Gemini 3.6 Flash (High)' })).toEqual([
+      '--model',
+      'Gemini 3.6 Flash (High)',
+      '-p',
+    ]);
   });
 
   it('claude: passes the system prompt via `--append-system-prompt`', () => {
@@ -668,11 +682,16 @@ describe('resolveProvider', () => {
     expect(names).toEqual([
       'claude-cli',
       'codex',
+      'antigravity',
       'gemini',
       'opencode',
       'anthropic-api',
       'apple',
     ]);
+    // antigravity must precede the retired gemini CLI: gemini's `--version`
+    // probe still succeeds for individual tiers that its backend no longer
+    // serves, so ordering is the only thing keeping `auto` off a dead backend.
+    expect(names.indexOf('antigravity')).toBeLessThan(names.indexOf('gemini'));
   });
 
   it('auto rebuilds the apple provider with the language hint without probing an earlier winner', async () => {

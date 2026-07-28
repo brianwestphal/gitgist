@@ -17,13 +17,18 @@ conversational preamble, no wrapping code fence).
 | --- | --- | --- |
 | `claude-cli` | `claude` signed in | `gitgist v1.0.0..HEAD --provider claude-cli` |
 | `codex` | `codex login` done | `gitgist v1.0.0..HEAD --provider codex` |
-| `gemini` | `gemini` signed in (Google) | `gitgist v1.0.0..HEAD --provider gemini` |
+| `antigravity` | `agy` signed in (Google) | `gitgist v1.0.0..HEAD --provider antigravity` |
+| `gemini` (legacy) | `gemini` signed in **with a Code Assist Standard/Enterprise license** — individual tiers were retired 2026-06-18 | `gitgist v1.0.0..HEAD --provider gemini` |
 | `opencode` | `opencode auth login` done | `gitgist v1.0.0..HEAD --provider opencode` |
 
 For each, also verify:
 
-- **`--model` is honored** — e.g. `--provider gemini --model gemini-2.5-flash`,
-  `--provider codex --model o3`, `--provider opencode --model anthropic/claude-opus-4-8`.
+- **`--model` is honored** — e.g. `--provider codex --model o3`,
+  `--provider opencode --model anthropic/claude-opus-4-8`,
+  `--provider antigravity --model 'Gemini 3.6 Flash (High)'` (ids come from
+  `agy models` and contain spaces/parens — quote them). A quick way to prove the
+  flag reaches the CLI rather than being ignored: pass a bogus model and confirm
+  the CLI rejects it.
 - **Unauthenticated failure is legible** — sign out (or use a fresh machine) and
   confirm the error names the CLI and suggests the fix (the provider `hint`),
   rather than a stack trace.
@@ -33,8 +38,11 @@ For each, also verify:
 ## Auto-selection (`--provider auto`)
 
 - With only one agent CLI signed in, `gitgist` (no `--provider`) selects it.
-- Resolution order is `claude-cli` → `codex` → `gemini` → `opencode` →
-  `anthropic-api` → `apple`; with several available, the earliest wins.
+- Resolution order is `claude-cli` → `codex` → `antigravity` → `gemini` →
+  `opencode` → `anthropic-api` → `apple`; with several available, the earliest wins.
+- **`antigravity` must win over `gemini`** when both CLIs are installed. `gemini`'s
+  `--version` probe still passes on a retired individual account, so this ordering
+  is the only thing stopping `auto` from picking a backend that fails at generation.
 - With none available and no `ANTHROPIC_API_KEY`, gitgist instructs the user to
   use `--no-ai` (or install/sign in to a CLI).
 

@@ -1,5 +1,6 @@
 import type { ProviderName } from '../types.js';
 import { anthropicApiProvider } from './anthropicApi.js';
+import { antigravityProvider } from './antigravity.js';
 import { appleProvider, createAppleProvider } from './apple.js';
 import { claudeCliProvider } from './claudeCli.js';
 import { codexProvider } from './codex.js';
@@ -13,6 +14,7 @@ export {
   type AnthropicApiProviderConfig,
   createAnthropicApiProvider,
 } from './anthropicApi.js';
+export { antigravityProvider, antigravityRunArgs } from './antigravity.js';
 export {
   appleProvider,
   type AppleProviderConfig,
@@ -38,6 +40,7 @@ export type { AIProvider, GenerateRequest } from './types.js';
 /** Registry of concrete providers, keyed by name. */
 export const PROVIDERS: Record<Exclude<ProviderName, 'auto'>, AIProvider> = {
   'anthropic-api': anthropicApiProvider,
+  antigravity: antigravityProvider,
   'claude-cli': claudeCliProvider,
   codex: codexProvider,
   gemini: geminiProvider,
@@ -49,16 +52,23 @@ export const PROVIDERS: Record<Exclude<ProviderName, 'auto'>, AIProvider> = {
 /**
  * Auto-resolution order. Zero-config CLI backends (no API key) come first —
  * matching how the sibling tools default to `claude -p` — so `claude-cli` and
- * the other signed-in agent CLIs (`codex`, `gemini`, `opencode`) are tried
- * before the API-key `anthropic-api` backend, and finally on-device Apple
- * Foundation Models as a free fallback (only reached when nothing earlier is
- * available, and a no-op when its helper isn't built). The `local` provider is
+ * the other signed-in agent CLIs (`codex`, `antigravity`, `gemini`, `opencode`)
+ * are tried before the API-key `anthropic-api` backend, and finally on-device
+ * Apple Foundation Models as a free fallback (only reached when nothing earlier
+ * is available, and a no-op when its helper isn't built). The `local` provider is
  * intentionally absent: it is opt-in only (`--provider local`) so a normal run
  * never probes localhost.
+ *
+ * `antigravity` precedes `gemini` deliberately: Gemini CLI stopped serving
+ * Google AI Pro/Ultra and free-tier requests on 2026-06-18 in favour of
+ * Antigravity, so for most users `gemini` now fails at generation time even
+ * though its `--version` probe still succeeds. `gemini` stays in the order after
+ * it for Gemini Code Assist Standard/Enterprise licensees, who keep access.
  */
 export const AUTO_ORDER: AIProvider[] = [
   claudeCliProvider,
   codexProvider,
+  antigravityProvider,
   geminiProvider,
   opencodeProvider,
   anthropicApiProvider,

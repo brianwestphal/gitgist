@@ -28,8 +28,8 @@ The pipeline: resolve a range → read commits → generate notes.
     no-API-key path for any headless coding/agent CLI (`claude -p` and friends).
     Prompt delivered via stdin (default) or as an arg; strips wrapping fences.
   - `claudeCli.ts` — the `claude -p` provider, built from `createCliProvider`.
-  - `codex.ts` / `gemini.ts` / `opencode.ts` — the other no-key agent-CLI
-    providers (`codex exec`, `gemini -p`, `opencode run`), each a
+  - `codex.ts` / `antigravity.ts` / `gemini.ts` / `opencode.ts` — the other no-key
+    agent-CLI providers (`codex exec`, `agy -p`, `gemini -p`, `opencode run`), each a
     `createCliProvider` spec. `--model` is threaded via `createCliProvider`'s
     `runArgs`-function form. See [docs/5-providers.md](docs/5-providers.md).
   - `anthropicApi.ts` — official `@anthropic-ai/sdk`, model `claude-opus-4-8`,
@@ -69,13 +69,15 @@ Reserve API-key providers (`anthropicApi.ts`-style) for tools without a usable
 CLI, and place them after the CLI backends.
 
 Threading `--model` through a CLI backend: pass `runArgs` as a function of
-`{ model }` (see `providers/codex.ts` / `gemini.ts` / `opencode.ts`) so the model
+`{ model }` (see `providers/codex.ts` / `antigravity.ts` / `gemini.ts` / `opencode.ts`) so the model
 flag lands at that CLI's expected position.
 
 Follow-up providers on the roadmap, CLI-first where possible: Cursor agent
 (`cursor-agent`, GG-7), plus optional API-key fallbacks for the agent CLIs
 (OpenAI / `@google/genai`). (Done: OpenAI/Codex — `providers/codex.ts`; Gemini
-CLI — `providers/gemini.ts`; OpenCode — `providers/opencode.ts`; Ollama / local
+CLI — `providers/gemini.ts` (legacy, retired for individual tiers 2026-06-18);
+Antigravity CLI — `providers/antigravity.ts`, its replacement; OpenCode —
+`providers/opencode.ts`; Ollama / local
 OpenAI-compatible — `providers/local.ts`; Apple Foundation Models —
 `providers/apple.ts`, delegating to the `apple-fm` npm package.) Provider specs:
 [docs/5-providers.md](docs/5-providers.md).
@@ -132,7 +134,7 @@ npm run build         # tsup → dist/ (index + cli, with .d.ts)
 - [docs/2-architecture.md](docs/2-architecture.md) — module layout and data flow.
 - [docs/3-requirements.md](docs/3-requirements.md) — FR/NFR requirements with status.
 - [docs/4-templates.md](docs/4-templates.md) — the `--template` format reference.
-- [docs/5-providers.md](docs/5-providers.md) — the CLI-first agent providers (codex/gemini/opencode) reference.
+- [docs/5-providers.md](docs/5-providers.md) — the CLI-first agent providers (codex/antigravity/gemini/opencode) reference.
 - [docs/6-fallback.md](docs/6-fallback.md) — fallback provider + suspect empty-notes (`--fallback-*`) handling.
 - [docs/7-diff-grounding.md](docs/7-diff-grounding.md) — grounding notes in the real code diff (`--no-diff`, `--max-diff-chars`).
 - [docs/8-exclusions.md](docs/8-exclusions.md) — diff exclusions (`--exclude`, `--no-default-excludes`) and the default noise list.
