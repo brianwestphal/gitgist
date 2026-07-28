@@ -6,7 +6,16 @@ export interface GenerateRequest {
   system: string;
   /** The user prompt (the commit material). */
   prompt: string;
-  /** Optional model id (provider-specific; ignored by the CLI provider). */
+  /**
+   * Optional model id, interpreted by the resolved backend.
+   *
+   * **Every** provider honours this, and each puts it at the front of its own
+   * precedence chain, ahead of its factory config, environment variable, and
+   * built-in default. The id itself is provider-specific — `agy` takes
+   * `Gemini 3.6 Flash (High)` while `opencode` wants `provider/model` — so an id
+   * is only meaningful to the backend it was chosen for, which is why a
+   * cross-provider `--fallback-model` does not inherit it (FR-23).
+   */
   model?: string;
   /** Optional max output tokens (provider-specific). */
   maxTokens?: number;

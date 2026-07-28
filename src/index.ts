@@ -78,6 +78,7 @@ export {
   chatCompletion,
   type ChatCompletionRequest,
   claudeCliProvider,
+  claudeRunArgs,
   type CliProviderSpec,
   codexProvider,
   createAnthropicApiProvider,

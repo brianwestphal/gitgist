@@ -26,7 +26,7 @@ export {
   createAppleProvider,
   detectSystemLanguage,
 } from './apple.js';
-export { claudeCliProvider } from './claudeCli.js';
+export { claudeCliProvider, claudeRunArgs } from './claudeCli.js';
 export { type CliProviderSpec, createCliProvider } from './cli.js';
 export { codexProvider } from './codex.js';
 export { geminiProvider } from './gemini.js';

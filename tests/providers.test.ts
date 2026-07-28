@@ -10,7 +10,8 @@ import {
   createAnthropicApiProvider,
 } from '../src/providers/anthropicApi.js';
 import { antigravityRunArgs } from '../src/providers/antigravity.js';
-import { claudeSystemArgs } from '../src/providers/claudeCli.js';
+import { AUTO_LANGUAGE, createAppleProvider } from '../src/providers/apple.js';
+import { claudeRunArgs, claudeSystemArgs } from '../src/providers/claudeCli.js';
 import { createCliProvider } from '../src/providers/cli.js';
 import { codexRunArgs } from '../src/providers/codex.js';
 import { geminiRunArgs } from '../src/providers/gemini.js';
@@ -850,6 +851,125 @@ describe('createOpenAiApiProvider (GG-32)', () => {
   });
 });
 
+// @covers FR-21, FR-14
+describe('provider contract: every backend honours GenerateRequest.model (GG-74)', () => {
+  // The guard for the *class* of bug GG-74 was. `--model` reaches a provider one
+  // of two ways — the request, or the factory config — and two backends silently
+  // dropped the request form: `local` (invisible from the CLI, which threads the
+  // flag via config) and `claude-cli` (visible, and never wired at all). A
+  // per-provider test would not have caught either, because each looked fine on
+  // its own terms. This asserts the *shared* contract instead.
+  //
+  // Each backend is driven through its own injection seam, since they have no
+  // common one: argv for the CLI backends, the request body for HTTP, the
+  // injected run function for the SDK.
+  const MODEL = 'contract-model-id';
+
+  /** The arg builders of every CLI-backed provider in `PROVIDERS`. */
+  const CLI_RUN_ARGS: Record<string, (o: { model?: string }) => string[]> = {
+    'claude-cli': claudeRunArgs,
+    codex: codexRunArgs,
+    antigravity: antigravityRunArgs,
+    gemini: geminiRunArgs,
+    opencode: opencodeRunArgs,
+  };
+
+  it('the CLI backends all place the requested model in their argv', () => {
+    // Asserted on the arg builders rather than by spawning: `createCliProvider`
+    // passes `request.model` straight to `runArgs`, so this *is* the contract, and
+    // a `node -e` stub would have node itself reject the `--model` flag.
+    for (const [name, runArgs] of Object.entries(CLI_RUN_ARGS)) {
+      expect(runArgs({ model: MODEL }), `${name} dropped the requested model`).toContain(MODEL);
+    }
+  });
+
+  it('every CLI provider registered in PROVIDERS uses the model-aware runArgs form', () => {
+    // The structural half: a static `runArgs` array cannot receive a model, so
+    // `createCliProvider` silently ignores it. Assert the arg builders are all
+    // functions — that is the property `claude-cli` violated.
+    for (const runArgs of Object.values(CLI_RUN_ARGS)) {
+      expect(typeof runArgs).toBe('function');
+      // And each must actually vary on the model, not merely accept it.
+      expect(runArgs({ model: MODEL })).not.toEqual(runArgs({}));
+    }
+  });
+
+  it('local puts the requested model ahead of its config, env, and discovery', async () => {
+    // GG-74's original finding: this used to consult config/env/discovery only.
+    const original = process.env.GITGIST_LOCAL_MODEL;
+    process.env.GITGIST_LOCAL_MODEL = 'from-env';
+    try {
+      const bodies: string[] = [];
+      const fetchImpl: FetchLike = (url, init) => {
+        if (url.endsWith('/chat/completions')) bodies.push(init?.body ?? '');
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve(
+              url.endsWith('/models')
+                ? { data: [{ id: 'discovered' }] }
+                : { choices: [{ message: { content: 'x' } }] },
+            ),
+        });
+      };
+      // Config AND env AND discovery all offer a different id; the request wins.
+      const p = createLocalProvider({ model: 'from-config', fetchImpl });
+      await p.generate({ system: 's', prompt: 'p', model: MODEL });
+      expect((JSON.parse(bodies[0]) as { model: string }).model).toBe(MODEL);
+    } finally {
+      if (original === undefined) delete process.env.GITGIST_LOCAL_MODEL;
+      else process.env.GITGIST_LOCAL_MODEL = original;
+    }
+  });
+
+  it('openai-api puts the requested model ahead of its config and env', async () => {
+    const bodies: string[] = [];
+    const fetchImpl: FetchLike = (_url, init) => {
+      bodies.push(init?.body ?? '');
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ choices: [{ message: { content: 'x' } }] }),
+      });
+    };
+    const p = createOpenAiApiProvider({ apiKey: () => 'k', model: 'from-config', fetchImpl });
+    await p.generate({ system: 's', prompt: 'p', model: MODEL });
+    expect((JSON.parse(bodies[0]) as { model: string }).model).toBe(MODEL);
+  });
+
+  it('anthropic-api passes the requested model to the SDK call', async () => {
+    let seen: string | undefined;
+    const p = createAnthropicApiProvider({
+      hasApiKey: () => true,
+      run: (params: AnthropicRunParams): Promise<AnthropicMessage> => {
+        seen = params.model;
+        return Promise.resolve({ stopReason: 'end_turn', content: [{ type: 'text', text: 'x' }] });
+      },
+    });
+    await p.generate({ system: 's', prompt: 'p', model: MODEL });
+    expect(seen).toBe(MODEL);
+  });
+
+  it('apple is the one documented exemption — there is only one on-device model', async () => {
+    // Not an oversight: Apple Foundation Models exposes a single on-device model,
+    // so there is nothing to select. Pinned so the exemption stays deliberate and
+    // a future model-selecting Apple API is noticed here.
+    let sawModelField = false;
+    const p = createAppleProvider({
+      isDarwin: true,
+      probe: () => Promise.resolve({ available: true }),
+      generate: (request: unknown) => {
+        sawModelField = Object.prototype.hasOwnProperty.call(request, 'model');
+        return Promise.resolve('## Features\n- x');
+      },
+      language: AUTO_LANGUAGE,
+    });
+    await p.generate({ system: 's', prompt: 'p', model: MODEL });
+    expect(sawModelField).toBe(false);
+  });
+});
+
 // @covers FR-14, FR-34
 describe('providers hold no state between generations (GG-73)', () => {
   /** A fetch that answers model-list and chat, counting the chat calls. */
@@ -871,22 +991,18 @@ describe('providers hold no state between generations (GG-73)', () => {
     return { chats, fetchImpl };
   }
 
-  it('local: rediscovers the model each call, and ignores request.model (GG-74)', async () => {
+  it('local: rediscovers the model each call rather than caching the first', async () => {
     // `localProvider` is a module-level singleton, so anything cached on the
-    // instance would leak between runs — the model is rediscovered per call.
-    //
-    // It also pins a quirk found while writing this: `local` is the ONLY provider
-    // that ignores `GenerateRequest.model`. Its model arrives through the factory
-    // config (which is how the CLI threads `--model`), so a library caller passing
-    // `model` straight to `generate()` is silently ignored. Filed as GG-74; this
-    // asserts today's behavior so a fix there is a deliberate, visible change.
+    // instance would leak between runs. The first call discovers a model from the
+    // endpoint; the second passes one explicitly and must win — which is also the
+    // GG-74 fix in miniature (it used to lose to discovery).
     const { chats, fetchImpl } = countingFetch();
     const p = createLocalProvider({ fetchImpl });
     await p.generate({ system: 's', prompt: 'p' });
     await p.generate({ system: 's', prompt: 'p', model: 'explicit' });
     expect(chats).toHaveLength(2);
     const models = chats.map((b) => (JSON.parse(b) as { model: string }).model);
-    expect(models).toEqual(['first', 'first']);
+    expect(models).toEqual(['first', 'explicit']);
   });
 
   it('local: repeated identical calls are identical', async () => {

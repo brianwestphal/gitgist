@@ -84,8 +84,15 @@ export function createLocalProvider(config: LocalProviderConfig = {}): AIProvide
     async generate(request: GenerateRequest): Promise<string> {
       const where = target();
 
-      // Model precedence: explicit (--model) → env → the endpoint's first model.
-      let model = config.model?.trim() ?? '';
+      // Model precedence: the request → this provider's config → env → whatever
+      // the endpoint has loaded.
+      //
+      // `request.model` comes first so every backend honours the field the same
+      // way. It used to be missing here, which the CLI hid — `resolveProvider`
+      // bakes `--model` into `config`, so the flag worked while a library caller
+      // passing `model` straight to `generate()` was silently ignored (GG-74).
+      let model = request.model?.trim() ?? '';
+      if (model === '') model = config.model?.trim() ?? '';
       if (model === '') model = process.env.GITGIST_LOCAL_MODEL?.trim() ?? '';
       if (model === '') model = (await listModels(where, HTTP_PROBE_TIMEOUT_MS))[0] ?? '';
       if (model === '') {

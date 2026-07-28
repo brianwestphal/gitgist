@@ -94,7 +94,7 @@ Options:
   --model <id>            Model id — the anthropic-api model (default: claude-opus-4-8),
                           the openai-api model ($GITGIST_OPENAI_MODEL, else gpt-5),
                           the CLI-provider model (codex/gemini/opencode -m <model>,
-                          antigravity --model, e.g. 'Gemini 3.6 Flash (High)'),
+                          claude-cli/antigravity --model, e.g. 'Gemini 3.6 Flash (High)'),
                           or the local model name (default: the endpoint's first model).
   --fallback-provider <name>  Secondary provider to retry with when the primary
                           errors or returns a likely-invalid response (e.g. the

@@ -135,6 +135,7 @@ describe('public API surface (FR-10 programmatic API)', () => {
       'buildUserPrompt',
       'chatCompletion',
       'claudeCliProvider',
+      'claudeRunArgs',
       'cleanModelOutput',
       'codexProvider',
       'commitUrlFromRemote',
@@ -231,6 +232,36 @@ describe('export surface — nothing is exported for nobody (GG-70)', () => {
       `These symbols are exported but referenced nowhere outside their own module. ` +
         `Either drop the \`export\` (module-private), re-export them from src/index.ts if ` +
         `they belong to the public API, or add a test that uses them:\n  ${orphans.join('\n  ')}`,
+    ).toEqual([]);
+  });
+});
+
+// @covers FR-21
+describe('CLI providers must be able to receive a model (GG-74)', () => {
+  it('no createCliProvider spec passes a static runArgs array', () => {
+    // `createCliProvider` only calls `runArgs` with the request's model when it is
+    // a **function**; a static array silently discards it. That is how `claude-cli`
+    // ignored `--model` entirely — `gitgist --provider claude-cli --model <id>` ran
+    // the CLI's default with no error (GG-74).
+    //
+    // This is asserted on the source rather than on behavior because the
+    // registered providers spawn real binaries (`claude`, `codex`, …) that a test
+    // cannot substitute. A companion test in providers.test.ts checks each arg
+    // builder actually varies on the model; this one checks the providers use them.
+    const offenders: string[] = [];
+    for (const { rel, source } of srcFiles()) {
+      if (!rel.startsWith('providers/')) continue;
+      // Only inside a createCliProvider spec — the interface declaration in
+      // cli.ts legitimately mentions the array form as an accepted type.
+      for (const m of source.matchAll(/createCliProvider\(\{[\s\S]*?\}\)/g)) {
+        if (/\brunArgs:\s*\[/.test(m[0])) offenders.push(rel);
+      }
+    }
+    expect(
+      offenders,
+      `These providers pass a static runArgs array, so GenerateRequest.model is ` +
+        `silently dropped. Use the function form — \`runArgs: ({ model }) => …\` — ` +
+        `so the requested model reaches the CLI: ${offenders.join(', ')}`,
     ).toEqual([]);
   });
 });

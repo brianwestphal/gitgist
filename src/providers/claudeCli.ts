@@ -23,10 +23,28 @@ export function claudeSystemArgs(system: string): string[] {
  * (`_No user-facing changes._`) as user input and echo it back instead of
  * generating notes (GG-38).
  */
+/**
+ * Build the `claude` arguments, threading `--model` when one was requested.
+ *
+ * `claude -p` reads the prompt from stdin rather than as a flag value, so the
+ * order is not forced — `--model` goes first to match the other CLI backends.
+ *
+ * This was a static `['-p']` until GG-74, which silently dropped
+ * `GenerateRequest.model`: `gitgist --provider claude-cli --model <id>` ran
+ * whatever model the CLI defaulted to, with no error. FR-21 had only ever wired
+ * `codex`/`gemini`/`opencode`.
+ *
+ * @param opts - The request's model, if any.
+ * @returns The CLI arguments for `claude`.
+ */
+export function claudeRunArgs({ model }: { model?: string }): string[] {
+  return model !== undefined && model !== '' ? ['--model', model, '-p'] : ['-p'];
+}
+
 export const claudeCliProvider = createCliProvider({
   name: 'claude-cli',
   command: 'claude',
-  runArgs: ['-p'],
+  runArgs: claudeRunArgs,
   systemArgs: claudeSystemArgs,
   hint: 'is the claude CLI signed in?',
 });

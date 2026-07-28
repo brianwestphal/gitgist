@@ -103,6 +103,13 @@ be running, and there is no cheaper signal.
 **Model precedence:** `--model` → the factory's `model` → `$GITGIST_OPENAI_MODEL`
 → the built-in default.
 
+`local`'s chain has the same shape: `--model` → the factory's `model` →
+`$GITGIST_LOCAL_MODEL` → **whatever the endpoint has loaded** (its last step
+discovers rather than defaulting, since gitgist cannot know what you are running).
+Both start at `GenerateRequest.model`, which is the contract every backend shares
+— `local` was the exception until GG-74, and that gap was invisible from the CLI
+because `resolveProvider` bakes `--model` into the factory config.
+
 > **The built-in default (`gpt-5`) is unverified.** gitgist has no OpenAI key on
 > the maintainer's machine, so no *successful* call has confirmed it, and OpenAI's
 > served ids vary by account and over time. (The request shape itself *is*

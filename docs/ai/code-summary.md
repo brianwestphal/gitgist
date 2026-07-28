@@ -22,7 +22,7 @@ src/
   providers/
     types.ts          # AIProvider (incl. diffBudgetChars), GenerateRequest
     cli.ts            # createCliProvider (reusable no-key CLI backend; model via runArgs fn, system via systemArgs hook)
-    claudeCli.ts      # claudeCliProvider (claude -p; system via --append-system-prompt)
+    claudeCli.ts      # claudeCliProvider / claudeRunArgs (claude -p, --model; system via --append-system-prompt)
     codex.ts          # codexProvider (codex exec; no key)
     antigravity.ts    # antigravityProvider / antigravityRunArgs (agy -p; no key)
     gemini.ts         # geminiProvider (gemini -p; no key) — legacy, see FR-33
@@ -84,7 +84,7 @@ scripts/
   `PACKAGE_JSON_KEY`, `parseArgs`, `USAGE`, types `GitgistConfig` / `LoadedConfig` /
   `CliArgs` (see `docs/12-config.md`).
 - Providers: `resolveProvider`, `PROVIDERS`, `AUTO_ORDER`; `createCliProvider`,
-  `claudeCliProvider`, `codexProvider`, `antigravityProvider`, `antigravityRunArgs`,
+  `claudeCliProvider`, `claudeRunArgs`, `codexProvider`, `antigravityProvider`, `antigravityRunArgs`,
   `geminiProvider`, `opencodeProvider`;
   `openaiApiProvider`, `createOpenAiApiProvider`, `OpenAiApiProviderConfig`,
   `DEFAULT_OPENAI_ENDPOINT`; the shared OpenAI-protocol client `chatCompletion`,
