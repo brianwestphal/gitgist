@@ -6,6 +6,7 @@ import { claudeCliProvider } from './claudeCli.js';
 import { codexProvider } from './codex.js';
 import { geminiProvider } from './gemini.js';
 import { createLocalProvider, localProvider } from './local.js';
+import { openaiApiProvider } from './openaiApi.js';
 import { opencodeProvider } from './opencode.js';
 import type { AIProvider } from './types.js';
 
@@ -29,11 +30,23 @@ export { geminiProvider } from './gemini.js';
 export {
   createLocalProvider,
   DEFAULT_LOCAL_ENDPOINT,
-  extractChatContent,
   localProvider,
   type LocalProviderConfig,
-  parseModelList,
 } from './local.js';
+export {
+  createOpenAiApiProvider,
+  DEFAULT_OPENAI_ENDPOINT,
+  openaiApiProvider,
+  type OpenAiApiProviderConfig,
+} from './openaiApi.js';
+export {
+  chatCompletion,
+  extractChatContent,
+  type FetchLike,
+  listModels,
+  type OpenAiCompatibleTarget,
+  parseModelList,
+} from './openaiCompatible.js';
 export { opencodeProvider } from './opencode.js';
 export type { AIProvider, GenerateRequest } from './types.js';
 
@@ -45,6 +58,7 @@ export const PROVIDERS: Record<Exclude<ProviderName, 'auto'>, AIProvider> = {
   codex: codexProvider,
   gemini: geminiProvider,
   opencode: opencodeProvider,
+  'openai-api': openaiApiProvider,
   local: localProvider,
   apple: appleProvider,
 };
@@ -53,11 +67,15 @@ export const PROVIDERS: Record<Exclude<ProviderName, 'auto'>, AIProvider> = {
  * Auto-resolution order. Zero-config CLI backends (no API key) come first —
  * matching how the sibling tools default to `claude -p` — so `claude-cli` and
  * the other signed-in agent CLIs (`codex`, `antigravity`, `gemini`, `opencode`)
- * are tried before the API-key `anthropic-api` backend, and finally on-device
- * Apple Foundation Models as a free fallback (only reached when nothing earlier
- * is available, and a no-op when its helper isn't built). The `local` provider is
- * intentionally absent: it is opt-in only (`--provider local`) so a normal run
- * never probes localhost.
+ * are tried before the API-key backends (`anthropic-api`, then `openai-api`), and
+ * finally on-device Apple Foundation Models as a free fallback (only reached when
+ * nothing earlier is available, and a no-op when its helper isn't built). The
+ * `local` provider is intentionally absent: it is opt-in only (`--provider local`)
+ * so a normal run never probes localhost.
+ *
+ * Both API-key backends decide availability from the presence of their key
+ * alone — no network call — so having them in the order costs nothing on a run
+ * that never reaches them.
  *
  * `antigravity` precedes `gemini` deliberately: Gemini CLI stopped serving
  * Google AI Pro/Ultra and free-tier requests on 2026-06-18 in favour of
@@ -72,6 +90,7 @@ export const AUTO_ORDER: AIProvider[] = [
   geminiProvider,
   opencodeProvider,
   anthropicApiProvider,
+  openaiApiProvider,
   appleProvider,
 ];
 
@@ -99,6 +118,9 @@ export interface ResolveProviderOptions {
 export function unavailableMessage(name: string, endpoint?: string): string {
   if (name === 'anthropic-api') {
     return 'The anthropic-api provider is unavailable: set ANTHROPIC_API_KEY.';
+  }
+  if (name === 'openai-api') {
+    return 'The openai-api provider is unavailable: set OPENAI_API_KEY.';
   }
   if (name === 'local') {
     const where = endpoint !== undefined && endpoint !== '' ? ` at ${endpoint}` : '';
@@ -148,7 +170,8 @@ export async function resolveProvider(
 
   throw new Error(
     'No AI provider available. Install and sign in to a supported CLI (e.g. `claude`), ' +
-      'set ANTHROPIC_API_KEY to use the Anthropic API, run a local server and pass ' +
-      '--provider local, or pass --no-ai for deterministic Conventional Commits grouping.',
+      'set ANTHROPIC_API_KEY or OPENAI_API_KEY to use a hosted API, run a local server ' +
+      'and pass --provider local, or pass --no-ai for deterministic Conventional ' +
+      'Commits grouping.',
   );
 }

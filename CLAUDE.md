@@ -35,8 +35,15 @@ The pipeline: resolve a range → read commits → generate notes.
   - `anthropicApi.ts` — official `@anthropic-ai/sdk`, model `claude-opus-4-8`,
     adaptive thinking, streaming. Reads `ANTHROPIC_API_KEY`. SDK is imported
     lazily.
+  - `openaiCompatible.ts` — the shared OpenAI-protocol client (`chatCompletion`,
+    `listModels`) behind `local` + `openai-api`. Plain `fetch`, no SDK; each
+    backend supplies its own error wording via the `OpenAiCompatibleTarget`
+    `label`/`unreachableHint`. See [docs/13-openai-compatible.md](docs/13-openai-compatible.md).
   - `local.ts` — `createLocalProvider()`: any OpenAI-compatible endpoint
-    (Ollama / LM Studio) via `fetch`; returns freeform Markdown. Opt-in only.
+    (Ollama / LM Studio); returns freeform Markdown. Opt-in only.
+  - `openaiApi.ts` — `createOpenAiApiProvider()`: the OpenAI chat-completions API
+    over the shared client. Reads `OPENAI_API_KEY` / `OPENAI_BASE_URL`. **No
+    vendor SDK** — GG-32 chose REST to avoid a runtime dependency.
   - `apple.ts` — `createAppleProvider()`: on-device macOS Apple Foundation
     Models, delegating to the [`apple-fm`](https://www.npmjs.com/package/apple-fm)
     npm dependency (`probe()` / `generate()`). `apple-fm` bundles the signed Swift
@@ -73,8 +80,9 @@ Threading `--model` through a CLI backend: pass `runArgs` as a function of
 flag lands at that CLI's expected position.
 
 Follow-up providers on the roadmap, CLI-first where possible: Cursor agent
-(`cursor-agent`, GG-7), plus optional API-key fallbacks for the agent CLIs
-(OpenAI / `@google/genai`). (Done: OpenAI/Codex — `providers/codex.ts`; Gemini
+(`cursor-agent`, GG-7) — the last open item. The API-key fallbacks are settled:
+OpenAI shipped as `providers/openaiApi.ts` (FR-34, REST not SDK), and the Gemini
+one was closed as superseded by `antigravity`. (Done: OpenAI/Codex — `providers/codex.ts`; Gemini
 CLI — `providers/gemini.ts` (legacy, retired for individual tiers 2026-06-18);
 Antigravity CLI — `providers/antigravity.ts`, its replacement; OpenCode —
 `providers/opencode.ts`; Ollama / local
@@ -142,6 +150,7 @@ npm run build         # tsup → dist/ (index + cli, with .d.ts)
 - [docs/10-attribution.md](docs/10-attribution.md) — per-commit file lists (`--no-attribution`) so the model can attribute, group, and order changes.
 - [docs/11-commit-links.md](docs/11-commit-links.md) — bullets that cite/link their commit (`--link-commits`, `--commit-url`).
 - [docs/12-config.md](docs/12-config.md) — project config (`gitgist.config.json`, `package.json#gitgist`) and flag-over-config precedence.
+- [docs/13-openai-compatible.md](docs/13-openai-compatible.md) — the shared OpenAI-protocol client behind `local` + `openai-api`, and why it is REST rather than an SDK.
 - [docs/manual-test-plan.md](docs/manual-test-plan.md) — manual checks (CLI-provider output quality).
 - `docs/technical-changelog/` — per-release, diff-grounded technical reports (written by the `technical-changelog` skill; `scripts/changelog-analysis.mjs` does the git analysis).
 - [docs/ai/code-summary.md](docs/ai/code-summary.md) — AI-oriented code map.

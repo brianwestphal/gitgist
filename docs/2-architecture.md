@@ -20,7 +20,8 @@ generateReleaseNotes (releaseNotes.ts)
                     ├─ gemini        (providers/gemini.ts   → providers/cli.ts — legacy)
                     ├─ opencode      (providers/opencode.ts → providers/cli.ts)
                     ├─ anthropic-api (providers/anthropicApi.ts)
-                    ├─ local         (providers/local.ts — opt-in)
+                    ├─ openai-api    (providers/openaiApi.ts   → providers/openaiCompatible.ts)
+                    ├─ local         (providers/local.ts       → providers/openaiCompatible.ts, opt-in)
                     └─ apple         (providers/apple.ts — via the apple-fm package)
                  prompt built by prompt.ts (SYSTEM_PROMPT / COMMIT_SYSTEM_PROMPT /
                  TEMPLATE_SYSTEM_PROMPT + buildUserPrompt / buildTemplatePrompt)
@@ -45,6 +46,8 @@ generateReleaseNotes (releaseNotes.ts)
 | `providers/anthropicApi.ts` | Anthropic API via `@anthropic-ai/sdk` (`claude-opus-4-8`, adaptive thinking, streaming). |
 | `providers/local.ts` | `createLocalProvider()` — any OpenAI-compatible endpoint (Ollama / LM Studio); opt-in. |
 | `providers/apple.ts` | `createAppleProvider()` — on-device Apple Foundation Models via the `apple-fm` package. |
+| `providers/openaiApi.ts` | The `openai-api` provider — OpenAI chat-completions over `fetch`, no SDK. |
+| `providers/openaiCompatible.ts` | The shared OpenAI-protocol client (`chatCompletion`, `listModels`) behind `local` + `openai-api`. |
 | `providers/index.ts` | `PROVIDERS`, `AUTO_ORDER`, `resolveProvider(requested, opts?)`. |
 | `releaseNotes.ts` | `generateReleaseNotes()` — orchestrates the whole flow. |
 | `cliArgs.ts` | `parseArgs()` + `USAGE` (pure, testable); `explicit` records which flags were passed. |
@@ -56,8 +59,8 @@ generateReleaseNotes (releaseNotes.ts)
 ## Provider resolution
 
 `resolveProvider('auto')` walks `AUTO_ORDER`
-(`[claude-cli, codex, antigravity, gemini, opencode, anthropic-api, apple]`) and
-returns the first available provider — zero-config signed-in CLIs (no key) before the
+(`[claude-cli, codex, antigravity, gemini, opencode, anthropic-api, openai-api, apple]`)
+and returns the first available provider — zero-config signed-in CLIs (no key) before the
 API-key backend, then on-device Apple Foundation Models as a free fallback (a
 no-op when the device/model isn't available). The `local` provider is
 intentionally **not** in `AUTO_ORDER` (opt-in via `--provider local`, so a

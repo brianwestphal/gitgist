@@ -88,6 +88,7 @@ export const PROVIDER_NAMES = [
   'antigravity',
   'gemini',
   'opencode',
+  'openai-api',
   'local',
   'apple',
 ] as const;

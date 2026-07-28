@@ -21,12 +21,13 @@ import {
   resolveProvider,
   unavailableMessage,
 } from '../src/providers/index.js';
+import { createLocalProvider } from '../src/providers/local.js';
+import { createOpenAiApiProvider } from '../src/providers/openaiApi.js';
 import {
-  createLocalProvider,
   extractChatContent,
   type FetchLike,
   parseModelList,
-} from '../src/providers/local.js';
+} from '../src/providers/openaiCompatible.js';
 import { opencodeRunArgs } from '../src/providers/opencode.js';
 import type { AIProvider } from '../src/providers/types.js';
 
@@ -47,6 +48,7 @@ describe('provider registry', () => {
     expect(PROVIDERS.antigravity.name).toBe('antigravity');
     expect(PROVIDERS.gemini.name).toBe('gemini');
     expect(PROVIDERS.opencode.name).toBe('opencode');
+    expect(PROVIDERS['openai-api'].name).toBe('openai-api');
   });
 });
 
@@ -517,6 +519,251 @@ describe('createLocalProvider', () => {
   });
 });
 
+// @covers FR-34
+describe('createOpenAiApiProvider (GG-32)', () => {
+  const originalKey = process.env.OPENAI_API_KEY;
+  const originalBase = process.env.OPENAI_BASE_URL;
+  const originalModel = process.env.GITGIST_OPENAI_MODEL;
+
+  afterEach(() => {
+    // Restored explicitly rather than through a computed key, which the
+    // no-dynamic-delete rule forbids.
+    if (originalKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = originalKey;
+    if (originalBase === undefined) delete process.env.OPENAI_BASE_URL;
+    else process.env.OPENAI_BASE_URL = originalBase;
+    if (originalModel === undefined) delete process.env.GITGIST_OPENAI_MODEL;
+    else process.env.GITGIST_OPENAI_MODEL = originalModel;
+  });
+
+  /** Capture the request the provider makes, and reply with `content`. */
+  function spyFetch(content = 'notes', ok = true, status = 200) {
+    const calls: { url: string; headers?: Record<string, string>; body?: string }[] = [];
+    const fetchImpl: FetchLike = (url, init) => {
+      calls.push({ url, headers: init?.headers, body: init?.body });
+      return Promise.resolve({
+        ok,
+        status,
+        json: () => Promise.resolve({ choices: [{ message: { content } }] }),
+      });
+    };
+    return { calls, fetchImpl };
+  }
+
+  it('isAvailable() reflects OPENAI_API_KEY without making a network call', async () => {
+    // A network probe would add latency to every auto-resolved run, so the key
+    // alone decides — same contract as anthropic-api.
+    let fetched = false;
+    const fetchImpl: FetchLike = () => {
+      fetched = true;
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
+    };
+
+    process.env.OPENAI_API_KEY = 'sk-test';
+    expect(await createOpenAiApiProvider({ fetchImpl }).isAvailable()).toBe(true);
+
+    delete process.env.OPENAI_API_KEY;
+    expect(await createOpenAiApiProvider({ fetchImpl }).isAvailable()).toBe(false);
+
+    // An empty or whitespace-only key is treated as absent, not as a valid key.
+    process.env.OPENAI_API_KEY = '   ';
+    expect(await createOpenAiApiProvider({ fetchImpl }).isAvailable()).toBe(false);
+
+    expect(fetched).toBe(false);
+  });
+
+  it('generate() sends the bearer token to OpenAI by default', async () => {
+    const { calls, fetchImpl } = spyFetch();
+    const p = createOpenAiApiProvider({ apiKey: () => 'sk-abc', fetchImpl });
+    expect(await p.generate({ system: 's', prompt: 'p' })).toBe('notes');
+    expect(calls[0].url).toBe('https://api.openai.com/v1/chat/completions');
+    expect(calls[0].headers?.Authorization).toBe('Bearer sk-abc');
+    expect(calls[0].headers?.['Content-Type']).toBe('application/json');
+  });
+
+  it('generate() sends system and user roles, and no output-token cap', async () => {
+    // --max-tokens is documented as anthropic-api only; the parameter name for
+    // this API differs across model generations, so none is sent.
+    const { calls, fetchImpl } = spyFetch();
+    const p = createOpenAiApiProvider({ apiKey: () => 'k', fetchImpl });
+    await p.generate({ system: 'SYS', prompt: 'USER', maxTokens: 123 });
+    const body = JSON.parse(calls[0].body ?? '{}') as {
+      messages: { role: string; content: string }[];
+      max_tokens?: number;
+      max_completion_tokens?: number;
+      response_format?: unknown;
+    };
+    expect(body.messages).toEqual([
+      { role: 'system', content: 'SYS' },
+      { role: 'user', content: 'USER' },
+    ]);
+    expect(body.max_tokens).toBeUndefined();
+    expect(body.max_completion_tokens).toBeUndefined();
+    // Freeform Markdown out — coercing JSON would fight the prompt.
+    expect(body.response_format).toBeUndefined();
+  });
+
+  it('model precedence: --model → config → env → the built-in default', async () => {
+    const modelOf = async (
+      request: { model?: string },
+      config: { model?: string } = {},
+    ): Promise<string> => {
+      const { calls, fetchImpl } = spyFetch();
+      await createOpenAiApiProvider({ apiKey: () => 'k', fetchImpl, ...config }).generate({
+        system: 's',
+        prompt: 'p',
+        ...request,
+      });
+      return (JSON.parse(calls[0].body ?? '{}') as { model: string }).model;
+    };
+
+    delete process.env.GITGIST_OPENAI_MODEL;
+    expect(await modelOf({})).toBe('gpt-5');
+    expect(await modelOf({}, { model: 'from-config' })).toBe('from-config');
+    expect(await modelOf({ model: 'from-flag' }, { model: 'from-config' })).toBe('from-flag');
+
+    process.env.GITGIST_OPENAI_MODEL = 'from-env';
+    expect(await modelOf({})).toBe('from-env');
+    // Config still outranks env, and a blank flag must not win — an empty string
+    // is not nullish, so a `??` chain would have stopped there.
+    expect(await modelOf({ model: '  ' })).toBe('from-env');
+    expect(await modelOf({ model: '  ' }, { model: 'from-config' })).toBe('from-config');
+  });
+
+  it('OPENAI_BASE_URL redirects the call, and a trailing slash is trimmed', async () => {
+    process.env.OPENAI_BASE_URL = 'https://proxy.example/v1/';
+    const { calls, fetchImpl } = spyFetch();
+    await createOpenAiApiProvider({ apiKey: () => 'k', fetchImpl }).generate({
+      system: 's',
+      prompt: 'p',
+    });
+    expect(calls[0].url).toBe('https://proxy.example/v1/chat/completions');
+  });
+
+  it('an explicit endpoint outranks OPENAI_BASE_URL', async () => {
+    process.env.OPENAI_BASE_URL = 'https://env.example/v1';
+    const { calls, fetchImpl } = spyFetch();
+    await createOpenAiApiProvider({
+      apiKey: () => 'k',
+      endpoint: 'https://explicit.example/v1',
+      fetchImpl,
+    }).generate({ system: 's', prompt: 'p' });
+    expect(calls[0].url).toBe('https://explicit.example/v1/chat/completions');
+  });
+
+  it('generate() throws a keyless error when the key vanishes after the probe', async () => {
+    // isAvailable() and generate() read the key independently, so this ordering
+    // is reachable: available at resolve time, gone by generation.
+    let key: string | undefined = 'sk-live';
+    const { fetchImpl } = spyFetch();
+    const p = createOpenAiApiProvider({ apiKey: () => key, fetchImpl });
+    expect(await p.isAvailable()).toBe(true);
+    key = undefined;
+    await expect(p.generate({ system: 's', prompt: 'p' })).rejects.toThrow(/set OPENAI_API_KEY/);
+  });
+
+  it('turns auth/model/rate-limit statuses into actionable hints', async () => {
+    const failWith = async (status: number): Promise<string> => {
+      const fetchImpl: FetchLike = () =>
+        Promise.resolve({ ok: false, status, json: () => Promise.resolve({}) });
+      const p = createOpenAiApiProvider({ apiKey: () => 'k', fetchImpl });
+      return p
+        .generate({ system: 's', prompt: 'p' })
+        .then(() => '')
+        .catch((e: unknown) => (e as Error).message);
+    };
+
+    expect(await failWith(401)).toMatch(/HTTP 401\. Check OPENAI_API_KEY\./);
+    expect(await failWith(403)).toMatch(/Check OPENAI_API_KEY/);
+    expect(await failWith(404)).toMatch(/Check the model id/);
+    expect(await failWith(429)).toMatch(/Rate limited/);
+    // An unmapped status still reports, just without a guessed hint.
+    expect(await failWith(500)).toMatch(/OpenAI API .* returned HTTP 500\.$/);
+  });
+
+  it('reports unreachable and empty responses in this backend\'s own words', async () => {
+    const dead: FetchLike = () => Promise.reject(new Error('ECONNREFUSED'));
+    await expect(
+      createOpenAiApiProvider({ apiKey: () => 'k', fetchImpl: dead }).generate({
+        system: 's',
+        prompt: 'p',
+      }),
+    ).rejects.toThrow(/OpenAI API not reachable at https:\/\/api\.openai\.com\/v1/);
+
+    const blank: FetchLike = () =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ choices: [{ message: { content: '  ' } }] }),
+      });
+    await expect(
+      createOpenAiApiProvider({ apiKey: () => 'k', fetchImpl: blank }).generate({
+        system: 's',
+        prompt: 'p',
+      }),
+    ).rejects.toThrow(/OpenAI API .* returned an empty response/);
+  });
+
+  it('strips a wrapping code fence, like every other backend', async () => {
+    const { fetchImpl } = spyFetch('```markdown\n## Features\n- a\n```');
+    const p = createOpenAiApiProvider({ apiKey: () => 'k', fetchImpl });
+    expect(await p.generate({ system: 's', prompt: 'p' })).toBe('## Features\n- a');
+  });
+
+  it('advertises an API-sized diff budget, far above the local one', () => {
+    const p = createOpenAiApiProvider({ apiKey: () => 'k' });
+    expect(p.diffBudgetChars).toBe(200_000);
+    expect(p.diffBudgetChars ?? 0).toBeGreaterThan(
+      createLocalProvider().diffBudgetChars ?? Infinity,
+    );
+  });
+});
+
+// @covers FR-34
+describe('the shared OpenAI-compatible client keeps the two backends distinct', () => {
+  it('local sends no Authorization header; openai-api does', async () => {
+    const seen: (Record<string, string> | undefined)[] = [];
+    const fetchImpl: FetchLike = (url, init) => {
+      seen.push(init?.headers);
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve(
+            url.endsWith('/models')
+              ? { data: [{ id: 'm' }] }
+              : { choices: [{ message: { content: 'x' } }] },
+          ),
+      });
+    };
+
+    await createLocalProvider({ model: 'm', fetchImpl }).generate({ system: 's', prompt: 'p' });
+    expect(seen[0]?.Authorization).toBeUndefined();
+
+    seen.length = 0;
+    await createOpenAiApiProvider({ apiKey: () => 'k', fetchImpl }).generate({
+      system: 's',
+      prompt: 'p',
+    });
+    expect(seen[0]?.Authorization).toBe('Bearer k');
+  });
+
+  it('each backend keeps its own unreachable guidance', async () => {
+    const dead: FetchLike = () => Promise.reject(new Error('nope'));
+
+    // The local hint tells you to start a server; the hosted one must not.
+    await expect(
+      createLocalProvider({ model: 'm', fetchImpl: dead }).generate({ system: 's', prompt: 'p' }),
+    ).rejects.toThrow(/Start your local server/);
+    await expect(
+      createOpenAiApiProvider({ apiKey: () => 'k', fetchImpl: dead }).generate({
+        system: 's',
+        prompt: 'p',
+      }),
+    ).rejects.toThrow(/Check your network/);
+  });
+});
+
 describe('anthropicApiProvider.isAvailable', () => {
   const original = process.env.ANTHROPIC_API_KEY;
   afterEach(() => {
@@ -686,6 +933,7 @@ describe('resolveProvider', () => {
       'gemini',
       'opencode',
       'anthropic-api',
+      'openai-api',
       'apple',
     ]);
     // antigravity must precede the retired gemini CLI: gemini's `--version`

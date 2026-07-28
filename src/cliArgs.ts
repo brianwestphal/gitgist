@@ -85,12 +85,14 @@ Options:
   --no-default-excludes   Drop the built-in exclude list, keeping only your own
                           --exclude patterns (e.g. a repo that ships dist/).
   --provider <name>       AI backend: auto | claude-cli | codex | antigravity |
-                          gemini | opencode | anthropic-api | local | apple
-                          (default: auto). gemini is legacy — Gemini CLI stopped
-                          serving individual tiers on 2026-06-18; use antigravity.
+                          gemini | opencode | anthropic-api | openai-api | local |
+                          apple (default: auto). gemini is legacy — Gemini CLI
+                          stopped serving individual tiers on 2026-06-18; use
+                          antigravity.
   --endpoint <url>        Base URL for --provider local (default: $GITGIST_LOCAL_ENDPOINT
                           or http://localhost:11434/v1).
   --model <id>            Model id — the anthropic-api model (default: claude-opus-4-8),
+                          the openai-api model ($GITGIST_OPENAI_MODEL, else gpt-5),
                           the CLI-provider model (codex/gemini/opencode -m <model>,
                           antigravity --model, e.g. 'Gemini 3.6 Flash (High)'),
                           or the local model name (default: the endpoint's first model).
@@ -113,7 +115,8 @@ Options:
   -h, --help              Show this help.
 
 API keys:
-  The anthropic-api provider reads ANTHROPIC_API_KEY. The claude-cli provider
+  The anthropic-api provider reads ANTHROPIC_API_KEY; openai-api reads
+  OPENAI_API_KEY (and OPENAI_BASE_URL for Azure/proxy). The claude-cli provider
   reuses your signed-in \`claude\` CLI and needs no key. With --provider auto,
   the API is used when ANTHROPIC_API_KEY is set, otherwise the CLI.
 

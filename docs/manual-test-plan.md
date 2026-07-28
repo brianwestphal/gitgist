@@ -37,11 +37,49 @@ For each, also verify:
 - **`--commit-message`** works: `gitgist --staged --commit-message --provider <name>`
   returns a single Conventional Commit message.
 
+## `openai-api` (FR-34) — never run live
+
+**Partly verified live, deliberately.** No OpenAI key exists on the maintainer's
+machine, but pointing the provider at the real API with a *deliberately invalid*
+key returned:
+
+```
+gitgist: OpenAI API https://api.openai.com/v1 returned HTTP 401. Check OPENAI_API_KEY.
+```
+
+A `401` — rather than a `404` (wrong URL) or `400` (malformed body) — means the
+endpoint, headers, and request body are well-formed enough for OpenAI to parse the
+request and reject only the credential. So **request construction and the error
+path are confirmed against the real API**; what remains unverified is the
+**success path** and the **default model id**. With a valid `OPENAI_API_KEY`:
+
+- `gitgist v1.0.0..HEAD --provider openai-api` returns clean grouped Markdown.
+- **Confirm the default model id.** `src/providers/openaiApi.ts` defaults to
+  `gpt-5`, chosen without a live check — OpenAI's served ids vary by account and
+  over time. If the API rejects it, the fix is a one-line default change; the
+  error arrives as a `404`/`400` with the id echoed plus a "check the model id"
+  hint.
+- `--model <id>` overrides it; `GITGIST_OPENAI_MODEL` does too, at lower precedence.
+- `OPENAI_BASE_URL` retargets the call (Azure / a proxy). `--endpoint` is **not**
+  wired to this provider by design — it belongs to `local`.
+- **Error legibility:** a bad key should report `HTTP 401. Check OPENAI_API_KEY.`
+  rather than a stack trace.
+- `--commit-message` works.
+- `--fallback-provider openai-api` is reached when the primary fails (FR-23).
+
+Note that `isAvailable()` only checks that the key is *set*, so an invalid or
+exhausted key resolves fine and fails at generation — that is deliberate (no
+network in the probe path), and worth confirming reads sensibly.
+
 ## Auto-selection (`--provider auto`)
 
 - With only one agent CLI signed in, `gitgist` (no `--provider`) selects it.
 - Resolution order is `claude-cli` → `codex` → `antigravity` → `gemini` →
-  `opencode` → `anthropic-api` → `apple`; with several available, the earliest wins.
+  `opencode` → `anthropic-api` → `openai-api` → `apple`; with several available,
+  the earliest wins.
+- **A signed-in CLI must beat a set API key.** With both a CLI and
+  `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` present, `auto` must pick the CLI — the
+  paid path should never be chosen silently.
 - **`antigravity` must win over `gemini`** when both CLIs are installed. `gemini`'s
   `--version` probe still passes on a retired individual account, so this ordering
   is the only thing stopping `auto` from picking a backend that fails at generation.

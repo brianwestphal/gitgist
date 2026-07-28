@@ -144,9 +144,9 @@ optional YAML frontmatter / `<!-- comments -->` steer the AI — see
 | `--link-commits`           | End each bullet with the commit it came from — linked when the remote host is known ([docs](docs/11-commit-links.md)). |
 | `--commit-url <template>`  | URL for `--link-commits`, containing `{hash}`. Overrides the auto-detected one. |
 | `--no-config`              | Ignore `gitgist.config.json` / `package.json#gitgist` ([docs](docs/12-config.md)). |
-| `--provider <name>`        | `auto` \| `claude-cli` \| `codex` \| `antigravity` \| `gemini` \| `opencode` \| `anthropic-api` \| `local` \| `apple` (default: `auto`). `gemini` is legacy — see below. |
+| `--provider <name>`        | `auto` \| `claude-cli` \| `codex` \| `antigravity` \| `gemini` \| `opencode` \| `anthropic-api` \| `openai-api` \| `local` \| `apple` (default: `auto`). `gemini` is legacy — see below. |
 | `--endpoint <url>`         | Base URL for `--provider local` (default: Ollama's `…:11434/v1`).   |
-| `--model <id>`             | `anthropic-api` model (default `claude-opus-4-8`), or the `local` model name. |
+| `--model <id>`             | `anthropic-api` model (default `claude-opus-4-8`), `openai-api` model (`$GITGIST_OPENAI_MODEL`, else `gpt-5`), or the `local` model name. |
 | `--fallback-provider <name>` | Retry with this provider when the primary errors or returns an empty/suspect result ([docs](docs/6-fallback.md)). |
 | `--fallback-endpoint <url>` | `--endpoint` for the fallback provider.                            |
 | `--fallback-model <id>`    | `--model` for the fallback provider.                                |
@@ -199,6 +199,10 @@ approach the related tools take with `claude -p`. The backends that ship today:
    Use `--provider antigravity` instead.
 3. **`anthropic-api`** — the Anthropic API via the official SDK. Set
    `ANTHROPIC_API_KEY` in your environment.
+   <br>**`openai-api`** — the OpenAI chat-completions API. Set `OPENAI_API_KEY`
+   (and `OPENAI_BASE_URL` for Azure or a proxy). Implemented over plain `fetch`,
+   so it adds **no dependency**. Mainly for CI, where no interactive CLI sign-in
+   exists — otherwise prefer `codex`, which reaches the same models with no key.
 4. **`local`** — any **OpenAI-compatible** endpoint (Ollama, LM Studio,
    llama.cpp, vLLM, …) for free, private, on-device generation. Opt-in with
    `--provider local`; configure with `--endpoint` (`$GITGIST_LOCAL_ENDPOINT`,
@@ -216,7 +220,7 @@ approach the related tools take with `claude -p`. The backends that ship today:
 
 With `--provider auto` (the default), gitgist tries the signed-in agent CLIs
 first — `claude-cli`, then `codex`, `antigravity`, `gemini`, `opencode` — falls back to the
-Anthropic API when `ANTHROPIC_API_KEY` is set, and then to on-device Apple
+hosted APIs when `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is set, and then to on-device Apple
 Foundation Models when the device and model are available (a no-op when they
 aren't). The `local` provider is **never** auto-selected (so a normal run doesn't
 probe localhost) — request it explicitly. Force any with `--provider <name>`. If
@@ -246,6 +250,7 @@ a rule of thumb, larger models categorize and filter noise more reliably:
 | Provider | Quality | Cost | Privacy | Notes |
 | --- | --- | --- | --- | --- |
 | `claude-cli` / `anthropic-api` | **Best** | CLI: included with your plan · API: per-token | Sent to Anthropic | Cleanest grouping; Breaking Changes surfaced first; refactor/test/chore noise dropped. |
+| `openai-api` | Not yet measured | Per-token | Sent to OpenAI | The keyed path to OpenAI, for CI where a CLI sign-in isn't possible. No SDK dependency. Prefer `codex` when you can sign in. |
 | `codex` / `antigravity` / `opencode` | Very good | Included with your CLI sign-in (no key) | Sent to that vendor | No-key agent CLIs; quality tracks the underlying model. `--model` picks it (`opencode` uses `provider/model`; `antigravity` uses `agy models` ids like `Gemini 3.6 Flash (High)`). |
 | `gemini` | — | — | — | **Legacy.** Retired for individual tiers on 2026-06-18; use `antigravity`. Still works with a Gemini Code Assist Standard/Enterprise license. |
 | `local` (Ollama / LM Studio) | Very good | Free | **On-device** | Same shape as Claude on a capable model; minor ordering differences, and it may drop a section Claude keeps. Quality tracks the model you load. |

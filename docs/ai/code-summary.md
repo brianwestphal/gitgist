@@ -25,6 +25,8 @@ src/
     codex.ts          # codexProvider (codex exec; no key)
     antigravity.ts    # antigravityProvider / antigravityRunArgs (agy -p; no key)
     gemini.ts         # geminiProvider (gemini -p; no key) — legacy, see FR-33
+    openaiApi.ts      # openaiApiProvider / createOpenAiApiProvider (OPENAI_API_KEY; no SDK)
+    openaiCompatible.ts # shared OpenAI-protocol client: chatCompletion / listModels
     opencode.ts       # opencodeProvider (opencode run; no key)
     anthropicApi.ts   # anthropicApiProvider
     local.ts          # createLocalProvider (Ollama / OpenAI-compatible; opt-in)
@@ -65,6 +67,9 @@ scripts/
 - Providers: `resolveProvider`, `PROVIDERS`, `AUTO_ORDER`; `createCliProvider`,
   `claudeCliProvider`, `codexProvider`, `antigravityProvider`, `antigravityRunArgs`,
   `geminiProvider`, `opencodeProvider`;
+  `openaiApiProvider`, `createOpenAiApiProvider`, `OpenAiApiProviderConfig`,
+  `DEFAULT_OPENAI_ENDPOINT`; the shared OpenAI-protocol client `chatCompletion`,
+  `listModels`, `OpenAiCompatibleTarget`;
   `createAnthropicApiProvider`, `anthropicApiProvider`; `createLocalProvider`,
   `localProvider`, `DEFAULT_LOCAL_ENDPOINT`; `createAppleProvider`,
   `appleProvider`, `detectSystemLanguage`, `AUTO_LANGUAGE`; types `AIProvider`,
