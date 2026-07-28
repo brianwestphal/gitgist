@@ -590,6 +590,18 @@ describe('createLocalProvider', () => {
   });
 
   // @covers FR-36
+  it('still reports something when the rejection carries no usable detail', async () => {
+    // A `fetch` that rejects with a non-Error (or a blank Error) has no name, no
+    // `cause.code`, and no message — the last-resort branch. Driven through the
+    // provider rather than the helper directly, so the assertion holds even if
+    // the helper stops being exported.
+    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- exercising the non-Error rejection path
+    const weird: FetchLike = () => Promise.reject('just a string');
+    const p = createLocalProvider({ model: 'm', fetchImpl: weird });
+    await expect(p.generate({ system: 's', prompt: 'p' })).rejects.toThrow(/unknown error/);
+  });
+
+  // @covers FR-36
   it('gives a local model a much longer default budget than the shared one', () => {
     // A 12B model measured 87-109s on this prompt, so the shared 120s default left
     // almost no headroom — that narrow margin is what made GG-64 intermittent.
@@ -1070,6 +1082,14 @@ describe('resolveProvider', () => {
 describe('unavailableMessage', () => {
   it('names ANTHROPIC_API_KEY for the anthropic-api provider', () => {
     expect(unavailableMessage('anthropic-api')).toMatch(/ANTHROPIC_API_KEY/);
+  });
+
+  // @covers FR-34
+  it('names OPENAI_API_KEY for the openai-api provider', () => {
+    // Each keyed backend must name its own variable — telling an openai-api user
+    // to set ANTHROPIC_API_KEY would be worse than saying nothing.
+    expect(unavailableMessage('openai-api')).toMatch(/OPENAI_API_KEY/);
+    expect(unavailableMessage('openai-api')).not.toMatch(/ANTHROPIC/);
   });
 
   it('includes the endpoint for the local provider when set, and omits it when not', () => {

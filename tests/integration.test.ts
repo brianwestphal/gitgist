@@ -629,6 +629,71 @@ describe('working-tree changes integration', () => {
     }
   });
 
+  // @covers FR-11
+  it('combines a range AND working-tree changes in one run', async () => {
+    // FR-11 promises the working-tree flags work "alongside a range", but every
+    // other test drives one side or the other. Line coverage stayed at 100%
+    // because each branch ran from its own test — the *combination* never did
+    // (GG-68). Both sources must appear, and neither may crowd the other out.
+    const both = initRepo();
+    try {
+      writeFileSync(join(both, 'a.txt'), 'first\n');
+      git(both, 'add', 'a.txt');
+      commit(both, 'feat: committed thing');
+      git(both, 'tag', 'v1.0.0');
+      writeFileSync(join(both, 'b.txt'), 'second\n');
+      git(both, 'add', 'b.txt');
+      commit(both, 'fix: another committed thing');
+
+      // Now leave something staged on top of that history.
+      writeFileSync(join(both, 'c.txt'), 'staged work\n');
+      git(both, 'add', 'c.txt');
+
+      const notes = await generateReleaseNotes({
+        range: 'v1.0.0..HEAD',
+        cwd: both,
+        ai: false,
+        staged: true,
+      });
+
+      // The committed side of the range.
+      expect(notes).toContain('another committed thing');
+      // …and the uncommitted side, in the same document.
+      expect(notes).toContain('c.txt');
+      // The pre-range commit stays out, so the range still bounds the history.
+      expect(notes).not.toContain('committed thing\n- feat: committed thing');
+    } finally {
+      rmSync(both, { recursive: true, force: true });
+    }
+  });
+
+  // @covers FR-11
+  it('a range with NO working changes still reports the range only', async () => {
+    // The other half of the same matrix: asking for working changes that do not
+    // exist must not suppress the range's notes.
+    const only = initRepo();
+    try {
+      writeFileSync(join(only, 'a.txt'), 'x\n');
+      git(only, 'add', 'a.txt');
+      commit(only, 'feat: base');
+      git(only, 'tag', 'v1.0.0');
+      writeFileSync(join(only, 'b.txt'), 'y\n');
+      git(only, 'add', 'b.txt');
+      commit(only, 'feat: ranged change');
+
+      const notes = await generateReleaseNotes({
+        range: 'v1.0.0..HEAD',
+        cwd: only,
+        ai: false,
+        staged: true,
+      });
+      expect(notes).toContain('ranged change');
+      expect(notes).not.toContain('_No uncommitted changes._');
+    } finally {
+      rmSync(only, { recursive: true, force: true });
+    }
+  });
+
   it('--format commit rejects --no-ai when there is content to summarize', async () => {
     await expect(
       generateReleaseNotes({ cwd: repo, format: 'commit', ai: false, staged: true }),

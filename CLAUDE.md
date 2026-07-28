@@ -122,11 +122,24 @@ This repo is TypeScript-only, so `--lang ts` covers everything; there are no
 
 ```bash
 npm test              # vitest unit tests with coverage
+npm run test:watch    # the same suite in watch mode
 npm run check:features # feature/requirement coverage report (behaviors, not lines)
 npm run lint          # eslint over src/ and tests/
 npm run typecheck     # tsc --noEmit
 npm run build         # tsup → dist/ (index + cli, with .d.ts)
+npm run dev           # tsup --watch
+npm run clean         # remove dist/
 ```
+
+Manual/exploratory (need a signed-in provider and/or headless Chromium):
+
+```bash
+npm run compare       # same fixed history through every available backend (scripts/compare-providers.mjs)
+npm run demo          # (re)capture the README terminal demos → assets/demos/*.svg
+npm run diagram       # (re)capture the README hero diagram → assets/diagram.svg
+```
+
+Release: `npm run release` / `release:beta` (`prepublishOnly` runs the build).
 
 ## Git workflow
 

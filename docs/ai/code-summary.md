@@ -14,7 +14,7 @@ src/
   types.ts            # shared types
   git.ts              # readCommits, readCommitFiles, latestTag, resolveCommitRange, readRangeDiff, readWorkingChanges, DEFAULT_EXCLUDES, buildExcludePathspecs, commitUrlFromRemote, detectCommitUrl
   parse.ts            # parseCommit (Conventional Commits)
-  prompt.ts           # SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, DIFF_IS_SOURCE_OF_TRUTH_RULES, NO_CROSS_REFERENCE_RULES, NO_USER_FACING_CHANGES, rangeDiffToMaterial, isEmptyNotesSentinel, buildUserPrompt, buildTemplatePrompt, commitsToMaterial, stripCodeFences, cleanModelOutput, workingChangesToMaterial
+  prompt.ts           # SYSTEM_PROMPT, COMMIT_SYSTEM_PROMPT, TEMPLATE_SYSTEM_PROMPT, DIFF_IS_SOURCE_OF_TRUTH_RULES, NO_CROSS_REFERENCE_RULES, NO_USER_FACING_CHANGES, rangeDiffToMaterial, isEmptyNotesSentinel, buildUserPrompt, buildTemplatePrompt, commitsToMaterial, stripCodeFences, cleanModelOutput, stripUnrequestedHashes, workingChangesToMaterial
   changelog.ts        # buildChangelog, renderMarkdown, renderWorkingChanges, DEFAULT_GROUPS  (--no-ai path)
   template.ts         # loadTemplate, parseTemplate (--template)
   releaseNotes.ts     # generateReleaseNotes (orchestrator)
@@ -32,13 +32,30 @@ src/
     local.ts          # createLocalProvider (Ollama / OpenAI-compatible; opt-in)
     apple.ts          # createAppleProvider (macOS Apple Foundation Models via the apple-fm npm package)
     index.ts          # PROVIDERS, AUTO_ORDER, resolveProvider
-tests/                # parse, changelog, prompt, cliArgs, git, template, providers, apple, integration, docs
+tests/                # parse, changelog, prompt, cliArgs, config, git, template, providers, apple, releaseNotes, integration, docs
   conventions.test.ts # requirement-level guards line coverage can't express (feature coverage, export surface, dep allow-list, module structure)
 scripts/
   check-features.mjs  # `npm run check:features` — feature/requirement coverage report (FR/NFR/T ↔ @covers)
   changelog-analysis.mjs # deterministic base-tag/area/surface analysis behind the `technical-changelog` skill
   lib/features.mjs    # shared traceability parser (parseRequirements, collectCovers, computeCoverage)
 ```
+
+## Build, tests, docs
+
+- **Build** (`npm run build`, tsup → `dist/`): `dist/index.js` (library) + `dist/cli.js`
+  (bin), each with a `.d.ts`. ESM only; `.js` extensions required in relative imports.
+- **Coverage floors** (`vitest.config.ts`, failing the run on regression):
+  statements 98 · branches 95 · functions 97 · **lines 99**. Set just under the
+  current numbers so coverage cannot quietly slip.
+- **Feature coverage is a separate axis** from line coverage:
+  `npm run check:features` maps every Shipped/Partial FR/NFR and every `T-N`
+  transition in `docs/3-requirements.md` to a `// @covers <ID>` test tag, and fails
+  on an uncovered behavior or a stale tag.
+- **`docs/`**: `1-overview`, `2-architecture`, `3-requirements`, `4-templates`,
+  `5-providers`, `6-fallback`, `7-diff-grounding`, `8-exclusions`,
+  `9-provider-budgets`, `10-attribution`, `11-commit-links`, `12-config`,
+  `13-openai-compatible`, `manual-test-plan`, plus `docs/ai/` (this file +
+  `requirements-summary.md`) and `docs/technical-changelog/`.
 
 ## Public API (`src/index.ts`)
 
