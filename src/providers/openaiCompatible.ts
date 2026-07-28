@@ -31,7 +31,7 @@ export type FetchLike = (
 ) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
 
 /* v8 ignore next -- thin wrapper over the global fetch; tests inject fetchImpl. */
-export const defaultFetch: FetchLike = (url, init) => fetch(url, init);
+const defaultFetch: FetchLike = (url, init) => fetch(url, init);
 
 /**
  * One OpenAI-compatible endpoint, plus how it should describe itself when
@@ -123,7 +123,7 @@ async function fetchWithTimeout(
  * @param timeoutMs - The wall-clock budget, named in the timeout case.
  * @returns A short cause description.
  */
-export function describeFetchFailure(error: unknown, timeoutMs: number): string {
+function describeFetchFailure(error: unknown, timeoutMs: number): string {
   if (isAbort(error)) return `timed out after ${String(timeoutMs)}ms`;
   const code = (error as { cause?: { code?: unknown } } | null)?.cause?.code;
   if (typeof code === 'string' && code !== '') return code;
@@ -137,7 +137,7 @@ export function describeFetchFailure(error: unknown, timeoutMs: number): string 
  * @param error - Whatever `fetch` rejected with.
  * @returns True for an `AbortError`.
  */
-export function isAbort(error: unknown): boolean {
+function isAbort(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
 }
 

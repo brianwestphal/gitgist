@@ -57,6 +57,7 @@ export {
   NO_USER_FACING_CHANGES,
   rangeDiffToMaterial,
   stripCodeFences,
+  stripUnrequestedHashes,
   SYSTEM_PROMPT,
   TEMPLATE_SYSTEM_PROMPT,
   workingChangesToMaterial,
@@ -65,6 +66,9 @@ export {
   type AIProvider,
   anthropicApiProvider,
   type AnthropicApiProviderConfig,
+  type AnthropicMessage,
+  type AnthropicRunFn,
+  type AnthropicRunParams,
   antigravityProvider,
   antigravityRunArgs,
   appleProvider,
@@ -72,6 +76,7 @@ export {
   AUTO_LANGUAGE,
   AUTO_ORDER,
   chatCompletion,
+  type ChatCompletionRequest,
   claudeCliProvider,
   type CliProviderSpec,
   codexProvider,
@@ -83,6 +88,8 @@ export {
   DEFAULT_LOCAL_ENDPOINT,
   DEFAULT_OPENAI_ENDPOINT,
   detectSystemLanguage,
+  type FetchInit,
+  type FetchLike,
   geminiProvider,
   type GenerateRequest,
   listModels,
@@ -94,6 +101,7 @@ export {
   opencodeProvider,
   PROVIDERS,
   resolveProvider,
+  type ResolveProviderOptions,
 } from './providers/index.js';
 export { generateReleaseNotes } from './releaseNotes.js';
 export { loadTemplate, parseTemplate, type Template } from './template.js';

@@ -18,6 +18,7 @@
  * The `@covers` tags below map FR-16 / NFR-1 / NFR-4 to their guards here.
  */
 import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -170,12 +171,70 @@ describe('public API surface (FR-10 programmatic API)', () => {
       'resolveCommitRange',
       'resolveProvider',
       'stripCodeFences',
+      'stripUnrequestedHashes',
       'workingChangesToMaterial',
     ]);
   });
 });
 
 // @covers FR-16, NFR-1
+/** Every `.ts` file under `tests/`, as source text. */
+function testSources(): string[] {
+  const dir = repoPath('tests');
+  return readdirSync(dir)
+    .filter((name) => name.endsWith('.ts'))
+    .map((name) => readFileSync(join(dir, name), 'utf8'));
+}
+
+/** Names `export`ed from a module: `export function/const/class/interface/type X`. */
+function declaredExports(source: string): string[] {
+  const names = new Set<string>();
+  const re =
+    /export\s+(?:async\s+)?(?:function|const|let|class|interface|type|enum)\s+([A-Za-z0-9_]+)/g;
+  for (const m of source.matchAll(re)) names.add(m[1]);
+  return [...names];
+}
+
+// @covers NFR-4
+describe('export surface — nothing is exported for nobody (GG-70)', () => {
+  it('every exported symbol has a consumer: the barrel, another module, or a test', () => {
+    // The existing "documented runtime surface" test below pins `src/index.ts`,
+    // but it can only see the barrel. A symbol exported from a module and never
+    // re-exported was invisible to every guard — which is how two helpers ended
+    // up public for nobody, and how a pipeline stage that *should* have been
+    // public stayed private (GG-70). This closes that blind spot from the other
+    // side: an export must be justified by an actual consumer.
+    const files = srcFiles();
+    const barrel = files.find((f) => f.rel === 'index.ts');
+    expect(barrel, 'src/index.ts should exist').toBeDefined();
+    const barrelSource = (barrel as { source: string }).source;
+    const tests = testSources();
+
+    const orphans: string[] = [];
+    for (const { rel, source } of files) {
+      if (rel === 'index.ts') continue; // the barrel exists to re-export
+      for (const name of declaredExports(source)) {
+        // A word-boundary match is deliberately generous: any mention outside the
+        // declaring module counts as a consumer, so this flags only the truly
+        // unreferenced. It is a floor on justification, not a precise use-graph.
+        const used = new RegExp(`\\b${name}\\b`);
+        const consumed =
+          used.test(barrelSource) ||
+          files.some((f) => f.rel !== rel && used.test(f.source)) ||
+          tests.some((t) => used.test(t));
+        if (!consumed) orphans.push(`${rel}: ${name}`);
+      }
+    }
+
+    expect(
+      orphans,
+      `These symbols are exported but referenced nowhere outside their own module. ` +
+        `Either drop the \`export\` (module-private), re-export them from src/index.ts if ` +
+        `they belong to the public API, or add a test that uses them:\n  ${orphans.join('\n  ')}`,
+    ).toEqual([]);
+  });
+});
+
 describe('dependency allow-list (NFR-1, NFR-4, FR-16)', () => {
   it('declares only the two sanctioned runtime dependencies', () => {
     // The notarized Apple helper ships inside `apple-fm` (FR-16); the Anthropic

@@ -94,6 +94,12 @@ scripts/
   `appleProvider`, `detectSystemLanguage`, `AUTO_LANGUAGE`; types `AIProvider`,
   `GenerateRequest`, `CliProviderSpec`, `AnthropicApiProviderConfig`,
   `LocalProviderConfig`, `AppleProviderConfig`.
+- Parameter/option types of the public provider APIs (GG-70 — a public function
+  whose argument type is private cannot be called from typed code):
+  `ResolveProviderOptions` (`resolveProvider`), `ChatCompletionRequest`
+  (`chatCompletion`), `FetchInit` / `FetchLike` (the injectable fetch seam),
+  `AnthropicRunFn` / `AnthropicRunParams` / `AnthropicMessage`
+  (`AnthropicApiProviderConfig.run`).
 - Types: `Commit`, `Changelog`, `ChangelogSection`, `ChangelogOptions`,
   `ReadCommitsOptions`, `ReleaseNotesOptions`, `ProviderName`, `PROVIDER_NAMES`, `OutputFormat`,
   `WorkingChanges`, `WorkingChangeOptions`, `RawCommit`.

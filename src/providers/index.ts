@@ -13,6 +13,9 @@ import type { AIProvider } from './types.js';
 export {
   anthropicApiProvider,
   type AnthropicApiProviderConfig,
+  type AnthropicMessage,
+  type AnthropicRunFn,
+  type AnthropicRunParams,
   createAnthropicApiProvider,
 } from './anthropicApi.js';
 export { antigravityProvider, antigravityRunArgs } from './antigravity.js';
@@ -41,7 +44,9 @@ export {
 } from './openaiApi.js';
 export {
   chatCompletion,
+  type ChatCompletionRequest,
   extractChatContent,
+  type FetchInit,
   type FetchLike,
   listModels,
   type OpenAiCompatibleTarget,
