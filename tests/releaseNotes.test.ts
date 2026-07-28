@@ -19,6 +19,8 @@ const h = vi.hoisted(() => {
     provider: unknown;
     model?: string;
     endpoint?: string;
+    cwd?: string;
+    maxTokens?: number;
   }[] = [];
   let responder: (ctx: Ctx) => string = () => DEFAULT_NOTES;
   // Range-diff reads (GG-50): counted so a test can assert the diff was never
@@ -82,9 +84,23 @@ const h = vi.hoisted(() => {
         name: typeof provider === 'string' ? provider : 'auto',
         diffBudgetChars,
         isAvailable: () => Promise.resolve(true),
-        generate: (req: { system: string; prompt: string; model?: string }) => {
+        generate: (req: {
+          system: string;
+          prompt: string;
+          model?: string;
+          cwd?: string;
+          maxTokens?: number;
+        }) => {
           const endpoint = opts?.endpoint;
-          calls.push({ system: req.system, prompt: req.prompt, provider, model: req.model, endpoint });
+          calls.push({
+            system: req.system,
+            prompt: req.prompt,
+            provider,
+            model: req.model,
+            endpoint,
+            cwd: req.cwd,
+            maxTokens: req.maxTokens,
+          });
           // Resolve via the responder; a throw becomes a rejected promise.
           return Promise.resolve().then(() => responder({ ...req, provider, endpoint }));
         },
@@ -154,6 +170,61 @@ describe('generateReleaseNotes AI branches (mocked provider)', () => {
     expect(h.calls[0].system).toBe(SYSTEM_PROMPT);
     // Preamble stripped by cleanModelOutput.
     expect(out).toBe('## Features\n- did a thing\n');
+  });
+
+  // @covers FR-35
+  it('passes the resolved --cwd to the provider, not gitgist\'s process cwd (GG-67)', async () => {
+    // The bug: `--cwd` redirected the git reads but never reached generate(), so
+    // a CLI backend spawned in whatever directory gitgist happened to run from.
+    await generateReleaseNotes({ range: 'HEAD', cwd: repo });
+    expect(h.calls[0].cwd).toBe(repo);
+    expect(h.calls[0].cwd).not.toBe(process.cwd());
+  });
+
+  // @covers FR-35
+  it('defaults the provider cwd to process.cwd() when --cwd is omitted', async () => {
+    await generateReleaseNotes({ range: 'HEAD' });
+    expect(h.calls[0].cwd).toBe(process.cwd());
+  });
+
+  // @covers FR-35
+  it('the fallback provider is given the same cwd as the primary (GG-67)', async () => {
+    // A retry must not silently run in a different directory from the first try.
+    h.setResponder(({ provider }) => {
+      if (provider === 'claude-cli') throw new Error('primary down');
+      return '## Features\n- from the fallback';
+    });
+    await generateReleaseNotes({
+      range: 'HEAD',
+      cwd: repo,
+      provider: 'claude-cli',
+      fallbackProvider: 'anthropic-api',
+    });
+    expect(h.calls).toHaveLength(2);
+    expect(h.calls.map((c) => c.cwd)).toEqual([repo, repo]);
+  });
+
+  // @covers FR-35
+  it('every request field generateReleaseNotes owns actually reaches the provider', async () => {
+    // A guard for the *class* of bug GG-67 was, not just the one field: an option
+    // resolved in releaseNotes.ts that never gets threaded into generate(). If a
+    // new GenerateRequest field is added and left unwired, extend this list — the
+    // point is that the plumbing is asserted somewhere rather than assumed.
+    await generateReleaseNotes({
+      range: 'HEAD',
+      cwd: repo,
+      model: 'a-model',
+      maxTokens: 4321,
+    });
+    const call = h.calls[0];
+    expect({
+      cwd: call.cwd,
+      model: call.model,
+      maxTokens: call.maxTokens,
+    }).toEqual({ cwd: repo, model: 'a-model', maxTokens: 4321 });
+    // system/prompt are non-empty for the same reason — they are plumbing too.
+    expect(call.system.length).toBeGreaterThan(0);
+    expect(call.prompt.length).toBeGreaterThan(0);
   });
 
   it('--format commit uses COMMIT_SYSTEM_PROMPT and skips the title heading', async () => {

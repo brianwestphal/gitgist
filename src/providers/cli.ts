@@ -128,7 +128,13 @@ export function createCliProvider(spec: CliProviderSpec): AIProvider {
       const timeoutMs = request.timeoutMs ?? spec.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
       return new Promise<string>((resolve, reject) => {
-        const child = spawn(spec.command, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+        // Run the CLI in the repository the notes are about. Agent CLIs gate on
+        // directory trust and read per-directory config, so inheriting gitgist's
+        // own cwd made `--cwd <repo>` fail on a perfectly valid repo (GG-67).
+        const child = spawn(spec.command, args, {
+          stdio: ['pipe', 'pipe', 'pipe'],
+          cwd: request.cwd,
+        });
 
         let out = '';
         let err = '';

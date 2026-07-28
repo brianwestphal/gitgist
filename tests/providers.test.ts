@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -135,6 +135,42 @@ const ARG_ECHO =
   "const c=[];process.stdin.on('data',d=>c.push(d));" +
   "process.stdin.on('end',()=>process.stdout.write(" +
   "JSON.stringify({argv:process.argv.slice(1),stdin:c.join('')})));";
+
+/** A node stub that reports the directory it was actually started in. */
+const CWD_ECHO =
+  "const c=[];process.stdin.on('data',d=>c.push(d));" +
+  "process.stdin.on('end',()=>process.stdout.write(process.cwd()));";
+
+// @covers FR-35
+describe('createCliProvider spawns the child in request.cwd (GG-67)', () => {
+  let dir: string;
+
+  beforeAll(() => {
+    // realpathSync because macOS hands out /var/folders paths that are symlinks
+    // to /private/var/..., and process.cwd() in the child reports the resolved
+    // form — comparing the raw mkdtemp path would fail for the wrong reason.
+    dir = realpathSync(mkdtempSync(join(tmpdir(), 'gitgist-cwd-')));
+  });
+
+  const provider = () =>
+    createCliProvider({ name: 'cwd-echo', command: process.execPath, runArgs: ['-e', CWD_ECHO] });
+
+  it('runs the CLI in the directory the notes are about, not the process cwd', async () => {
+    // This is the regression: agent CLIs gate on directory trust and read
+    // per-directory config, so a child started in gitgist's own cwd could refuse
+    // outright — or run with instructions belonging to an unrelated directory.
+    const out = await provider().generate({ system: 's', prompt: 'p', cwd: dir });
+    expect(out).toBe(dir);
+    expect(out).not.toBe(process.cwd());
+  });
+
+  it('falls back to the process cwd when no cwd is given', async () => {
+    // `spawn` treats an undefined cwd as "inherit", which is the behavior every
+    // caller that does not care should keep getting.
+    const out = await provider().generate({ system: 's', prompt: 'p' });
+    expect(out).toBe(realpathSync(process.cwd()));
+  });
+});
 
 // @covers FR-21
 describe('createCliProvider model threading (runArgs function)', () => {

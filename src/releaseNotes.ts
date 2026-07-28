@@ -232,6 +232,9 @@ export async function generateReleaseNotes(options: ReleaseNotesOptions = {}): P
       prompt,
       model,
       maxTokens: options.maxTokens,
+      // The repo the notes are about — CLI providers spawn their child there, so
+      // `--cwd` means the same thing for the AI backend as it does for git.
+      cwd,
     });
     return cleanModelOutput(generated, format);
   };

@@ -34,6 +34,10 @@ All agent-CLI providers are built from `createCliProvider()` (`src/providers/cli
 - `isAvailable()` runs `<command> --version` (binary present); sign-in is **not**
   probed — an unauthenticated CLI fails at `generate()` with its own error
   surfaced, and the provider's `hint` points at the fix.
+- The child is spawned **in the repository `--cwd` names** (`GenerateRequest.cwd`,
+  FR-35), not in gitgist's own working directory. Agent CLIs gate on directory
+  trust and read per-directory config, so this is the difference between working
+  and refusing in a CI/wrapper invocation.
 
 ## Providers
 
@@ -65,9 +69,10 @@ default with `codex exec` and read the `model:` line it prints.
 
 **`codex exec` requires a trusted git directory.** Outside one it refuses with
 *"Not inside a trusted directory and --skip-git-repo-check was not specified"*
-(trust is recorded per path in `~/.codex/config.toml`). Because the CLI child
-inherits gitgist's **process** cwd rather than `--cwd`, this bites when gitgist is
-launched from outside a repo with `--cwd <repo>` — see GG-67.
+(trust is recorded per path in `~/.codex/config.toml`). gitgist now spawns every
+CLI child **in the repository `--cwd` names** (FR-35), so pointing it at a trusted
+checkout works regardless of where gitgist itself was launched. Before that fix the
+child inherited gitgist's own cwd and refused on a perfectly valid repo (GG-67).
 
 ### `antigravity` — Google Antigravity CLI (FR-33)
 

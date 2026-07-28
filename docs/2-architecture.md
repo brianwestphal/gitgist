@@ -37,7 +37,7 @@ generateReleaseNotes (releaseNotes.ts)
 | `changelog.ts` | Deterministic grouping (`buildChangelog`) + Markdown rendering (`renderMarkdown`, `renderWorkingChanges`) — the `--no-ai` path. |
 | `template.ts` | `loadTemplate` / `parseTemplate` for `--template` (Markdown + YAML frontmatter). |
 | `providers/types.ts` | `AIProvider` / `GenerateRequest` interfaces. |
-| `providers/cli.ts` | `createCliProvider()` — reusable no-key CLI backend (timeout, stderr capture). |
+| `providers/cli.ts` (spawns the child in `GenerateRequest.cwd`, FR-35) | `createCliProvider()` — reusable no-key CLI backend (timeout, stderr capture). |
 | `providers/claudeCli.ts` | The `claude -p` provider (a `createCliProvider` spec; system prompt via `--append-system-prompt`). |
 | `providers/codex.ts` | The `codex exec` provider (a `createCliProvider` spec; no key). |
 | `providers/antigravity.ts` | The `agy -p` provider (a `createCliProvider` spec; no key) — Google's replacement for the Gemini CLI. |

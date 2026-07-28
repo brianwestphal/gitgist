@@ -12,6 +12,17 @@ export interface GenerateRequest {
   maxTokens?: number;
   /** Optional wall-clock timeout in ms (CLI providers; default 120000). */
   timeoutMs?: number;
+  /**
+   * Working directory the generation is *about* — the repository resolved from
+   * `--cwd`, not necessarily gitgist's own process cwd.
+   *
+   * CLI-backed providers spawn their child here. That matters because agent CLIs
+   * gate on directory trust and read per-directory config (`AGENTS.md`,
+   * `CLAUDE.md`, project settings): a child started in the wrong place can refuse
+   * outright, or run with instructions belonging to some unrelated directory
+   * (GG-67). Providers with no child process ignore it.
+   */
+  cwd?: string;
 }
 
 /**
