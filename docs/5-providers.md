@@ -40,7 +40,7 @@ All agent-CLI providers are built from `createCliProvider()` (`src/providers/cli
 | Provider | CLI invocation | `--model` | Auth |
 | --- | --- | --- | --- |
 | `claude-cli` (FR-5) | `claude -p` (stdin; system via `--append-system-prompt`) | — | `claude` sign-in |
-| `codex` (FR-18) | `codex exec` (stdin) | `-m <model>` (e.g. `gpt-5-codex`, `o3`) | `codex login` (ChatGPT/Codex) |
+| `codex` (FR-18) | `codex exec` (stdin) | `-m <model>` — valid ids depend on the account (see below) | `codex login` (ChatGPT/Codex) |
 | `antigravity` (FR-33) | `agy -p "<prompt>"` (arg) | `--model <model>` (e.g. `Gemini 3.6 Flash (High)`) | `agy` Google sign-in |
 | `gemini` (FR-19) — **legacy** | `gemini -p "<prompt>"` (arg) | `-m <model>` (e.g. `gemini-2.5-pro`) | `gemini` Google sign-in (Code Assist Standard/Enterprise only) |
 | `opencode` (FR-20) | `opencode run "<prompt>"` (arg) | `-m <provider/model>` (e.g. `anthropic/claude-opus-4-8`) | `opencode auth login` |
@@ -55,6 +55,19 @@ Each is selectable with `--provider <name>` and participates in `--provider auto
 instructions from stdin when no prompt argument is given; gitgist pipes the
 prompt via stdin. `-m <model>` selects the model. No `OPENAI_API_KEY` is required
 for the CLI path — it reuses the signed-in Codex/ChatGPT session.
+
+**Model ids are account-dependent.** A ChatGPT-account sign-in rejects most ids
+with `"The '<id>' model is not supported when using Codex with a ChatGPT
+account"` — on the verification account, `gpt-5`, `gpt-5-codex`, `gpt-5.2-codex`
+and `gpt-5.4-codex` were all refused while the account default `gpt-5.6-sol`
+worked. Omit `--model` unless you know your account serves the id; find the
+default with `codex exec` and read the `model:` line it prints.
+
+**`codex exec` requires a trusted git directory.** Outside one it refuses with
+*"Not inside a trusted directory and --skip-git-repo-check was not specified"*
+(trust is recorded per path in `~/.codex/config.toml`). Because the CLI child
+inherits gitgist's **process** cwd rather than `--cwd`, this bites when gitgist is
+launched from outside a repo with `--cwd <repo>` — see GG-67.
 
 ### `antigravity` — Google Antigravity CLI (FR-33)
 
@@ -120,14 +133,15 @@ provider/credentials it is configured with (`opencode auth`).
 
 ## Verification status
 
-`opencode` and `antigravity` have been verified end-to-end (real generation
-returns clean Markdown; for `antigravity`, both the default model and an explicit
-`--model`).
+`opencode`, `antigravity`, and `codex` have all been verified **end-to-end**
+(real generation returns clean grouped Markdown — no conversational preamble, no
+wrapping fence, so `cleanModelOutput` needs no tuning for them). For `antigravity`
+and `codex` this covers the default model, an explicit `--model`, and
+`--commit-message`; a deliberately bogus `--model` was also confirmed to reach
+each CLI and be rejected there, proving the flag is threaded rather than dropped.
 
-`codex` has a verified **invocation** (the CLI runs with gitgist's exact arguments
-and reaches its backend), but end-to-end output on this maintainer's machine is
-auth-gated — like `claude-cli`, real output quality is validated by running the
-signed-in CLI, not by unit tests.
+Real output quality for these backends is validated by running the signed-in CLI,
+not by unit tests — the output is non-deterministic.
 
 `gemini` **can no longer be verified end-to-end on an individual account**: it
 returns `IneligibleTierError` since the 2026-06-18 retirement. Its invocation

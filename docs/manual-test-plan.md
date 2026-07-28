@@ -23,7 +23,9 @@ conversational preamble, no wrapping code fence).
 
 For each, also verify:
 
-- **`--model` is honored** — e.g. `--provider codex --model o3`,
+- **`--model` is honored** — e.g. `--provider codex --model <an id your account
+  serves>` (ChatGPT accounts refuse most ids; `codex exec` prints the default on
+  its `model:` line),
   `--provider opencode --model anthropic/claude-opus-4-8`,
   `--provider antigravity --model 'Gemini 3.6 Flash (High)'` (ids come from
   `agy models` and contain spaces/parens — quote them). A quick way to prove the
